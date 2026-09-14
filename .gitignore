@@ -5,4 +5,5 @@ __pycache__/
 .cache/
 **/.sealed/
 varieties/pokemon/engine/scaffold/src/cg_private/
+varieties/pokemon/policies/data/cards.private.sqlite
 .DS_Store

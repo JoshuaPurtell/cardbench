@@ -2241,7 +2241,13 @@ fn resolve_attach_energy_from_hand(
         PlayerId::P1 => 0,
         PlayerId::P2 => 1,
     };
-    let energy = match game.players[player_index].hand.remove(target_ids[0]) {
+    // Generic hand-selection execution pays through the discard before the
+    // custom resolver runs. Move the selected Energy on from that paid zone.
+    let energy = game.players[player_index]
+        .discard
+        .remove(target_ids[0])
+        .or_else(|| game.players[player_index].hand.remove(target_ids[0]));
+    let energy = match energy {
         Some(card) => card,
         None => return false,
     };
@@ -2597,11 +2603,16 @@ fn resolve_skill_copy_card(
         PlayerId::P2 => 1,
     };
     let card_id = target_ids[0];
-    let card = match game.players[player_index].hand.remove(card_id) {
+    let card = match game.players[player_index].discard.get(card_id).cloned() {
         Some(card) => card,
-        None => return false,
+        None => match game.players[player_index].hand.remove(card_id) {
+            Some(card) => {
+                game.players[player_index].discard.add(card.clone());
+                card
+            }
+            None => return false,
+        },
     };
-    game.players[player_index].discard.add(card.clone());
     let meta = match game.card_meta.get(&card.def_id) {
         Some(meta) => meta.clone(),
         None => return false,
@@ -3208,6 +3219,18 @@ fn resolve_baby_evolution(
     };
     let target_id = source_id;
     let evolve_id = target_ids[0];
+    let owner_index = match owner {
+        PlayerId::P1 => 0,
+        PlayerId::P2 => 1,
+    };
+    // Generic hand-selection execution has already paid the selected card to
+    // discard; restore it to hand so the existing evolution legality path can
+    // validate and move it into play.
+    if !game.players[owner_index].hand.contains(evolve_id) {
+        if let Some(card) = game.players[owner_index].discard.remove(evolve_id) {
+            game.players[owner_index].hand.add(card);
+        }
+    }
     if !game.can_evolve_from_hand(evolve_id, target_id) {
         return false;
     }
@@ -3220,10 +3243,6 @@ fn resolve_baby_evolution(
         None => return false,
     };
     let meta = game.card_meta.get(&card.def_id).cloned();
-    let owner_index = match owner {
-        PlayerId::P1 => 0,
-        PlayerId::P2 => 1,
-    };
     let (slot_clone, old_id, new_id) = {
         let target = match game.players[owner_index].find_pokemon_mut(target_id) {
             Some(slot) => slot,

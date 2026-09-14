@@ -1231,6 +1231,22 @@ mod setbench_eventlog_eval {
                     target_ids: selected,
                 }
             }
+            Prompt::ChoosePokemonTargets {
+                valid_targets,
+                min,
+                max,
+                ..
+            } => {
+                let selected = if choose_front {
+                    pick_ids_front(valid_targets, *min, *max)
+                } else {
+                    pick_ids_back(valid_targets, *min, *max)
+                }
+                .unwrap_or_default();
+                Action::ChoosePokemonTargets {
+                    target_ids: selected,
+                }
+            }
             Prompt::ReorderDeckTop { options, .. } => Action::ReorderDeckTop {
                 card_ids: options.clone(),
             },

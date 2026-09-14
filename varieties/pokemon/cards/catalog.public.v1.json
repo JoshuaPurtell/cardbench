@@ -1,0 +1,5305 @@
+{
+  "schema_version": "cardbench.pokemon-catalog.v1",
+  "cards": [
+    {
+      "card_def_id": "CG-1",
+      "name": "Banette",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-10",
+      "name": "Sableye",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-100",
+      "name": "Celebi \u2605",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-11",
+      "name": "Swalot",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-12",
+      "name": "Tauros",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-13",
+      "name": "Wigglytuff",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-14",
+      "name": "Blastoise",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-15",
+      "name": "Cacturne \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-16",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-17",
+      "name": "Dusclops",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-18",
+      "name": "Fearow \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 60,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-19",
+      "name": "Grovyle \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-2",
+      "name": "Blastoise \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Fighting",
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-20",
+      "name": "Grumpig",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-21",
+      "name": "Igglybuff",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-22",
+      "name": "Kingler \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire",
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-23",
+      "name": "Loudred",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-24",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-25",
+      "name": "Medicham",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-26",
+      "name": "Pelipper \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-27",
+      "name": "Swampert",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-28",
+      "name": "Venusaur",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-29",
+      "name": "Charmeleon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-3",
+      "name": "Camerupt",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-30",
+      "name": "Charmeleon \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-31",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-32",
+      "name": "Grovyle",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-33",
+      "name": "Gulpin",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-34",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-35",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-36",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-37",
+      "name": "Lombre",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-38",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-39",
+      "name": "Nuzleaf",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-4",
+      "name": "Charizard \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Lightning",
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-40",
+      "name": "Shuppet",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-41",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-42",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-43",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-44",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-45",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-46",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-47",
+      "name": "Cacnea",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-48",
+      "name": "Charmander",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-49",
+      "name": "Charmander \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-5",
+      "name": "Dugtrio",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-50",
+      "name": "Diglett",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-51",
+      "name": "Duskull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-52",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-53",
+      "name": "Jigglypuff",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-54",
+      "name": "Krabby",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-55",
+      "name": "Lotad",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-56",
+      "name": "Meditite",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-57",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-58",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-59",
+      "name": "Numel",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-6",
+      "name": "Ludicolo \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-60",
+      "name": "Seedot",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-61",
+      "name": "Spearow",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-62",
+      "name": "Spoink",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-63",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-64",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-65",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-66",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-67",
+      "name": "Treecko",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-68",
+      "name": "Treecko \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-69",
+      "name": "Whismur",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-7",
+      "name": "Luvdisc",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-70",
+      "name": "Wingull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-71",
+      "name": "Bill's Maintenance",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-72",
+      "name": "Castaway",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-73",
+      "name": "Celio's Network",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-74",
+      "name": "Cessation Crystal",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-75",
+      "name": "Crystal Beach",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-76",
+      "name": "Crystal Shard",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-77",
+      "name": "Double Full Heal",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-78",
+      "name": "Dual Ball",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-79",
+      "name": "Holon Circle",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-8",
+      "name": "Manectric",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-80",
+      "name": "Memory Berry",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-81",
+      "name": "Mysterious Shard",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-82",
+      "name": "Pok\u00e9 Ball",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-83",
+      "name": "Pok\u00e9Nav",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-84",
+      "name": "Warp Point",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-85",
+      "name": "Windstorm",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-86",
+      "name": "Energy Search",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-87",
+      "name": "Potion",
+      "supertype": "Trainer",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-88",
+      "name": "Double Rainbow Energy",
+      "supertype": "Energy",
+      "stage": "Basic",
+      "hp": 0,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-89",
+      "name": "Aggron ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-9",
+      "name": "Mawile",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-90",
+      "name": "Blaziken ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-91",
+      "name": "Delcatty ex",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-92",
+      "name": "Exploud ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-93",
+      "name": "Groudon ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-94",
+      "name": "Jirachi ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-95",
+      "name": "Kyogre ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-96",
+      "name": "Sceptile ex \u03b4",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 140,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-97",
+      "name": "Shiftry ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 140,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-98",
+      "name": "Swampert ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "CG-99",
+      "name": "Alakazam \u2605",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-1",
+      "name": "Ampharos Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-10",
+      "name": "Snorlax Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-100",
+      "name": "Charizard \u2605 Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-101",
+      "name": "Mew \u2605 Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-11",
+      "name": "Togetic Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-12",
+      "name": "Typhlosion Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-13",
+      "name": "Arbok Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-14",
+      "name": "Cloyster Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-15",
+      "name": "Dewgong Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-16",
+      "name": "Gligar Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-17",
+      "name": "Jynx Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-18",
+      "name": "Ledian Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-19",
+      "name": "Lickitung Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-2",
+      "name": "Feraligatr Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-20",
+      "name": "Mantine Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-21",
+      "name": "Quagsire Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-22",
+      "name": "Seadra Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-23",
+      "name": "Tropius Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-24",
+      "name": "Vibrava Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-25",
+      "name": "Xatu Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-26",
+      "name": "Bayleef Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-27",
+      "name": "Croconaw Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-28",
+      "name": "Dragonair Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-29",
+      "name": "Electabuzz Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-3",
+      "name": "Heracross Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-30",
+      "name": "Flaaffy Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-31",
+      "name": "Horsea Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-32",
+      "name": "Kirlia",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-33",
+      "name": "Kirlia Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-34",
+      "name": "Nidorina Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-35",
+      "name": "Nidorino Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-36",
+      "name": "Quilava Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-37",
+      "name": "Seadra Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-38",
+      "name": "Shelgon Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-39",
+      "name": "Smeargle Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-4",
+      "name": "Meganium Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-40",
+      "name": "Swellow Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-41",
+      "name": "Togepi Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-42",
+      "name": "Vibrava Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-43",
+      "name": "Bagon Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-44",
+      "name": "Chikorita Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-45",
+      "name": "Cyndaquil Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-46",
+      "name": "Dratini Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-47",
+      "name": "Ekans Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-48",
+      "name": "Elekid Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-49",
+      "name": "Feebas Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 30,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-5",
+      "name": "Milotic Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 90,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-50",
+      "name": "Horsea Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-51",
+      "name": "Larvitar",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-52",
+      "name": "Larvitar Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-53",
+      "name": "Ledyba Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-54",
+      "name": "Mareep Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-55",
+      "name": "Natu Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-56",
+      "name": "Nidoran \u2640 Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-57",
+      "name": "Nidoran \u2642 Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-58",
+      "name": "Pupitar",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-59",
+      "name": "Pupitar Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-6",
+      "name": "Nidoking Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-60",
+      "name": "Ralts",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-61",
+      "name": "Ralts Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-62",
+      "name": "Seel Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-63",
+      "name": "Shellder Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-64",
+      "name": "Smoochum Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-65",
+      "name": "Swablu Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-66",
+      "name": "Taillow Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-67",
+      "name": "Totodile Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-68",
+      "name": "Trapinch Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-69",
+      "name": "Trapinch Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-7",
+      "name": "Nidoqueen Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-70",
+      "name": "Vulpix Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-71",
+      "name": "Wooper Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-72",
+      "name": "Buffer Piece",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-73",
+      "name": "Copycat",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-74",
+      "name": "Holon Legacy",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-75",
+      "name": "Holon Mentor",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-76",
+      "name": "Island Hermit",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-77",
+      "name": "Mr. Stone's Project",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-78",
+      "name": "Old Rod",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-79",
+      "name": "Professor Elm's Training Method",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-8",
+      "name": "Ninetales Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-80",
+      "name": "Professor Oak's Research",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-81",
+      "name": "Strength Charm",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-82",
+      "name": "TV Reporter",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-83",
+      "name": "Switch",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-84",
+      "name": "Holon Energy FF",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-85",
+      "name": "Holon Energy GL",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-86",
+      "name": "Holon Energy WP",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-87",
+      "name": "Boost Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-88",
+      "name": "Delta Rainbow Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-89",
+      "name": "Scramble Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-9",
+      "name": "Pinsir Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-90",
+      "name": "Altaria ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-91",
+      "name": "Dragonite ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-92",
+      "name": "Flygon ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-93",
+      "name": "Gardevoir ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-94",
+      "name": "Kingdra ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 140,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-95",
+      "name": "Latias ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-96",
+      "name": "Latios ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-97",
+      "name": "Rayquaza ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 110,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-98",
+      "name": "Salamence ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 160,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "DF-99",
+      "name": "Tyranitar ex Delta",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-COLORLESS",
+      "name": "Colorless Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "ENERGY-DARKNESS",
+      "name": "Darkness Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-FIGHTING",
+      "name": "Fighting Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-FIRE",
+      "name": "Fire Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-GRASS",
+      "name": "Grass Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-LIGHTNING",
+      "name": "Lightning Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-METAL",
+      "name": "Metal Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-PSYCHIC",
+      "name": "Psychic Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "ENERGY-WATER",
+      "name": "Water Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": true
+    },
+    {
+      "card_def_id": "RS-1",
+      "name": "Aggron",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-10",
+      "name": "Mightyena",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-100",
+      "name": "Magmar ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-101",
+      "name": "Mewtwo ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 100,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-102",
+      "name": "Scyther ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-103",
+      "name": "Sneasel ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-104",
+      "name": "Grass Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-105",
+      "name": "Fighting Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-106",
+      "name": "Water Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-107",
+      "name": "Psychic Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-108",
+      "name": "Fire Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-109",
+      "name": "Lightning Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Basic",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-11",
+      "name": "Sceptile",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-12",
+      "name": "Slaking",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-13",
+      "name": "Swampert",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-14",
+      "name": "Wailord",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 120,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-15",
+      "name": "Blaziken",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-16",
+      "name": "Breloom",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-17",
+      "name": "Donphan",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-18",
+      "name": "Nosepass",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-19",
+      "name": "Pelipper",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-2",
+      "name": "Beautifly",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-20",
+      "name": "Sceptile",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-21",
+      "name": "Seaking",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-22",
+      "name": "Sharpedo",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-23",
+      "name": "Swampert",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-24",
+      "name": "Weezing",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-25",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-26",
+      "name": "Cascoon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-27",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-28",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-29",
+      "name": "Delcatty",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-3",
+      "name": "Blaziken",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-30",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-31",
+      "name": "Grovyle",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-32",
+      "name": "Grovyle",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-33",
+      "name": "Hariyama",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-34",
+      "name": "Kirlia",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-35",
+      "name": "Kirlia",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-36",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-37",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-38",
+      "name": "Linoone",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-39",
+      "name": "Manectric",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-4",
+      "name": "Camerupt",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 90,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-40",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-41",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-42",
+      "name": "Mightyena",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-43",
+      "name": "Silcoon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-44",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-45",
+      "name": "Slakoth",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-46",
+      "name": "Swellow",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-47",
+      "name": "Vigoroth",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-48",
+      "name": "Wailmer",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-49",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-5",
+      "name": "Delcatty",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-50",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-51",
+      "name": "Carvanha",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-52",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-53",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-54",
+      "name": "Koffing",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-55",
+      "name": "Goldeen",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-56",
+      "name": "Makuhita",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-57",
+      "name": "Makuhita",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-58",
+      "name": "Makuhita",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-59",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-6",
+      "name": "Dustox",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 90,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-60",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-61",
+      "name": "Numel",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-62",
+      "name": "Phanpy",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-63",
+      "name": "Poochyena",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-64",
+      "name": "Poochyena",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-65",
+      "name": "Poochyena",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-66",
+      "name": "Ralts",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-67",
+      "name": "Ralts",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-68",
+      "name": "Ralts",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-69",
+      "name": "Shroomish",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-7",
+      "name": "Gardevoir",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-70",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-71",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-72",
+      "name": "Taillow",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-73",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-74",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-75",
+      "name": "Treecko",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-76",
+      "name": "Treecko",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-77",
+      "name": "Wingull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-78",
+      "name": "Wurmple",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-79",
+      "name": "Zigzagoon",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-8",
+      "name": "Hariyama",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 90,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-80",
+      "name": "Energy Removal 2",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-81",
+      "name": "Energy Restore",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-82",
+      "name": "Energy Switch",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-83",
+      "name": "Lady Outing",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-84",
+      "name": "Lum Berry",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-85",
+      "name": "Oran Berry",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-86",
+      "name": "Pok\u00e9 Ball",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-87",
+      "name": "Pok\u00e9mon Reversal",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-88",
+      "name": "Pok\u00e9Nav",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-89",
+      "name": "Professor Birch",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-9",
+      "name": "Manectric",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-90",
+      "name": "Energy Search",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-91",
+      "name": "Potion",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-92",
+      "name": "Switch",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-93",
+      "name": "Darkness Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-94",
+      "name": "Metal Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-95",
+      "name": "Rainbow Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-96",
+      "name": "Chansey ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 120,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-97",
+      "name": "Electabuzz ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-98",
+      "name": "Hitmonchan ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 90,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "RS-99",
+      "name": "Lapras ex",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 110,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-1",
+      "name": "Armaldo",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-10",
+      "name": "Sableye",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-100",
+      "name": "Wailord ex",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 200,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-11",
+      "name": "Seviper",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-12",
+      "name": "Shiftry",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-13",
+      "name": "Solrock",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-14",
+      "name": "Zangoose",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-15",
+      "name": "Arcanine",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-16",
+      "name": "Espeon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-17",
+      "name": "Golduck",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-18",
+      "name": "Kecleon",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-19",
+      "name": "Omastar",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 110,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-2",
+      "name": "Cacturne",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-20",
+      "name": "Pichu",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-21",
+      "name": "Sandslash",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-22",
+      "name": "Shiftry",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 120,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-23",
+      "name": "Steelix",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 100,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-24",
+      "name": "Umbreon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-25",
+      "name": "Vaporeon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-26",
+      "name": "Wobbuffet",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-27",
+      "name": "Anorith",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-28",
+      "name": "Anorith",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-29",
+      "name": "Arbok",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-3",
+      "name": "Cradily",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 100,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-30",
+      "name": "Azumarill",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-31",
+      "name": "Azurill",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-32",
+      "name": "Baltoy",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-33",
+      "name": "Breloom",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-34",
+      "name": "Delcatty",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-35",
+      "name": "Electabuzz",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-36",
+      "name": "Elekid",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-37",
+      "name": "Fearow",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-38",
+      "name": "Illumise",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-39",
+      "name": "Kabuto",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-4",
+      "name": "Dusclops",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-40",
+      "name": "Kirlia",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-41",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-42",
+      "name": "Lileep",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-43",
+      "name": "Lileep",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-44",
+      "name": "Linoone",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-45",
+      "name": "Lombre",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-46",
+      "name": "Lombre",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-47",
+      "name": "Murkrow",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Darkness"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-48",
+      "name": "Nuzleaf",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-49",
+      "name": "Nuzleaf",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-5",
+      "name": "Flareon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-50",
+      "name": "Pelipper",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-51",
+      "name": "Quilava",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-52",
+      "name": "Vigoroth",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-53",
+      "name": "Volbeat",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-54",
+      "name": "Wynaut",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-55",
+      "name": "Xatu",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-56",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-57",
+      "name": "Cacnea",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-58",
+      "name": "Cacnea",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-59",
+      "name": "Cyndaquil",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-6",
+      "name": "Jolteon",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-60",
+      "name": "Dunsparce",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-61",
+      "name": "Duskull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-62",
+      "name": "Duskull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-63",
+      "name": "Eevee",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-64",
+      "name": "Ekans",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-65",
+      "name": "Growlithe",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-66",
+      "name": "Lotad",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-67",
+      "name": "Lotad",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-68",
+      "name": "Marill",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-69",
+      "name": "Natu",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-7",
+      "name": "Ludicolo",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 90,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-70",
+      "name": "Omanyte",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-71",
+      "name": "Onix",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-72",
+      "name": "Pikachu",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-73",
+      "name": "Psyduck",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-74",
+      "name": "Ralts",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-75",
+      "name": "Sandshrew",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-76",
+      "name": "Seedot",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-77",
+      "name": "Seedot",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-78",
+      "name": "Shroomish",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-79",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-8",
+      "name": "Lunatone",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-80",
+      "name": "Slakoth",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-81",
+      "name": "Spearow",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-82",
+      "name": "Trapinch",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Fighting"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-83",
+      "name": "Wailmer",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-84",
+      "name": "Wingull",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-85",
+      "name": "Zigzagoon",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-86",
+      "name": "Double Full Heal",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-87",
+      "name": "Lanette's Net Search",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-88",
+      "name": "Rare Candy",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-89",
+      "name": "Wally's Training",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-9",
+      "name": "Mawile",
+      "supertype": "Pokemon",
+      "stage": "Basic",
+      "hp": 60,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-90",
+      "name": "Claw Fossil",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-91",
+      "name": "Mysterious Fossil",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-92",
+      "name": "Root Fossil",
+      "supertype": "Trainer",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-93",
+      "name": "Multi Energy",
+      "supertype": "Energy",
+      "stage": null,
+      "hp": null,
+      "types": [],
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-94",
+      "name": "Aerodactyl ex",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 100,
+      "types": [
+        "Colorless"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-95",
+      "name": "Aggron ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Metal"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-96",
+      "name": "Gardevoir ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Psychic"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-97",
+      "name": "Kabutops ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 150,
+      "types": [
+        "Water"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-98",
+      "name": "Raichu ex",
+      "supertype": "Pokemon",
+      "stage": "Stage1",
+      "hp": 100,
+      "types": [
+        "Lightning"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    },
+    {
+      "card_def_id": "SS-99",
+      "name": "Typhlosion ex",
+      "supertype": "Pokemon",
+      "stage": "Stage2",
+      "hp": 160,
+      "types": [
+        "Fire"
+      ],
+      "trainer_kind": null,
+      "energy_kind": null,
+      "implemented": false
+    }
+  ]
+}
