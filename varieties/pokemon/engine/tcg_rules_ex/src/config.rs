@@ -93,6 +93,14 @@ impl Default for RulesetConfig {
 }
 
 impl RulesetConfig {
+    /// Return the standard limited-format rules used for 40-card decks.
+    pub fn limited_40() -> Self {
+        Self {
+            prize_cards_per_player: 4,
+            ..Self::default()
+        }
+    }
+
     pub fn validate(&self) -> Result<(), RulesetConfigError> {
         if self.prize_cards_per_player == 0 {
             return Err(RulesetConfigError::InvalidPrizeCount);
@@ -276,5 +284,13 @@ mod tests {
         let config = RulesetConfig::default();
         let order = config.between_turns_order();
         assert_eq!(order.len(), 4);
+    }
+
+    #[test]
+    fn test_limited_40_ruleset() {
+        let config = RulesetConfig::limited_40();
+        assert_eq!(config.prize_cards_per_player(), 4);
+        assert_eq!(config.prize_for_normal_ko(), 1);
+        assert!(config.validate().is_ok());
     }
 }

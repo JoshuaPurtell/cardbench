@@ -238,6 +238,121 @@ fn chained_custom_prompt_keeps_its_id() {
     assert!(game.has_marker(own, "Second"), "the follow-up custom prompt must reach its hook");
 }
 
+// 5a. A custom discard resolver observes the paid cost, not the pre-cost hand.
+#[test]
+fn custom_hand_discard_is_paid_before_resolution() {
+    let mut game = new_game();
+    let card = CardInstance::new(CardDefId::new("COST"), PlayerId::P1);
+    let card_id = card.id;
+    game.players[0].hand.add(card);
+    let mut hooks = RuntimeHooks::empty();
+    hooks.resolve_custom_prompt = |game, id, _, selected| {
+        id == "T:discard"
+            && selected.len() == 1
+            && game.players[0].discard.contains(selected[0])
+            && !game.players[0].hand.contains(selected[0])
+    };
+    game.set_hooks(hooks);
+    game.set_pending_prompt_custom(
+        Prompt::ChooseCardsFromHand {
+            player: PlayerId::P1,
+            count: 1,
+            options: vec![card_id],
+            min: None,
+            max: None,
+            destination: SelectionDestination::Discard,
+            return_to_deck: false,
+            valid_targets: Vec::new(),
+            effect_description: String::new(),
+        },
+        PlayerId::P1,
+        "T:discard".into(),
+        None,
+    );
+
+    game.apply_action(
+        PlayerId::P1,
+        Action::DiscardCardsFromHand { card_ids: vec![card_id] },
+    )
+    .unwrap();
+
+    assert!(game.pending_prompt.is_none());
+    assert!(game.players[0].discard.contains(card_id));
+}
+
+// 5b. Paying a custom discard cost may open a target-selection continuation.
+#[test]
+fn custom_hand_discard_preserves_target_continuation() {
+    let mut game = new_game();
+    game.card_meta.insert(CardDefId::new("MON"), pokemon("Mon", vec![Type::Grass], None, None, Stage::Basic));
+    let target = put(&mut game, PlayerId::P1, "MON", true);
+    let card = CardInstance::new(CardDefId::new("COST"), PlayerId::P1);
+    let card_id = card.id;
+    game.players[0].hand.add(card);
+    let mut hooks = RuntimeHooks::empty();
+    hooks.resolve_custom_prompt = |game, id, _, selected| {
+        if id == "T:discard" {
+            if selected.len() != 1 || !game.players[0].discard.contains(selected[0]) {
+                return false;
+            }
+            let target = game.players[0].active.as_ref().unwrap().card.id;
+            game.set_pending_prompt_custom(
+                Prompt::ChoosePokemonTargets {
+                    player: PlayerId::P1,
+                    min: 1,
+                    max: 1,
+                    valid_targets: vec![target],
+                    effect_description: String::new(),
+                },
+                PlayerId::P1,
+                "T:target".into(),
+                None,
+            );
+            true
+        } else if id == "T:target" {
+            let _ = game.add_marker(selected[0], Marker::new("Continued"));
+            true
+        } else {
+            false
+        }
+    };
+    game.set_hooks(hooks);
+    game.set_pending_prompt_custom(
+        Prompt::ChooseCardsFromHand {
+            player: PlayerId::P1,
+            count: 1,
+            options: vec![card_id],
+            min: None,
+            max: None,
+            destination: SelectionDestination::Discard,
+            return_to_deck: false,
+            valid_targets: Vec::new(),
+            effect_description: String::new(),
+        },
+        PlayerId::P1,
+        "T:discard".into(),
+        None,
+    );
+
+    game.apply_action(
+        PlayerId::P1,
+        Action::DiscardCardsFromHand { card_ids: vec![card_id] },
+    )
+    .unwrap();
+    assert!(matches!(
+        game.pending_prompt_for(PlayerId::P1),
+        Some(Prompt::ChoosePokemonTargets { .. })
+    ));
+
+    game.apply_action(
+        PlayerId::P1,
+        Action::ChoosePokemonTargets { target_ids: vec![target] },
+    )
+    .unwrap();
+    assert!(game.has_marker(target, "Continued"));
+    assert!(game.pending_prompt.is_none());
+}
+
 // 6. Typed costs are matched, not paid greedily.
 #[test]
 fn typed_cost_uses_matching() {

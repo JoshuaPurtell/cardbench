@@ -17,12 +17,7 @@ use tcg_core::{
 
 /// Create the RuntimeHooks vtable for a single expansion (`"CG"`, `"DF"`, or `"HP"`).
 pub fn create_hooks(set: &str) -> RuntimeHooks {
-    match set {
-        "CG" | "cg" | "crystal_guardians" => crate::cg::create(),
-        "DF" | "df" | "dragon_frontiers" => crate::df::hooks::create(),
-        "HP" | "hp" | "holon_phantoms" => crate::hp::hooks::create(),
-        other => panic!("unknown expansion set {other:?}; expected CG, DF, or HP"),
-    }
+    create_hooks_for(&[set])
 }
 
 const CG: u8 = 1;
@@ -58,13 +53,14 @@ fn set_bit(set: &str) -> u8 {
 ///   wins, else any `Some(true)`, else `None`.
 /// - `post_attack`, `between_turns`, `apply_tool_stadium_effects`, `after_attack`,
 ///   `on_energy_attached`: every set runs.
-/// - Card-owned hooks dispatch to the set owning the card's `def_id` prefix, and
-///   fall back to the default when no loaded set owns it: `execute_power`,
-///   `register_triggers`, `can_attach_tool`, `on_tool_attached`,
-///   `energy_provides_override`, `energy_units`, `power_effect_id_for`,
-///   `power_is_once_per_turn`, `card_has_power_or_body`, `is_double_rainbow`,
-///   `tool_discard_timing_override`, and `resolve_custom_prompt` (by effect-id prefix,
-///   first true when the prefix is unknown).
+/// - `can_attach_tool`: AND; `execute_power` and `resolve_custom_prompt`: first true.
+/// - `energy_provides_override`, `power_effect_id_for`, and
+///   `tool_discard_timing_override`: first `Some`.
+/// - `power_is_once_per_turn`, `card_has_power_or_body`, and
+///   `is_double_rainbow`: OR.
+/// - `register_triggers` and `on_tool_attached`: every set runs.
+///
+/// Per-card implementations are responsible for guarding their own `def_id`.
 pub fn create_hooks_for(sets: &[&str]) -> RuntimeHooks {
     let mask = sets.iter().fold(0u8, |mask, set| mask | set_bit(set));
     match mask {
@@ -83,37 +79,6 @@ fn loaded<const M: u8>() -> impl Iterator<Item = (&'static str, RuntimeHooks)> {
     SETS.into_iter()
         .filter(|(bit, _, _)| M & bit != 0)
         .map(|(_, code, create)| (code, create()))
-}
-
-fn prefix(raw: &str) -> &str {
-    raw.split('-').next().unwrap_or("")
-}
-
-/// The loaded set that owns `def_id`, if any.
-fn owner<const M: u8>(def_id: &CardDefId) -> Option<RuntimeHooks> {
-    let code = prefix(def_id.as_str());
-    loaded::<M>().find(|(c, _)| *c == code).map(|(_, hooks)| hooks)
-}
-
-/// Definition of an instance anywhere a hook can see it: in play, attached, or in hand.
-fn def_of(game: &GameState, id: CardInstanceId) -> Option<CardDefId> {
-    if let Some(slot) = game.slot_by_id(id) {
-        return Some(slot.card.def_id.clone());
-    }
-    for player in &game.players {
-        if let Some(card) = player.hand.get(id) {
-            return Some(card.def_id.clone());
-        }
-        for slot in player.active.iter().chain(player.bench.iter()) {
-            if let Some(tool) = slot.attached_tool.as_ref().filter(|tool| tool.id == id) {
-                return Some(tool.def_id.clone());
-            }
-            if let Some(energy) = slot.attached_energy.iter().find(|energy| energy.id == id) {
-                return Some(energy.def_id.clone());
-            }
-        }
-    }
-    None
 }
 
 fn composed<const M: u8>() -> RuntimeHooks {
@@ -156,22 +121,42 @@ fn attack_overrides<const M: u8>(
 ) -> AttackOverrides {
     let mut overrides = AttackOverrides::default();
     for (_, hooks) in loaded::<M>() {
-        overrides.merge((hooks.attack_overrides)(game, attack, attacker_id, defender_id));
+        overrides.merge((hooks.attack_overrides)(
+            game,
+            attack,
+            attacker_id,
+            defender_id,
+        ));
     }
     overrides
 }
 
-fn attack_cost_modifier<const M: u8>(game: &GameState, attacker_id: CardInstanceId, attack: &Attack) -> i32 {
+fn attack_cost_modifier<const M: u8>(
+    game: &GameState,
+    attacker_id: CardInstanceId,
+    attack: &Attack,
+) -> i32 {
     loaded::<M>()
         .map(|(_, hooks)| (hooks.attack_cost_modifier)(game, attacker_id, attack))
         .sum()
 }
 
-fn retreat_cost_override<const M: u8>(game: &GameState, pokemon_id: CardInstanceId, base: i32) -> i32 {
-    loaded::<M>().fold(base, |cost, (_, hooks)| (hooks.retreat_cost_override)(game, pokemon_id, cost))
+fn retreat_cost_override<const M: u8>(
+    game: &GameState,
+    pokemon_id: CardInstanceId,
+    base: i32,
+) -> i32 {
+    loaded::<M>().fold(base, |cost, (_, hooks)| {
+        (hooks.retreat_cost_override)(game, pokemon_id, cost)
+    })
 }
 
-fn post_attack<const M: u8>(game: &mut GameState, attacker_id: CardInstanceId, defender_id: CardInstanceId, damage: u16) {
+fn post_attack<const M: u8>(
+    game: &mut GameState,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+    damage: u16,
+) {
     for (_, hooks) in loaded::<M>() {
         (hooks.post_attack)(game, attacker_id, defender_id, damage);
     }
@@ -183,17 +168,16 @@ fn between_turns<const M: u8>(game: &mut GameState) {
     }
 }
 
-fn execute_power<const M: u8>(game: &mut GameState, power_name: &str, source_id: CardInstanceId) -> bool {
-    match def_of(game, source_id) {
-        Some(def_id) => owner::<M>(&def_id)
-            .map(|hooks| (hooks.execute_power)(game, power_name, source_id))
-            .unwrap_or(false),
-        None => loaded::<M>().any(|(_, hooks)| (hooks.execute_power)(game, power_name, source_id)),
-    }
+fn execute_power<const M: u8>(
+    game: &mut GameState,
+    power_name: &str,
+    source_id: CardInstanceId,
+) -> bool {
+    loaded::<M>().any(|(_, hooks)| (hooks.execute_power)(game, power_name, source_id))
 }
 
 fn register_triggers<const M: u8>(game: &mut GameState, slot: &PokemonSlot) {
-    if let Some(hooks) = owner::<M>(&slot.card.def_id) {
+    for (_, hooks) in loaded::<M>() {
         (hooks.register_triggers)(game, slot);
     }
 }
@@ -204,25 +188,39 @@ fn apply_tool_stadium_effects<const M: u8>(game: &mut GameState) {
     }
 }
 
-fn can_attach_tool<const M: u8>(game: &GameState, player: PlayerId, tool_id: CardInstanceId, target_id: CardInstanceId) -> bool {
-    def_of(game, tool_id)
-        .and_then(|def_id| owner::<M>(&def_id))
-        .map(|hooks| (hooks.can_attach_tool)(game, player, tool_id, target_id))
-        .unwrap_or(true)
+fn can_attach_tool<const M: u8>(
+    game: &GameState,
+    player: PlayerId,
+    tool_id: CardInstanceId,
+    target_id: CardInstanceId,
+) -> bool {
+    loaded::<M>().all(|(_, hooks)| (hooks.can_attach_tool)(game, player, tool_id, target_id))
 }
 
-fn can_attach_energy<const M: u8>(game: &GameState, player: PlayerId, energy_id: CardInstanceId, target_id: CardInstanceId) -> bool {
+fn can_attach_energy<const M: u8>(
+    game: &GameState,
+    player: PlayerId,
+    energy_id: CardInstanceId,
+    target_id: CardInstanceId,
+) -> bool {
     loaded::<M>().all(|(_, hooks)| (hooks.can_attach_energy)(game, player, energy_id, target_id))
 }
 
-fn on_tool_attached<const M: u8>(game: &mut GameState, tool_id: CardInstanceId, target_id: CardInstanceId) {
-    if let Some(hooks) = def_of(game, tool_id).and_then(|def_id| owner::<M>(&def_id)) {
+fn on_tool_attached<const M: u8>(
+    game: &mut GameState,
+    tool_id: CardInstanceId,
+    target_id: CardInstanceId,
+) {
+    for (_, hooks) in loaded::<M>() {
         (hooks.on_tool_attached)(game, tool_id, target_id);
     }
 }
 
-fn energy_provides_override<const M: u8>(game: &GameState, card: &CardInstance) -> Option<Vec<Type>> {
-    owner::<M>(&card.def_id).and_then(|hooks| (hooks.energy_provides_override)(game, card))
+fn energy_provides_override<const M: u8>(
+    game: &GameState,
+    card: &CardInstance,
+) -> Option<Vec<Type>> {
+    loaded::<M>().find_map(|(_, hooks)| (hooks.energy_provides_override)(game, card))
 }
 
 fn on_energy_attached<const M: u8>(
@@ -236,7 +234,11 @@ fn on_energy_attached<const M: u8>(
     }
 }
 
-fn after_attack<const M: u8>(game: &mut GameState, attacker_id: CardInstanceId, defender_id: CardInstanceId) {
+fn after_attack<const M: u8>(
+    game: &mut GameState,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) {
     for (_, hooks) in loaded::<M>() {
         (hooks.after_attack)(game, attacker_id, defender_id);
     }
@@ -254,12 +256,26 @@ fn combine_overrides(results: impl Iterator<Item = Option<bool>>) -> Option<bool
     allowed
 }
 
-fn can_use_pokepower_override<const M: u8>(game: &GameState, player: PlayerId, pokemon_id: CardInstanceId) -> Option<bool> {
-    combine_overrides(loaded::<M>().map(|(_, hooks)| (hooks.can_use_pokepower_override)(game, player, pokemon_id)))
+fn can_use_pokepower_override<const M: u8>(
+    game: &GameState,
+    player: PlayerId,
+    pokemon_id: CardInstanceId,
+) -> Option<bool> {
+    combine_overrides(
+        loaded::<M>()
+            .map(|(_, hooks)| (hooks.can_use_pokepower_override)(game, player, pokemon_id)),
+    )
 }
 
-fn is_pokebody_active_override<const M: u8>(game: &GameState, player: PlayerId, pokemon_id: CardInstanceId) -> Option<bool> {
-    combine_overrides(loaded::<M>().map(|(_, hooks)| (hooks.is_pokebody_active_override)(game, player, pokemon_id)))
+fn is_pokebody_active_override<const M: u8>(
+    game: &GameState,
+    player: PlayerId,
+    pokemon_id: CardInstanceId,
+) -> Option<bool> {
+    combine_overrides(
+        loaded::<M>()
+            .map(|(_, hooks)| (hooks.is_pokebody_active_override)(game, player, pokemon_id)),
+    )
 }
 
 fn resolve_custom_prompt<const M: u8>(
@@ -268,51 +284,63 @@ fn resolve_custom_prompt<const M: u8>(
     source_id: Option<CardInstanceId>,
     target_ids: &[CardInstanceId],
 ) -> bool {
-    let code = prefix(effect_id);
-    if let Some((_, hooks)) = loaded::<M>().find(|(c, _)| *c == code) {
-        return (hooks.resolve_custom_prompt)(game, effect_id, source_id, target_ids);
-    }
-    loaded::<M>().any(|(_, hooks)| (hooks.resolve_custom_prompt)(game, effect_id, source_id, target_ids))
+    loaded::<M>()
+        .any(|(_, hooks)| (hooks.resolve_custom_prompt)(game, effect_id, source_id, target_ids))
 }
 
 fn power_effect_id_for<const M: u8>(def_id: &CardDefId, power_name: &str) -> Option<String> {
-    owner::<M>(def_id).and_then(|hooks| (hooks.power_effect_id_for)(def_id, power_name))
+    loaded::<M>().find_map(|(_, hooks)| (hooks.power_effect_id_for)(def_id, power_name))
 }
 
 fn power_is_once_per_turn<const M: u8>(def_id: &CardDefId, power_name: &str) -> bool {
-    owner::<M>(def_id)
-        .map(|hooks| (hooks.power_is_once_per_turn)(def_id, power_name))
-        .unwrap_or(false)
+    loaded::<M>().any(|(_, hooks)| (hooks.power_is_once_per_turn)(def_id, power_name))
 }
 
 fn card_has_power_or_body<const M: u8>(def_id: &CardDefId) -> bool {
-    owner::<M>(def_id)
-        .map(|hooks| (hooks.card_has_power_or_body)(def_id))
-        .unwrap_or(false)
+    loaded::<M>().any(|(_, hooks)| (hooks.card_has_power_or_body)(def_id))
 }
 
 fn is_double_rainbow<const M: u8>(def_id: &CardDefId) -> bool {
-    owner::<M>(def_id)
-        .map(|hooks| (hooks.is_double_rainbow)(def_id))
-        .unwrap_or(false)
+    loaded::<M>().any(|(_, hooks)| (hooks.is_double_rainbow)(def_id))
 }
 
-fn prevents_attack_effects<const M: u8>(game: &GameState, attacker_id: CardInstanceId, defender_id: CardInstanceId) -> bool {
+fn prevents_attack_effects<const M: u8>(
+    game: &GameState,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) -> bool {
     loaded::<M>().any(|(_, hooks)| (hooks.prevents_attack_effects)(game, attacker_id, defender_id))
 }
 
-fn tool_discard_timing_override<const M: u8>(game: &GameState, def_id: &CardDefId) -> Option<&'static str> {
-    owner::<M>(def_id).and_then(|hooks| (hooks.tool_discard_timing_override)(game, def_id))
+fn tool_discard_timing_override<const M: u8>(
+    game: &GameState,
+    def_id: &CardDefId,
+) -> Option<&'static str> {
+    loaded::<M>().find_map(|(_, hooks)| (hooks.tool_discard_timing_override)(game, def_id))
 }
 
-fn energy_units<const M: u8>(game: &GameState, holder_id: CardInstanceId, energy: &CardInstance, provides: &[Type]) -> usize {
-    owner::<M>(&energy.def_id)
-        .map(|hooks| (hooks.energy_units)(game, holder_id, energy, provides))
-        .unwrap_or(1)
+fn energy_units<const M: u8>(
+    game: &GameState,
+    holder_id: CardInstanceId,
+    energy: &CardInstance,
+    provides: &[Type],
+) -> usize {
+    let default = (RuntimeHooks::empty().energy_units)(game, holder_id, energy, provides);
+    loaded::<M>()
+        .map(|(_, hooks)| (hooks.energy_units)(game, holder_id, energy, provides))
+        .find(|units| *units != default)
+        .unwrap_or(default)
 }
 
-fn energy_units_override<const M: u8>(game: &GameState, holder: &PokemonSlot, energy: &CardInstance, units: usize) -> usize {
-    loaded::<M>().fold(units, |units, (_, hooks)| (hooks.energy_units_override)(game, holder, energy, units))
+fn energy_units_override<const M: u8>(
+    game: &GameState,
+    holder: &PokemonSlot,
+    energy: &CardInstance,
+    units: usize,
+) -> usize {
+    loaded::<M>().fold(units, |units, (_, hooks)| {
+        (hooks.energy_units_override)(game, holder, energy, units)
+    })
 }
 
 fn treats_pokemon_as_delta<const M: u8>(game: &GameState, player: PlayerId) -> bool {
@@ -440,18 +468,33 @@ mod tests {
         // CG set rules fire for CG cards only.
         assert!((mixed.is_double_rainbow)(&CardDefId::new("CG-88")));
         assert!(!(mixed.is_double_rainbow)(&CardDefId::new("DF-88")));
-        assert_eq!((mixed.tool_discard_timing_override)(&game, &CardDefId::new("CG-80")), Some("EndOfTurnIfAttacked"));
-        assert_eq!((mixed.tool_discard_timing_override)(&game, &CardDefId::new("DF-80")), None);
+        assert_eq!(
+            (mixed.tool_discard_timing_override)(&game, &CardDefId::new("CG-80")),
+            Some("EndOfTurnIfAttacked")
+        );
+        assert_eq!(
+            (mixed.tool_discard_timing_override)(&game, &CardDefId::new("DF-80")),
+            None
+        );
         // DF Boost Energy (DF-87) pays 3; the CG card with the same number does not.
         let boost = CardInstance::new(CardDefId::new("DF-87"), PlayerId::P1);
         let potion = CardInstance::new(CardDefId::new("CG-87"), PlayerId::P1);
-        assert_eq!((mixed.energy_units)(&game, holder, &boost, &[Type::Colorless]), 3);
-        assert_eq!((mixed.energy_units)(&game, holder, &potion, &[Type::Colorless]), 1);
+        assert_eq!(
+            (mixed.energy_units)(&game, holder, &boost, &[Type::Colorless]),
+            3
+        );
+        assert_eq!(
+            (mixed.energy_units)(&game, holder, &potion, &[Type::Colorless]),
+            1
+        );
         // DF power metadata answers for DF def ids only, and matches DF alone.
         for spec in crate::df::DF_POWERS {
             let df_id = CardDefId::new(format!("DF-{}", spec.number));
             let cg_id = CardDefId::new(format!("CG-{}", spec.number));
-            assert_eq!((mixed.card_has_power_or_body)(&df_id), (df.card_has_power_or_body)(&df_id));
+            assert_eq!(
+                (mixed.card_has_power_or_body)(&df_id),
+                (df.card_has_power_or_body)(&df_id)
+            );
             assert_eq!(
                 (mixed.power_effect_id_for)(&df_id, spec.power_name),
                 (df.power_effect_id_for)(&df_id, spec.power_name)
@@ -461,6 +504,17 @@ mod tests {
                 (mixed.card_has_power_or_body)(&cg_id),
                 (create_hooks("CG").card_has_power_or_body)(&cg_id)
             );
+        }
+        // And the reverse direction: a CG power name/number cannot leak onto
+        // the same-numbered DF card when both set tables are installed.
+        for spec in crate::cg::CG_POWERS {
+            let cg_id = CardDefId::new(format!("CG-{}", spec.number));
+            let df_id = CardDefId::new(format!("DF-{}", spec.number));
+            assert_eq!(
+                (mixed.power_effect_id_for)(&cg_id, spec.power_name),
+                (create_hooks("CG").power_effect_id_for)(&cg_id, spec.power_name)
+            );
+            assert_eq!((mixed.power_effect_id_for)(&df_id, spec.power_name), None);
         }
     }
 
@@ -474,8 +528,16 @@ mod tests {
             .chain(["ENERGY-WATER".to_string(), "ENERGY-COLORLESS".to_string()]);
         for raw in ids {
             let def_id = CardDefId::new(raw.as_str());
-            assert_eq!((composed.is_double_rainbow)(&def_id), (direct.is_double_rainbow)(&def_id), "{raw}");
-            assert_eq!((composed.card_has_power_or_body)(&def_id), (direct.card_has_power_or_body)(&def_id), "{raw}");
+            assert_eq!(
+                (composed.is_double_rainbow)(&def_id),
+                (direct.is_double_rainbow)(&def_id),
+                "{raw}"
+            );
+            assert_eq!(
+                (composed.card_has_power_or_body)(&def_id),
+                (direct.card_has_power_or_body)(&def_id),
+                "{raw}"
+            );
             assert_eq!(
                 (composed.tool_discard_timing_override)(&game, &def_id),
                 (direct.tool_discard_timing_override)(&game, &def_id),
