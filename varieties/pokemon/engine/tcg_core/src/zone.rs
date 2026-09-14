@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_card_instance_creation() {
-        let def_id = CardDefId::new("CG-015");
+        let def_id = CardDefId::new("TEST-015");
         let instance = CardInstance::new(def_id.clone(), PlayerId::P1);
         assert_eq!(instance.def_id, def_id);
         assert_eq!(instance.owner, PlayerId::P1);
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn test_zone_operations() {
         let mut hand = Zone::new();
-        let card = CardInstance::new(CardDefId::new("CG-001"), PlayerId::P1);
+        let card = CardInstance::new(CardDefId::new("TEST-001"), PlayerId::P1);
         let card_id = card.id;
         hand.add(card.clone());
         assert_eq!(hand.count(), 1);

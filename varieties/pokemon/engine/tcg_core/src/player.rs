@@ -269,7 +269,7 @@ mod tests {
     fn create_test_deck(count: usize, player: PlayerId) -> Vec<CardInstance> {
         let mut deck = Vec::with_capacity(count);
         for i in 0..count {
-            let def_id = CardDefId::new(format!("CG-{i:03}"));
+            let def_id = CardDefId::new(format!("TEST-{i:03}"));
             deck.push(CardInstance::new(def_id, player));
         }
         deck

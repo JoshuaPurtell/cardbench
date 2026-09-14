@@ -43,12 +43,15 @@ impl AttackOverrides {
 pub type AttackOverridesFn =
     fn(&GameState, &Attack, CardInstanceId, CardInstanceId) -> AttackOverrides;
 pub type AttackCostModifierFn = fn(&GameState, CardInstanceId, &Attack) -> i32;
+pub type RetreatCostOverrideFn = fn(&GameState, CardInstanceId, i32) -> i32;
 pub type PostAttackFn = fn(&mut GameState, CardInstanceId, CardInstanceId, u16);
 pub type BetweenTurnsFn = fn(&mut GameState);
 pub type ExecutePowerFn = fn(&mut GameState, &str, CardInstanceId) -> bool;
 pub type RegisterTriggersFn = fn(&mut GameState, &PokemonSlot);
 pub type ApplyToolStadiumEffectsFn = fn(&mut GameState);
 pub type CanAttachToolFn = fn(&GameState, PlayerId, CardInstanceId, CardInstanceId) -> bool;
+/// (game, player, energy_id in hand, target Pokemon) -> may this energy be attached there?
+pub type CanAttachEnergyFn = fn(&GameState, PlayerId, CardInstanceId, CardInstanceId) -> bool;
 pub type OnToolAttachedFn = fn(&mut GameState, CardInstanceId, CardInstanceId);
 pub type EnergyProvidesOverrideFn = fn(&GameState, &CardInstance) -> Option<Vec<Type>>;
 pub type AfterAttackFn = fn(&mut GameState, CardInstanceId, CardInstanceId);
@@ -66,6 +69,11 @@ pub type CardHasPowerOrBodyFn = fn(&CardDefId) -> bool;
 pub type IsDoubleRainbowFn = fn(&CardDefId) -> bool;
 pub type PreventsAttackEffectsFn = fn(&GameState, CardInstanceId, CardInstanceId) -> bool;
 pub type ToolDiscardTimingOverrideFn = fn(&GameState, &CardDefId) -> Option<&'static str>;
+pub type EnergyUnitsFn = fn(&GameState, CardInstanceId, &CardInstance, &[Type]) -> usize;
+/// Board-aware final say on units: (game, holder, energy, units so far) -> units.
+pub type EnergyUnitsOverrideFn = fn(&GameState, &PokemonSlot, &CardInstance, usize) -> usize;
+pub type TreatsPokemonAsDeltaFn = fn(&GameState, PlayerId) -> bool;
+pub type PreventsSpecialConditionsFn = fn(&GameState, CardInstanceId) -> bool;
 
 /// Runtime hooks vtable.
 ///
@@ -77,6 +85,7 @@ pub struct RuntimeHooks {
     pub attack_overrides: AttackOverridesFn,
     /// Modify the energy cost of an attack
     pub attack_cost_modifier: AttackCostModifierFn,
+    pub retreat_cost_override: RetreatCostOverrideFn,
     /// Called after attack damage is dealt
     pub post_attack: PostAttackFn,
     /// Called during between-turns phase
@@ -89,6 +98,8 @@ pub struct RuntimeHooks {
     pub apply_tool_stadium_effects: ApplyToolStadiumEffectsFn,
     /// Check if a tool can be attached to a target
     pub can_attach_tool: CanAttachToolFn,
+    /// Check if an energy card from hand can be attached to a target (default: yes)
+    pub can_attach_energy: CanAttachEnergyFn,
     /// Called when a tool is attached
     pub on_tool_attached: OnToolAttachedFn,
     /// Override what types an energy card provides
@@ -117,6 +128,14 @@ pub struct RuntimeHooks {
     pub prevents_attack_effects: PreventsAttackEffectsFn,
     /// Override tool discard timing (e.g., Memory Berry)
     pub tool_discard_timing_override: ToolDiscardTimingOverrideFn,
+    /// How many energy units an attached energy pays (DRE, Boost, Scramble).
+    pub energy_units: EnergyUnitsFn,
+    /// Applied after `energy_units` and the Double Rainbow rule (e.g. a Stadium capping units).
+    pub energy_units_override: EnergyUnitsOverrideFn,
+    /// Treat a player's in-play Pokemon as Delta species (Holon Veil).
+    pub treats_pokemon_as_delta: TreatsPokemonAsDeltaFn,
+    /// Prevent applying a special condition to a Pokemon (Holon Energy GL).
+    pub prevents_special_conditions: PreventsSpecialConditionsFn,
 }
 
 impl RuntimeHooks {
@@ -125,12 +144,14 @@ impl RuntimeHooks {
         Self {
             attack_overrides: |_, _, _, _| AttackOverrides::default(),
             attack_cost_modifier: |_, _, _| 0,
+            retreat_cost_override: |_, _, base| base,
             post_attack: |_, _, _, _| {},
             between_turns: |_| {},
             execute_power: |_, _, _| false,
             register_triggers: |_, _| {},
             apply_tool_stadium_effects: |_| {},
             can_attach_tool: |_, _, _, _| true,
+            can_attach_energy: |_, _, _, _| true,
             on_tool_attached: |_, _, _| {},
             energy_provides_override: |_, _| None,
             on_energy_attached: |_, _, _, _| {},
@@ -144,6 +165,10 @@ impl RuntimeHooks {
             is_double_rainbow: |_| false,
             prevents_attack_effects: |_, _, _| false,
             tool_discard_timing_override: |_, _| None,
+            energy_units: |_, _, _, _| 1,
+            energy_units_override: |_, _, _, units| units,
+            treats_pokemon_as_delta: |_, _| false,
+            prevents_special_conditions: |_, _| false,
         }
     }
 }

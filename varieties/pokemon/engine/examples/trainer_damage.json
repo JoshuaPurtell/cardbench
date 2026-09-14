@@ -1,0 +1,8 @@
+{
+  "set":"EX", "number":"3", "name":"Damage Trainer", "supertype": "Trainer", "trainer_kind":"Item", "tags":[],
+  "effect_ast": {
+    "op": "DealDamage",
+    "target": "OppActive",
+    "amount": 10
+  }
+}

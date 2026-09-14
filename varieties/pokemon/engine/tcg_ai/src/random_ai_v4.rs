@@ -532,6 +532,27 @@ impl RandomAiV4 {
         scored.into_iter().take(take).map(|(_, _, _, id)| id).collect()
     }
 
+    fn pick_effect_targets(view: &GameView, options: &[CardInstanceId], take: usize, description: &str) -> Vec<CardInstanceId> {
+        let healing = description.to_ascii_lowercase().contains("heal");
+        let mut scored: Vec<_> = options.iter().copied().enumerate().map(|(index, id)| {
+            let score = if let Some(p) = Self::find_opponent_pokemon(view, id) {
+                (if view.opponent_active.as_ref().is_some_and(|active| active.card.id == id) { 1_000_000 } else { 0 }) + p.damage_counters as i32
+            } else if let Some(p) = Self::find_my_pokemon(view, id) {
+                if healing { p.damage_counters as i32 } else { Self::remaining_hp(p) + p.attached_energy.len() as i32 * 10 }
+            } else { i32::MIN };
+            (score, index, id)
+        }).collect();
+        scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        scored.into_iter().take(take).map(|(_, _, id)| id).collect()
+    }
+
+    fn pick_bench_by_health(bench: &[PokemonView], take: usize, healthiest_first: bool) -> Vec<CardInstanceId> {
+        let mut scored: Vec<_> = bench.iter().enumerate().map(|(i, p)| (Self::remaining_hp(p), i, p.card.id)).collect();
+        if healthiest_first { scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1))); }
+        else { scored.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1))); }
+        scored.into_iter().take(take).map(|(_, _, id)| id).collect()
+    }
+
     fn choose_evolution_action(&mut self, view: &GameView) -> Option<Action> {
         let hints = &view.action_hints;
         if hints.playable_evolution_ids.is_empty() {
@@ -1059,7 +1080,29 @@ impl AiController for RandomAiV4 {
                     actions.push(Action::ChooseSpecialCondition { condition });
                 }
             }
-            _ => {}
+            Prompt::CoinFlipForEffect { player, .. } | Prompt::RevealCards { player, .. } => if *player == view.player_id { actions.push(Action::ConfirmPrompt); },
+            Prompt::ChoosePokemonTargets { player, min, max, valid_targets, effect_description } => if *player == view.player_id {
+                let take = (*max).min(valid_targets.len()).max((*min).min(valid_targets.len()));
+                actions.push(Action::ChoosePokemonTargets { target_ids: Self::pick_effect_targets(view, valid_targets, take, effect_description) });
+            },
+            Prompt::ChooseTargets { player, count, options, effect_description } => if *player == view.player_id {
+                actions.push(Action::ChoosePokemonTargets { target_ids: Self::pick_effect_targets(view, options, (*count).min(options.len()), effect_description) });
+            },
+            Prompt::SelectBenchedPokemon { player, target_player_idx, count, .. } => if *player == view.player_id {
+                let own = matches!((view.player_id, *target_player_idx), (tcg_core::PlayerId::P1, 0) | (tcg_core::PlayerId::P2, 1));
+                let bench = if own { &view.my_bench } else { &view.opponent_bench };
+                actions.push(Action::ChoosePokemonTargets { target_ids: Self::pick_bench_by_health(bench, (*count).min(bench.len()), own) });
+            },
+            Prompt::OpponentSelectsBenchedPokemon { player, .. } => if *player == view.player_id {
+                actions.push(Action::ChoosePokemonTargets { target_ids: Self::pick_bench_by_health(&view.my_bench, 1, true) });
+            },
+            Prompt::ReorderCards { player, cards, .. } => if *player == view.player_id { actions.push(Action::ReorderDeckTop { card_ids: cards.clone() }); },
+            Prompt::OptionalDiscardAttachedEnergy { player, .. } => if *player == view.player_id { actions.push(Action::ChooseAttachedEnergy { energy_ids: Vec::new() }); },
+            Prompt::OptionalDiscardForEffect { player, .. } => if *player == view.player_id { actions.push(Action::DiscardCardsFromHand { card_ids: Vec::new() }); },
+            Prompt::DiscardForDrawEffect { player, count, options, .. } => if *player == view.player_id {
+                actions.push(Action::DiscardCardsFromHand { card_ids: self.pick_hand_cards_disposable(view, options, (*count).min(options.len())) });
+            },
+            Prompt::ChooseNumber { player, max, .. } | Prompt::ChooseDrawCount { player, max, .. } => if *player == view.player_id { actions.push(Action::ChooseNumber { number: *max }); },
         }
 
         actions
@@ -1220,4 +1263,33 @@ impl AiController for RandomAiV4 {
         actions.push(Action::EndTurn);
         actions
     }
+}
+
+#[cfg(test)]
+mod prompt_response_tests {
+    use super::*;
+    use tcg_core::{ActionHints, CardDefId, PlayerId, PokemonView, RevealedCard};
+    use tcg_core::timers::TimerView;
+    use tcg_rules_ex::Phase;
+
+    fn pokemon(id: u64, hp: u16, damage: u16, owner: PlayerId) -> PokemonView {
+        PokemonView { card: CardInstance { id: CardInstanceId::new(id), def_id: CardDefId::new(format!("P-{id}")), owner }, attached_energy: vec![], attached_tool: None, damage_counters: damage, hp, weakness: None, resistance: None, types: vec![Type::Colorless], is_ex: false, is_star: false, special_conditions: vec![] }
+    }
+    fn answer(prompt: Prompt) -> Action {
+        let view = GameView { player_id: PlayerId::P1, my_hand: vec![CardInstance { id: CardInstanceId::new(30), def_id: CardDefId::new("TRAINER"), owner: PlayerId::P1 }], my_deck_count: 10, my_discard: vec![], my_prizes_count: 6, my_revealed_prizes: vec![], my_active: Some(pokemon(1, 100, 4, PlayerId::P1)), my_bench: vec![pokemon(2, 100, 1, PlayerId::P1), pokemon(3, 120, 0, PlayerId::P1)], opponent_hand_count: 0, opponent_deck_count: 10, opponent_discard: vec![], opponent_prizes_count: 6, opponent_revealed_prizes: vec![], opponent_active: Some(pokemon(10, 100, 0, PlayerId::P2)), opponent_bench: vec![pokemon(11, 100, 8, PlayerId::P2)], current_player: PlayerId::P1, phase: Phase::Main, pending_prompt: Some(prompt.clone()), stadium_in_play: None, action_hints: ActionHints::default(), unhealthy: false, invariant_violations: vec![], timer: TimerView::default() };
+        RandomAiV4::new(7).propose_prompt_response(&view, &prompt).remove(0)
+    }
+
+    #[test] fn coin_flip_for_effect() { assert!(matches!(answer(Prompt::CoinFlipForEffect { player: PlayerId::P1, effect_description: "flip".into() }), Action::ConfirmPrompt)); }
+    #[test] fn reveal_cards() { assert!(matches!(answer(Prompt::RevealCards { player: PlayerId::P1, cards: vec![RevealedCard { id: CardInstanceId::new(30), def_id: "X".into(), name: "X".into() }], source_description: "look".into() }), Action::ConfirmPrompt)); }
+    #[test] fn choose_pokemon_targets() { assert!(matches!(answer(Prompt::ChoosePokemonTargets { player: PlayerId::P1, min: 1, max: 1, valid_targets: vec![CardInstanceId::new(2), CardInstanceId::new(1)], effect_description: "heal".into() }), Action::ChoosePokemonTargets { target_ids } if target_ids == vec![CardInstanceId::new(1)])); }
+    #[test] fn choose_targets() { assert!(matches!(answer(Prompt::ChooseTargets { player: PlayerId::P1, count: 1, options: vec![CardInstanceId::new(11), CardInstanceId::new(10)], effect_description: "damage".into() }), Action::ChoosePokemonTargets { target_ids } if target_ids == vec![CardInstanceId::new(10)])); }
+    #[test] fn select_benched_pokemon() { assert!(matches!(answer(Prompt::SelectBenchedPokemon { player: PlayerId::P1, target_player_idx: 1, count: 1, effect_description: "gust".into() }), Action::ChoosePokemonTargets { target_ids } if target_ids == vec![CardInstanceId::new(11)])); }
+    #[test] fn opponent_selects_benched_pokemon() { assert!(matches!(answer(Prompt::OpponentSelectsBenchedPokemon { player: PlayerId::P1, effect_description: "choose".into() }), Action::ChoosePokemonTargets { target_ids } if target_ids == vec![CardInstanceId::new(3)])); }
+    #[test] fn reorder_cards() { assert!(matches!(answer(Prompt::ReorderCards { player: PlayerId::P1, cards: vec![CardInstanceId::new(40), CardInstanceId::new(41)], destination_description: "deck".into() }), Action::ReorderDeckTop { card_ids } if card_ids == vec![CardInstanceId::new(40), CardInstanceId::new(41)])); }
+    #[test] fn optional_discard_attached_energy() { assert!(matches!(answer(Prompt::OptionalDiscardAttachedEnergy { player: PlayerId::P1, source_id: CardInstanceId::new(1), options: vec![], effect_description: "optional".into(), follow_up_search_zone: "deck".into(), attach_to: CardInstanceId::new(2) }), Action::ChooseAttachedEnergy { energy_ids } if energy_ids.is_empty())); }
+    #[test] fn optional_discard_for_effect() { assert!(matches!(answer(Prompt::OptionalDiscardForEffect { player: PlayerId::P1, options: vec![CardInstanceId::new(30)], effect_description: "optional".into(), follow_up_targets: vec![], damage_amount: 10 }), Action::DiscardCardsFromHand { card_ids } if card_ids.is_empty())); }
+    #[test] fn discard_for_draw_effect() { assert!(matches!(answer(Prompt::DiscardForDrawEffect { player: PlayerId::P1, count: 1, options: vec![CardInstanceId::new(30)], base_draw: 1, bonus_draw_condition: "none".into(), bonus_draw: 0 }), Action::DiscardCardsFromHand { card_ids } if card_ids == vec![CardInstanceId::new(30)])); }
+    #[test] fn choose_number() { assert!(matches!(answer(Prompt::ChooseNumber { player: PlayerId::P1, min: 1, max: 4, effect_description: "number".into() }), Action::ChooseNumber { number: 4 })); }
+    #[test] fn choose_draw_count() { assert!(matches!(answer(Prompt::ChooseDrawCount { player: PlayerId::P1, min: 0, max: 3 }), Action::ChooseNumber { number: 3 })); }
 }

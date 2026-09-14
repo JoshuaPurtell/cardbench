@@ -12,7 +12,6 @@ use crate::player::PokemonSlot;
 use crate::prompt::{Prompt, SelectionDestination};
 use crate::{
     apply_damage_modifier,
-    calculate_damage_with_flags,
     execute_attack,
     Attack,
     CombatError,
@@ -49,6 +48,8 @@ pub enum Action {
     ChoosePokemonAttack { attack_name: String },
     ChooseSpecialCondition { condition: SpecialCondition },
     ChoosePrizeCards { card_ids: Vec<CardInstanceId> },
+    ConfirmPrompt,
+    ChooseNumber { number: usize },
     /// Choose a new active Pokemon from bench after knockout
     ChooseNewActive { card_id: CardInstanceId },
     EndTurn,
@@ -91,6 +92,14 @@ pub enum ActionError {
     SupporterNotAllowedThisTurn,
     #[error("trainer cards cannot be played this turn")]
     TrainerNotAllowedThisTurn,
+}
+
+fn validate_targets(target_ids: &[CardInstanceId], options: &[CardInstanceId], min: usize, max: usize) -> Result<(), ActionError> {
+    let unique: HashSet<_> = target_ids.iter().copied().collect();
+    if unique.len() != target_ids.len() || target_ids.len() < min || target_ids.len() > max || target_ids.iter().any(|id| !options.contains(id)) {
+        return Err(ActionError::InvalidPrompt);
+    }
+    Ok(())
 }
 
 fn effect_is_pre_damage_modifier(effect: &crate::EffectAst) -> bool {
@@ -267,26 +276,9 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             ) {
                 return Err(ActionError::InvalidPhase);
             }
-            if crate::custom_abilities::def_id_matches(
-                &game
-                    .current_player()
-                    .hand
-                    .get(*energy_id)
-                    .ok_or(ActionError::CardNotInHand)?
-                    .def_id,
-                "CG",
-                88,
-            ) {
-                let target = game
-                    .current_player()
-                    .active
-                    .as_ref()
-                    .filter(|slot| slot.card.id == *target_id)
-                    .or_else(|| game.current_player().bench.iter().find(|slot| slot.card.id == *target_id))
-                    .ok_or(ActionError::TargetNotFound)?;
-                if target.stage == crate::Stage::Basic {
-                    return Err(ActionError::InvalidCardType);
-                }
+            // Card rules such as "attach only to an Evolved Pokemon" come from hooks.
+            if !crate::custom_abilities::can_attach_energy(game, acting_player, *energy_id, *target_id) {
+                return Err(ActionError::InvalidCardType);
             }
             if game.current_player().energy_attached_this_turn {
                 return Err(ActionError::EnergyAlreadyAttached);
@@ -469,7 +461,7 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             if game.has_marker(attacker.card.id, "CannotAttack") {
                 return Err(ActionError::InvalidPhase);
             }
-            if attack.name == "Mega Burn" && game.has_marker(attacker.card.id, "Mega Burn") {
+            if !attack.name.is_empty() && game.has_marker(attacker.card.id, &attack.name) {
                 return Err(ActionError::InvalidPhase);
             }
             if game.is_restricted(
@@ -559,6 +551,10 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             }
             let (player, pokemon_id, count, min) = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
                 Some(Prompt::ChooseAttachedEnergy { player, pokemon_id, count, min, .. }) => (*player, *pokemon_id, *count, min.unwrap_or(*count)),
+                Some(Prompt::OptionalDiscardAttachedEnergy { player, source_id, options, .. }) => {
+                    if energy_ids.len() > 1 || energy_ids.iter().any(|id| !options.contains(id)) { return Err(ActionError::InvalidPrompt); }
+                    (*player, *source_id, 1, 0)
+                }
                 _ => return Err(ActionError::InvalidPrompt),
             };
             // Validate count - allow fewer if min allows it
@@ -666,28 +662,45 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             if game.pending_prompt.is_none() {
                 return Err(ActionError::InvalidPrompt);
             }
+            match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+                Some(Prompt::ChooseTargets { count, options, .. }) => {
+                    return validate_targets(target_ids, options, *count, *count);
+                }
+                Some(Prompt::SelectBenchedPokemon { target_player_idx, count, .. }) => {
+                    let player = game.players.get(*target_player_idx).ok_or(ActionError::InvalidPrompt)?;
+                    return validate_targets(target_ids, &player.bench.iter().map(|slot| slot.card.id).collect::<Vec<_>>(), *count, *count);
+                }
+                Some(Prompt::OpponentSelectsBenchedPokemon { player, .. }) => {
+                    let state = match player { crate::PlayerId::P1 => &game.players[0], crate::PlayerId::P2 => &game.players[1] };
+                    return validate_targets(target_ids, &state.bench.iter().map(|slot| slot.card.id).collect::<Vec<_>>(), 1, 1);
+                }
+                _ => {}
+            }
+            let prompt = game.pending_prompt.as_ref().map(|p| &p.prompt);
+            let (options, min, max) = match prompt {
+                Some(Prompt::ChoosePokemonInPlay { options, min, max, .. }) => {
+                    (options.as_slice(), *min, *max)
+                }
+                Some(Prompt::ChoosePokemonTargets {
+                    valid_targets,
+                    min,
+                    max,
+                    ..
+                }) => (valid_targets.as_slice(), *min, *max),
+                _ => return Err(ActionError::InvalidPrompt),
+            };
             if target_ids.is_empty() {
-                if let Some(Prompt::ChoosePokemonInPlay { min, .. }) =
-                    game.pending_prompt.as_ref().map(|p| &p.prompt)
-                {
-                    if *min > 0 {
-                        return Err(ActionError::InvalidPrompt);
-                    }
-                } else {
+                if min > 0 {
                     return Err(ActionError::InvalidPrompt);
                 }
                 return Ok(());
             }
-            if let Some(Prompt::ChoosePokemonInPlay { options, min, max, .. }) =
-                game.pending_prompt.as_ref().map(|p| &p.prompt)
-            {
-                if target_ids.len() < *min || target_ids.len() > *max {
+            if target_ids.len() < min || target_ids.len() > max {
+                return Err(ActionError::InvalidPrompt);
+            }
+            for target_id in target_ids {
+                if !options.contains(target_id) {
                     return Err(ActionError::InvalidPrompt);
-                }
-                for target_id in target_ids {
-                    if !options.contains(target_id) {
-                        return Err(ActionError::InvalidPrompt);
-                    }
                 }
             }
             Ok(())
@@ -696,9 +709,11 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             if game.pending_prompt.is_none() || card_ids.is_empty() {
                 return Err(ActionError::InvalidPrompt);
             }
-            if let Some(Prompt::ReorderDeckTop { options, .. }) =
-                game.pending_prompt.as_ref().map(|p| &p.prompt)
-            {
+            if let Some(options) = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+                Some(Prompt::ReorderDeckTop { options, .. }) => Some(options),
+                Some(Prompt::ReorderCards { cards, .. }) => Some(cards),
+                _ => None,
+            } {
                 if card_ids.len() != options.len() {
                     return Err(ActionError::InvalidPrompt);
                 }
@@ -726,6 +741,8 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
                     return_to_deck,
                     ..
                 }) => (*player, *count, options, min, max, *return_to_deck),
+                Some(Prompt::DiscardForDrawEffect { player, count, options, .. }) => (*player, (*count).min(options.len()), options, &None, &None, false),
+                Some(Prompt::OptionalDiscardForEffect { player, options, .. }) => (*player, 1, options, &Some(0), &Some(1), false),
                 _ => return Err(ActionError::InvalidPrompt),
             };
             if return_to_deck {
@@ -847,6 +864,14 @@ pub fn can_execute(game: &GameState, action: &Action) -> Result<(), ActionError>
             let _ = player;
             Ok(())
         }
+        Action::ConfirmPrompt => match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+            Some(Prompt::CoinFlipForEffect { .. } | Prompt::RevealCards { .. }) => Ok(()),
+            _ => Err(ActionError::InvalidPrompt),
+        },
+        Action::ChooseNumber { number } => match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+            Some(Prompt::ChooseNumber { min, max, .. } | Prompt::ChooseDrawCount { min, max, .. }) if number >= min && number <= max => Ok(()),
+            _ => Err(ActionError::InvalidPrompt),
+        },
         Action::CancelPrompt => {
             match game.pending_prompt.as_ref().map(|p| &p.prompt) {
                 Some(Prompt::ChooseAttack { .. }) => Ok(()),
@@ -946,9 +971,17 @@ fn action_matches_prompt(prompt: &Prompt, action: &Action) -> bool {
         (Prompt::ChooseCardsFromDeck { .. }, Action::TakeCardsFromDeck { .. }) => true,
         (Prompt::ChooseCardsFromDiscard { .. }, Action::TakeCardsFromDiscard { .. }) => true,
         (Prompt::ChoosePokemonInPlay { .. }, Action::ChoosePokemonTargets { .. }) => true,
+        (Prompt::ChoosePokemonTargets { .. }, Action::ChoosePokemonTargets { .. }) => true,
         (Prompt::ReorderDeckTop { .. }, Action::ReorderDeckTop { .. }) => true,
+        (Prompt::ChooseTargets { .. }, Action::ChoosePokemonTargets { .. }) => true,
+        (Prompt::SelectBenchedPokemon { .. }, Action::ChoosePokemonTargets { .. }) => true,
+        (Prompt::OpponentSelectsBenchedPokemon { .. }, Action::ChoosePokemonTargets { .. }) => true,
+        (Prompt::ReorderCards { .. }, Action::ReorderDeckTop { .. }) => true,
         (Prompt::ChooseAttachedEnergy { .. }, Action::ChooseAttachedEnergy { .. }) => true,
+        (Prompt::OptionalDiscardAttachedEnergy { .. }, Action::ChooseAttachedEnergy { .. }) => true,
         (Prompt::ChooseCardsFromHand { .. }, Action::DiscardCardsFromHand { .. }) => true,
+        (Prompt::DiscardForDrawEffect { .. }, Action::DiscardCardsFromHand { .. }) => true,
+        (Prompt::OptionalDiscardForEffect { .. }, Action::DiscardCardsFromHand { .. }) => true,
         (Prompt::ChooseCardsFromHand { .. }, Action::ReturnCardsFromHandToDeck { .. }) => true,
         (Prompt::ChooseCardsInPlay { .. }, Action::ChooseCardsInPlay { .. }) => true,
         (Prompt::ChooseDefenderAttack { .. }, Action::ChooseDefenderAttack { .. }) => true,
@@ -956,6 +989,9 @@ fn action_matches_prompt(prompt: &Prompt, action: &Action) -> bool {
         (Prompt::ChooseSpecialCondition { .. }, Action::ChooseSpecialCondition { .. }) => true,
         (Prompt::ChoosePrizeCards { .. }, Action::ChoosePrizeCards { .. }) => true,
         (Prompt::ChooseNewActive { .. }, Action::ChooseNewActive { .. }) => true,
+        (Prompt::CoinFlipForEffect { .. }, Action::ConfirmPrompt) => true,
+        (Prompt::RevealCards { .. }, Action::ConfirmPrompt) => true,
+        (Prompt::ChooseNumber { .. } | Prompt::ChooseDrawCount { .. }, Action::ChooseNumber { .. }) => true,
         (_, Action::Concede) => true,
         _ => false,
     }
@@ -970,6 +1006,11 @@ fn add_turn_marker(game: &mut GameState, pokemon_id: CardInstanceId, name: &str)
 pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, ActionError> {
     can_execute(game, &action)?;
     match action {
+        Action::ConfirmPrompt => {
+            if let Some(Prompt::CoinFlipForEffect { player, .. }) = game.pending_prompt.as_ref().map(|p| &p.prompt) { game.flip_coin_for(*player); }
+            Ok(Vec::new())
+        }
+        Action::ChooseNumber { .. } => Ok(Vec::new()),
         Action::Draw => {
             let draw_allowed = !(game.turn.number == 0
                 && game.turn.player == crate::PlayerId::P1
@@ -1109,19 +1150,13 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     if meta.hp > 0 {
                         target.hp = meta.hp;
                     }
-                    if target.types.is_empty() && !meta.types.is_empty() {
+                    if !meta.types.is_empty() {
                         target.types = meta.types.clone();
                     }
-                    if target.weakness.is_none() && meta.weakness.is_some() {
-                        target.weakness = meta.weakness;
-                    }
-                    if target.resistance.is_none() && meta.resistance.is_some() {
-                        target.resistance = meta.resistance;
-                    }
-                    if target.retreat_cost == 0 {
-                        if let Some(retreat) = meta.retreat_cost {
-                            target.retreat_cost = retreat;
-                        }
+                    target.weakness = meta.weakness;
+                    target.resistance = meta.resistance;
+                    if let Some(retreat) = meta.retreat_cost {
+                        target.retreat_cost = retreat;
                     }
                     // Update attacks to the evolved Pokemon's attacks
                     if !meta.attacks.is_empty() {
@@ -1136,6 +1171,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             game.clear_restrictions_for_source(old_id);
             game.clear_stat_modifiers_for_source(old_id);
             register_card_triggers(game, &slot_clone);
+            crate::apply_tool_stadium_effects(game);
             game.emit_trigger(crate::TriggerEvent::OnEvolveFromHand {
                 player,
                 pokemon_id: new_id,
@@ -1159,6 +1195,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 target_id,
                 crate::EnergyAttachmentSource::Hand,
             );
+            crate::apply_tool_stadium_effects(game);
             let event = GameEvent::EnergyAttached {
                 player: game.turn.player,
                 pokemon_id: target_id,
@@ -1261,7 +1298,12 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 source_id,
                 power_name,
             });
-            Ok(Vec::new())
+            // Reactive powers may place lethal damage counters. Resolve them before
+            // settling KOs so apply_action cannot return to Main with a KO in play.
+            game.resolve_triggers();
+            let mut events = Vec::new();
+            settle_effect_knockouts(game, &mut events);
+            Ok(events)
         }
         Action::DeclareAttack { attack } => {
             // Check if attacker exists and get confused status early
@@ -1370,7 +1412,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 .ok_or(ActionError::InvalidPhase)?
                 .clone();
             let defender_id = defender.card.id;
-            if game.has_marker(defender_id, "Smokescreen") {
+            if game.has_marker(attacker_id, "Smokescreen") {
                 let heads = game.flip_coin();
                 if !heads {
                     let event = GameEvent::AttackDeclared {
@@ -1438,9 +1480,10 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 attack_override.damage = total.min(u16::MAX as u32) as u16;
                 skip_post_damage_effect = true;
             }
-            let base_damage = calculate_damage_with_flags(
-                &attack_override,
+            let base_damage = crate::combat::calculate_damage_for_types(
+                attack_override.damage,
                 &defender,
+                &game.weakness_types_for(attacker_id, &attack_override),
                 overrides.ignore_weakness,
                 overrides.ignore_resistance,
             );
@@ -1460,6 +1503,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             if let Some(amount) = manual_damage {
                 damage = amount;
             }
+            game.resolving_attack = Some((attacker_id, attack_override.clone()));
             if !overrides.prevent_damage {
                 if overrides.ignore_weakness || overrides.ignore_resistance {
                     let (original_weakness, original_resistance) = {
@@ -1541,9 +1585,11 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     target_id: defender_id,
                     amount: damage,
                 });
+            }
+            // Preventing damage does not skip the attack's other effects; effect prevention
+            // is decided per recipient when targets resolve (frozen groupa patch).
+            {
                 let effect_outcome = if manual_damage.is_some() || skip_post_damage_effect {
-                    crate::EffectOutcome::Applied
-                } else if game.prevents_attack_effects(attacker_id, defender_id) {
                     crate::EffectOutcome::Applied
                 } else {
                     match attack.effect_ast.as_ref() {
@@ -1562,14 +1608,11 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     });
                     return Ok(events);
                 }
+                // Frozen groupa Banette patch: prevented damage does not skip post-attack hooks.
                 crate::apply_post_attack_custom(game, attacker_id, defender_id, damage);
             }
             crate::after_attack(game, attacker_id, defender_id);
-            if attack.name == "Mega Burn" {
-                let mut marker = crate::markers::Marker::new("Mega Burn");
-                marker.expires_after_turn = Some(game.turn.number + 1);
-                let _ = game.add_marker(attacker_id, marker);
-            }
+
             if let Some(attacker_slot) = game
                 .current_player()
                 .find_pokemon(attacker_id)
@@ -1581,37 +1624,15 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     }
                 }
             }
-            let should_discard_attached_tool = game
-                .current_player()
-                .find_pokemon(attacker_id)
-                .or_else(|| game.opponent_player().find_pokemon(attacker_id))
-                .and_then(|slot| slot.attached_tool.as_ref())
-                .map(|tool| tool_discard_timing(game, tool) == Some("EndOfTurnIfAttacked"))
-                .unwrap_or(false);
-            let memory_berry = if should_discard_attached_tool {
-                if let Some(slot) = game.current_player_mut().find_pokemon_mut(attacker_id) {
-                    slot.attached_tool.take()
-                } else if let Some(slot) = game.opponent_player_mut().find_pokemon_mut(attacker_id) {
-                    slot.attached_tool.take()
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-            if let Some(tool) = memory_berry {
-                let owner_index = match tool.owner {
-                    crate::PlayerId::P1 => 0,
-                    crate::PlayerId::P2 => 1,
-                };
-                game.players[owner_index].discard.add(tool);
-            }
+            // EndOfTurnIfAttacked tools stay attached until the end-of-turn discard scheduled above,
+            // which logs ToolDiscarded.
             let outcomes = crate::combat::check_knockouts_all_with_cause(
                 game,
                 crate::KnockoutCause::AttackBy(game.turn.player),
             );
             let ko_events = game.collect_knockout_events(&outcomes);
             events.extend(ko_events);
+            game.resolving_attack = None;
             game.turn.phase = Phase::EndOfTurn;
             Ok(events)
         }
@@ -1693,7 +1714,12 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 count: cost,
                 min: None, // Required for retreat
                 target_id: None,
-                options: Vec::new(),
+                options: game
+                    .current_player()
+                    .active
+                    .as_ref()
+                    .map(|slot| slot.attached_energy.iter().map(|energy| energy.id).collect())
+                    .unwrap_or_default(),
                 destination: SelectionDestination::default(),
             };
             game.set_pending_prompt(prompt.clone(), game.turn.player);
@@ -1701,6 +1727,15 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             Ok(Vec::new())
         }
         Action::ChooseAttachedEnergy { energy_ids } => {
+            if let Some(Prompt::OptionalDiscardAttachedEnergy { player, source_id, .. }) = game.pending_prompt.as_ref().map(|p| &p.prompt).cloned() {
+                let idx = match player { crate::PlayerId::P1 => 0, crate::PlayerId::P2 => 1 };
+                if let Some(slot) = game.players[idx].find_pokemon_mut(source_id) {
+                    let mut discarded = Vec::new();
+                    slot.attached_energy.retain(|energy| { if energy_ids.contains(&energy.id) { discarded.push(energy.clone()); false } else { true } });
+                    for energy in discarded { game.players[idx].discard.add(energy); }
+                }
+                return Ok(Vec::new());
+            }
             let (player, pokemon_id, count, prompt_min) = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
                 Some(Prompt::ChooseAttachedEnergy { player, pokemon_id, count, min, .. }) => (*player, *pokemon_id, *count, min.unwrap_or(*count)),
                 _ => return Err(ActionError::InvalidPrompt),
@@ -1746,7 +1781,9 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 resolve_pending_effect(game)?;
                 let mut events = Vec::new();
                 finalize_pending_trainer(game);
-                finalize_pending_attack(game, &mut events);
+                if !finalize_pending_attack(game, &mut events) {
+                    settle_effect_knockouts(game, &mut events);
+                }
                 return Ok(events);
             }
 
@@ -1801,11 +1838,12 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     return Ok(Vec::new());
                 }
 
-                let prompt = Prompt::ChoosePokemonInPlay {
+                let prompt = Prompt::ChoosePokemonTargets {
                     player,
-                    options: target_options,
                     min: 1,
                     max: 1,
+                    valid_targets: target_options,
+                    effect_description: String::new(),
                 };
                 game.set_pending_prompt(prompt, player);
                 game.pending_move_energy = Some(updated_pending);
@@ -1855,6 +1893,30 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 Some(Prompt::ChooseCardsFromDeck { shuffle, .. }) => *shuffle,
                 _ => return Err(ActionError::InvalidPrompt),
             };
+            if matches!(destination, SelectionDestination::Bench) {
+                // Validate before anything moves: a full Bench or a non-Basic must never
+                // lose a card or leave the effect half-resolved.
+                let index = match target_player {
+                    crate::PlayerId::P1 => 0,
+                    crate::PlayerId::P2 => 1,
+                };
+                let free = 5usize.saturating_sub(game.players[index].bench.len());
+                if card_ids.len() > free {
+                    return Err(ActionError::BenchFull);
+                }
+                for card_id in &card_ids {
+                    let card = game.players[index]
+                        .deck
+                        .get(*card_id)
+                        .ok_or(ActionError::TargetNotFound)?;
+                    let basic = game
+                        .get_card_meta(&card.def_id)
+                        .is_some_and(|meta| meta.is_pokemon && meta.is_basic);
+                    if !basic {
+                        return Err(ActionError::InvalidCardType);
+                    }
+                }
+            }
             // We're resolving the prompt now; clear it so the same selection cannot be submitted
             // repeatedly (which can lead to loops / unhealthy states for optional searches).
             game.pending_prompt = None;
@@ -1899,10 +1961,13 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     _ => game.players[player_index].hand.add(card),
                 }
             }
-            if let Some(effect_id) = game.pending_custom_effect_id.clone() {
+            let custom_resolved = if let Some(effect_id) = game.pending_custom_effect_id.clone() {
                 let source_id = game.pending_custom_source_id;
                 let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &card_ids);
-            }
+                true
+            } else {
+                false
+            };
             let shuffle_seed = game.rng.next_u64();
             if shuffle
                 && !matches!(
@@ -1918,7 +1983,9 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             }
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) && custom_resolved {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::TakeCardsFromDiscard { card_ids } => {
@@ -1981,11 +2048,12 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     game.pending_attach_from_discard = None;
                     return Err(ActionError::InvalidPrompt);
                 }
-                let prompt = Prompt::ChoosePokemonInPlay {
+                let prompt = Prompt::ChoosePokemonTargets {
                     player: pending_player,
-                    options,
                     min: card_ids.len(),
                     max: card_ids.len(),
+                    valid_targets: options,
+                    effect_description: String::new(),
                 };
                 game.set_pending_prompt(prompt, pending_player);
                 return Ok(events);
@@ -2031,18 +2099,25 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     _ => game.players[player_index].hand.add(card),
                 }
             }
-            if let Some(effect_id) = game.pending_custom_effect_id.clone() {
+            let custom_resolved = if let Some(effect_id) = game.pending_custom_effect_id.clone() {
                 let source_id = game.pending_custom_source_id;
                 let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &card_ids);
-            }
+                true
+            } else {
+                false
+            };
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) && custom_resolved {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::ChoosePokemonTargets { target_ids } => {
             let mut events = Vec::new();
+            let legacy = matches!(game.pending_prompt.as_ref().map(|p| &p.prompt), Some(Prompt::ChooseTargets { .. } | Prompt::SelectBenchedPokemon { .. } | Prompt::OpponentSelectsBenchedPokemon { .. }));
             game.pending_prompt = None;
+            if legacy { return Ok(events); }
             if let Some(pending) = game.pending_attach_from_discard.clone() {
                 if target_ids.len() != pending.selected_energy_ids.len() {
                     return Err(ActionError::InvalidPrompt);
@@ -2082,6 +2157,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                         crate::EnergyAttachmentSource::Discard,
                     );
                 }
+                crate::apply_tool_stadium_effects(game);
                 if pending.end_turn {
                     game.turn.phase = Phase::EndOfTurn;
                 }
@@ -2143,12 +2219,9 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     Some(&target_ids),
                 );
                 finalize_pending_trainer(game);
+                // Knock Outs during a still-pending attack wait for the attack to finish.
                 if !finalize_pending_attack(game, &mut events) {
-                    let outcomes = crate::combat::check_knockouts_all_with_cause(
-                        game,
-                        crate::KnockoutCause::AttackBy(game.turn.player),
-                    );
-                    events.extend(game.collect_knockout_events(&outcomes));
+                    settle_effect_knockouts(game, &mut events);
                 }
             } else {
                 let effect_id = match game.pending_custom_effect_id.clone() {
@@ -2156,25 +2229,33 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     None => return Err(ActionError::InvalidPrompt),
                 };
                 let source_id = game.pending_custom_source_id;
+                let prompt_version = game.pending_prompt_version;
                 if !crate::resolve_custom_prompt(game, &effect_id, source_id, &target_ids) {
                     return Err(ActionError::InvalidPrompt);
                 }
-                game.pending_custom_effect_id = None;
-                game.pending_custom_source_id = None;
+                // A follow-up custom prompt opened by the hook keeps its own id.
+                if game.pending_prompt_version == prompt_version {
+                    game.pending_custom_effect_id = None;
+                    game.pending_custom_source_id = None;
+                }
                 finalize_pending_trainer(game);
-                finalize_pending_attack(game, &mut events);
+                if !finalize_pending_attack(game, &mut events) {
+                    settle_effect_knockouts(game, &mut events);
+                }
             }
             Ok(events)
         }
         Action::ReorderDeckTop { card_ids } => {
             let mut events = Vec::new();
-            let player = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
-                Some(Prompt::ReorderDeckTop { player, .. }) => *player,
+            let (player, legacy) = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+                Some(Prompt::ReorderDeckTop { player, .. }) => (*player, false),
+                Some(Prompt::ReorderCards { player, .. }) => (*player, true),
                 _ => return Err(ActionError::InvalidPrompt),
             };
             if !game.reorder_top_of_deck(player, &card_ids) {
-                return Err(ActionError::InvalidPrompt);
+                if !legacy { return Err(ActionError::InvalidPrompt); }
             }
+            if legacy { return Ok(events); }
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
             finalize_pending_attack(game, &mut events);
@@ -2182,35 +2263,26 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
         }
         Action::DiscardCardsFromHand { card_ids } => {
             let mut events = Vec::new();
-            let target_player = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
-                Some(Prompt::ChooseCardsFromHand { player, .. }) => *player,
+            let (target_player, legacy) = match game.pending_prompt.as_ref().map(|p| &p.prompt) {
+                Some(Prompt::ChooseCardsFromHand { player, .. }) => (*player, false),
+                Some(Prompt::DiscardForDrawEffect { player, .. }) => (*player, true),
+                Some(Prompt::OptionalDiscardForEffect { player, .. }) => (*player, true),
                 _ => return Err(ActionError::InvalidPrompt),
             };
             let discarded_ids = card_ids.clone();
             if let Some(effect_id) = game.pending_custom_effect_id.clone() {
-                if effect_id == "DF-5:Sharing" {
-                    let source_id = game.pending_custom_source_id;
-                    let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids);
-                    game.pending_custom_effect_id = None;
-                    game.pending_custom_source_id = None;
+                let source_id = game.pending_custom_source_id;
+                let prompt_version = game.pending_prompt_version;
+                if crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids) {
+                    // A follow-up custom prompt opened by the hook keeps its own id.
+                    if game.pending_prompt_version == prompt_version {
+                        game.pending_custom_effect_id = None;
+                        game.pending_custom_source_id = None;
+                    }
                     finalize_pending_trainer(game);
-                    finalize_pending_attack(game, &mut events);
-                    return Ok(events);
-                }
-                if effect_id.ends_with(":Baby Evolution") {
-                    let source_id = game.pending_custom_source_id;
-                    let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids);
-                    game.pending_custom_effect_id = None;
-                    game.pending_custom_source_id = None;
-                    finalize_pending_trainer(game);
-                    finalize_pending_attack(game, &mut events);
-                    return Ok(events);
-                }
-                if effect_id == "DF-90:Extra Boost" || effect_id == "DF-95:Fellow Boost" {
-                    let source_id = game.pending_custom_source_id;
-                    let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids);
-                    finalize_pending_trainer(game);
-                    finalize_pending_attack(game, &mut events);
+                    if !finalize_pending_attack(game, &mut events) {
+                        settle_effect_knockouts(game, &mut events);
+                    }
                     return Ok(events);
                 }
             }
@@ -2225,13 +2297,19 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                     return Err(ActionError::CardNotInHand);
                 }
             }
-            if let Some(effect_id) = game.pending_custom_effect_id.clone() {
+            if legacy { return Ok(events); }
+            let custom_resolved = if let Some(effect_id) = game.pending_custom_effect_id.clone() {
                 let source_id = game.pending_custom_source_id;
                 let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids);
-            }
+                true
+            } else {
+                false
+            };
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) && custom_resolved {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::ReturnCardsFromHandToDeck { card_ids } => {
@@ -2285,6 +2363,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                             crate::PlayerId::P1 => 0,
                             crate::PlayerId::P2 => 1,
                         };
+                        events.push(GameEvent::StadiumDiscarded { player: stadium.owner, stadium_id: stadium.id });
                         to_discard.push((owner_index, stadium));
                     }
                     continue;
@@ -2298,6 +2377,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                                     crate::PlayerId::P1 => 0,
                                     crate::PlayerId::P2 => 1,
                                 };
+                                events.push(GameEvent::ToolDiscarded { player: tool.owner, tool_id: tool.id });
                                 to_discard.push((owner_index, tool));
                             }
                             removed = true;
@@ -2311,6 +2391,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                                     crate::PlayerId::P1 => 0,
                                     crate::PlayerId::P2 => 1,
                                 };
+                                events.push(GameEvent::ToolDiscarded { player: tool.owner, tool_id: tool.id });
                                 to_discard.push((owner_index, tool));
                             }
                             removed = true;
@@ -2369,13 +2450,18 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             }
             game.reveal_cards(player, &card_ids);
             game.pending_prompt = None;
-            if let Some(effect_id) = game.pending_custom_effect_id.clone() {
+            let custom_resolved = if let Some(effect_id) = game.pending_custom_effect_id.clone() {
                 let source_id = game.pending_custom_source_id;
                 let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &card_ids);
-            }
+                true
+            } else {
+                false
+            };
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) && custom_resolved {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::ChooseDefenderAttack { attack_name } => {
@@ -2402,6 +2488,7 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
             let mut marker = crate::markers::Marker::new(&marker_name);
             marker.expires_after_turn = Some(game.turn.number + 1);
             let _ = game.add_marker(defender_id, marker);
+            game.pending_prompt = None;
             resolve_pending_effect(game)?;
             finalize_pending_trainer(game);
             finalize_pending_attack(game, &mut events);
@@ -2435,7 +2522,9 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 game.pending_custom_source_id = None;
             }
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::ChooseSpecialCondition { condition } => {
@@ -2467,7 +2556,9 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 game.pending_custom_source_id = None;
             }
             finalize_pending_trainer(game);
-            finalize_pending_attack(game, &mut events);
+            if !finalize_pending_attack(game, &mut events) {
+                settle_effect_knockouts(game, &mut events);
+            }
             Ok(events)
         }
         Action::ChooseNewActive { card_id } => {
@@ -2570,9 +2661,10 @@ fn resolve_attack_after_pre_damage(
         let adjusted = attack_override.damage as i32 + overrides.pre_weakness_modifier;
         attack_override.damage = adjusted.max(0) as u16;
     }
-    let base_damage = calculate_damage_with_flags(
-        &attack_override,
+    let base_damage = crate::combat::calculate_damage_for_types(
+        attack_override.damage,
         &defender,
+        &game.weakness_types_for(attacker_id, &attack_override),
         overrides.ignore_weakness,
         overrides.ignore_resistance,
     );
@@ -2592,6 +2684,7 @@ fn resolve_attack_after_pre_damage(
     if let Some(amount) = manual_damage {
         damage = amount;
     }
+    game.resolving_attack = Some((attacker_id, attack_override.clone()));
     if !overrides.prevent_damage {
         if overrides.ignore_weakness || overrides.ignore_resistance {
             let (original_weakness, original_resistance) = {
@@ -2674,9 +2767,11 @@ fn resolve_attack_after_pre_damage(
             target_id: defender_id,
             amount: damage,
         });
+    }
+    // Preventing damage does not skip the attack's other effects; effect prevention
+    // is decided per recipient when targets resolve (frozen groupa patch).
+    {
         let effect_outcome = if manual_damage.is_some() || skip_post_damage_effect {
-            crate::EffectOutcome::Applied
-        } else if game.prevents_attack_effects(attacker_id, defender_id) {
             crate::EffectOutcome::Applied
         } else {
             match attack.effect_ast.as_ref() {
@@ -2693,14 +2788,11 @@ fn resolve_attack_after_pre_damage(
             });
             return Ok(events);
         }
+        // Frozen groupa Banette patch: prevented damage does not skip post-attack hooks.
         crate::apply_post_attack_custom(game, attacker_id, defender_id, damage);
     }
     crate::after_attack(game, attacker_id, defender_id);
-    if attack.name == "Mega Burn" {
-        let mut marker = crate::markers::Marker::new("Mega Burn");
-        marker.expires_after_turn = Some(game.turn.number + 1);
-        let _ = game.add_marker(attacker_id, marker);
-    }
+
     if let Some(attacker_slot) = game
         .current_player()
         .find_pokemon(attacker_id)
@@ -2712,43 +2804,31 @@ fn resolve_attack_after_pre_damage(
             }
         }
     }
-    let should_discard_attached_tool = game
-        .current_player()
-        .find_pokemon(attacker_id)
-        .or_else(|| game.opponent_player().find_pokemon(attacker_id))
-        .and_then(|slot| slot.attached_tool.as_ref())
-        .map(|tool| tool_discard_timing(game, tool) == Some("EndOfTurnIfAttacked"))
-        .unwrap_or(false);
-    let memory_berry = if should_discard_attached_tool {
-        if let Some(slot) = game.current_player_mut().find_pokemon_mut(attacker_id) {
-            slot.attached_tool.take()
-        } else if let Some(slot) = game.opponent_player_mut().find_pokemon_mut(attacker_id) {
-            slot.attached_tool.take()
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    if let Some(tool) = memory_berry {
-        let owner_index = match tool.owner {
-            crate::PlayerId::P1 => 0,
-            crate::PlayerId::P2 => 1,
-        };
-        game.players[owner_index].discard.add(tool);
-    }
+    // EndOfTurnIfAttacked tools stay attached until the end-of-turn discard scheduled above,
+    // which logs ToolDiscarded.
     let outcomes = crate::combat::check_knockouts_all_with_cause(
         game,
         crate::KnockoutCause::AttackBy(game.turn.player),
     );
     let ko_events = game.collect_knockout_events(&outcomes);
     events.extend(ko_events);
+    game.resolving_attack = None;
     game.turn.phase = Phase::EndOfTurn;
     Ok(events)
 }
 
-fn finalize_pending_attack(game: &mut GameState, events: &mut Vec<GameEvent>) -> bool {
+/// Finish an attack left pending with no prompt outstanding (safety net for the step loop).
+pub(crate) fn finish_pending_attack(game: &mut GameState, events: &mut Vec<GameEvent>) -> bool {
     if game.pending_prompt.is_some() {
+        return false;
+    }
+    finalize_pending_attack(game, events)
+}
+
+fn finalize_pending_attack(game: &mut GameState, events: &mut Vec<GameEvent>) -> bool {
+    // The prompt this action answers is still set while its arm runs; it must not keep a
+    // pending attack from finishing (that stalled games after a mid-attack Knock Out).
+    if game.has_new_pending_prompt() {
         return false;
     }
     let pending = match game.pending_attack.take() {
@@ -2775,6 +2855,7 @@ fn finalize_pending_attack(game: &mut GameState, events: &mut Vec<GameEvent>) ->
             }
             let outcomes = crate::check_knockouts_all(game);
             events.extend(game.collect_knockout_events(&outcomes));
+            game.resolving_attack = None;
             game.turn.phase = Phase::EndOfTurn;
             true
         }
@@ -2811,6 +2892,24 @@ fn finalize_pending_attack(game: &mut GameState, events: &mut Vec<GameEvent>) ->
     }
 }
 
+/// Knock Outs caused by a Poke-Power or a custom prompt resolved outside an attack
+/// are processed immediately, the same way an attack's are.
+fn settle_effect_knockouts(game: &mut GameState, events: &mut Vec<GameEvent>) {
+    if game.has_new_pending_prompt() || game.pending_attack.is_some() {
+        return;
+    }
+    let outcomes = crate::combat::check_knockouts_all_with_cause(
+        game,
+        crate::KnockoutCause::AttackBy(game.turn.player),
+    );
+    if outcomes.is_empty() {
+        return;
+    }
+    // Keep the damage that caused the Knock Out ahead of it in the log.
+    events.extend(game.pending_broadcast_events.drain(..));
+    events.extend(game.collect_knockout_events(&outcomes));
+}
+
 fn finalize_pending_trainer(game: &mut GameState) {
     if let Some(trainer) = game.pending_trainer.take() {
         let owner_index = match trainer.owner {
@@ -2831,7 +2930,11 @@ fn resolve_pending_effect(game: &mut GameState) -> Result<(), ActionError> {
     let outcome =
         crate::execute_effect_with_source(game, &effect_ast, source_id)
             .unwrap_or(crate::EffectOutcome::Applied);
-    if matches!(outcome, crate::EffectOutcome::Prompt(_)) && game.pending_effect_ast.is_none() {
+    if matches!(outcome, crate::EffectOutcome::Prompt(_))
+        && game.pending_effect_ast.is_none()
+        && !matches!(effect_ast, crate::EffectAst::Sequence { .. })
+        && !matches!(effect_ast, crate::EffectAst::Custom { .. })
+    {
         game.pending_effect_ast = Some(effect_ast);
         game.pending_effect_source_id = source_id;
     }
@@ -2853,7 +2956,7 @@ fn tool_discard_timing<'a>(
         .get(&tool.def_id)
         .and_then(|meta| meta.trainer_effect.as_ref())
         .and_then(|effect| effect.get("discard").and_then(Value::as_str))
-        .or_else(|| crate::cg_engine::tool_discard_timing_override(&tool.def_id))
+        .or_else(|| (game.hooks().tool_discard_timing_override)(game, &tool.def_id))
 }
 
 #[cfg(test)]
@@ -2870,11 +2973,11 @@ mod tests {
         let mut deck2 = Vec::new();
         for i in 0..60 {
             deck1.push(CardInstance::new(
-                CardDefId::new(format!("CG-{i:03}")),
+                CardDefId::new(format!("TEST-A-{i:03}")),
                 PlayerId::P1,
             ));
             deck2.push(CardInstance::new(
-                CardDefId::new(format!("DF-{i:03}")),
+                CardDefId::new(format!("TEST-B-{i:03}")),
                 PlayerId::P2,
             ));
         }
@@ -3098,5 +3201,190 @@ mod tests {
         let result = game.apply_action(PlayerId::P1, Action::Retreat { to_bench_id: bench_id });
         assert!(result.is_err());
         assert!(game.pending_prompt.is_none());
+    }
+
+    fn put_active(game: &mut GameState, player: PlayerId, def: &str) -> CardInstanceId {
+        let card = CardInstance::new(CardDefId::new(def), player);
+        let slot = game.slot_from_card(card);
+        let id = slot.card.id;
+        let index = if player == PlayerId::P1 { 0 } else { 1 };
+        game.players[index].active = Some(slot);
+        id
+    }
+
+    #[test]
+    fn test_can_attach_energy_hook_refuses_attach() {
+        let mut game = setup_game();
+        install_test_card_meta(&mut game);
+        game.turn.player = PlayerId::P1;
+        let mut hooks = crate::runtime_hooks::RuntimeHooks::empty();
+        hooks.can_attach_energy = |_, _, _, _| false;
+        game.set_hooks(hooks);
+        let active_id = put_active(&mut game, PlayerId::P1, "TEST-BASIC");
+        let energy = CardInstance::new(CardDefId::new("TEST-ENERGY"), PlayerId::P1);
+        let energy_id = energy.id;
+        game.current_player_mut().hand.add(energy);
+        assert!(execute(&mut game, Action::AttachEnergy { energy_id, target_id: active_id }).is_err());
+        assert!(game.current_player().hand.contains(energy_id));
+        game.set_hooks(crate::runtime_hooks::RuntimeHooks::empty());
+        execute(&mut game, Action::AttachEnergy { energy_id, target_id: active_id }).unwrap();
+        assert_eq!(game.current_player().active.as_ref().unwrap().attached_energy.len(), 1);
+    }
+
+    #[test]
+    fn test_energy_units_override_composes_after_double_rainbow() {
+        let mut game = setup_game();
+        install_test_card_meta(&mut game);
+        game.turn.player = PlayerId::P1;
+        let active_id = put_active(&mut game, PlayerId::P1, "TEST-BASIC");
+        let energy = CardInstance::new(CardDefId::new("TEST-ENERGY"), PlayerId::P1);
+        game.players[0].active.as_mut().unwrap().attached_energy.push(energy);
+        let attack = crate::Attack {
+            name: "Two".into(),
+            damage: 10,
+            attack_type: Type::Colorless,
+            cost: crate::AttackCost { total_energy: 2, types: vec![Type::Colorless, Type::Colorless] },
+            effect_ast: None,
+        };
+        assert!(!game.attack_cost_met(active_id, &attack), "one plain energy is one unit");
+        let mut hooks = crate::runtime_hooks::RuntimeHooks::empty();
+        hooks.is_double_rainbow = |id| id.as_str() == "TEST-ENERGY";
+        game.set_hooks(hooks);
+        assert!(game.attack_cost_met(active_id, &attack), "flagged energy counts 2 units");
+        hooks.energy_units_override = |_, _, _, units| units.min(1);
+        game.set_hooks(hooks);
+        assert!(!game.attack_cost_met(active_id, &attack), "override applies after the 2-unit rule");
+    }
+
+    #[test]
+    fn test_power_knockout_is_settled_immediately() {
+        let mut game = setup_game();
+        install_test_card_meta(&mut game);
+        game.turn.player = PlayerId::P1;
+        let source_id = put_active(&mut game, PlayerId::P1, "TEST-BASIC");
+        let target_id = put_active(&mut game, PlayerId::P2, "TEST-BASIC");
+        let mut hooks = crate::runtime_hooks::RuntimeHooks::empty();
+        hooks.execute_power = |g, _, _| {
+            let target = g.players[1].active.as_ref().unwrap().card.id;
+            let _ = g.place_damage_counters(target, 5, None, false);
+            true
+        };
+        game.set_hooks(hooks);
+        let events = execute(&mut game, Action::UsePower { source_id, power_name: "Test Power".into() }).unwrap();
+        assert!(
+            events.iter().any(|e| matches!(e, GameEvent::PokemonKnockedOut { pokemon_id } if *pokemon_id == target_id)),
+            "power damage must knock out without waiting for an attack: {events:?}"
+        );
+    }
+
+    #[test]
+    fn test_choose_defender_attack_clears_prompt() {
+        let mut game = setup_game();
+        install_test_card_meta(&mut game);
+        game.turn.player = PlayerId::P1;
+        let _ = put_active(&mut game, PlayerId::P1, "TEST-BASIC");
+        let defender_id = put_active(&mut game, PlayerId::P2, "TEST-BASIC");
+        game.set_pending_prompt(
+            Prompt::ChooseDefenderAttack { player: PlayerId::P1, defender_id, attacks: vec!["Scratch".into()] },
+            PlayerId::P1,
+        );
+        execute(&mut game, Action::ChooseDefenderAttack { attack_name: "Scratch".into() }).unwrap();
+        assert!(game.pending_prompt.is_none(), "resolved prompt must not linger and block later attacks");
+        assert!(game.has_marker(defender_id, "Amnesia:Scratch"));
+    }
+
+    #[test]
+    fn generic_acknowledgement_and_numeric_prompt_actions_complete() {
+        let mut game = setup_game();
+        game.set_pending_prompt(
+            Prompt::RevealCards {
+                player: PlayerId::P1,
+                cards: Vec::new(),
+                source_description: "test reveal".into(),
+            },
+            PlayerId::P1,
+        );
+        game.apply_action(PlayerId::P1, Action::ConfirmPrompt).unwrap();
+        assert!(game.pending_prompt.is_none());
+
+        game.set_pending_prompt(
+            Prompt::ChooseNumber {
+                player: PlayerId::P1,
+                min: 2,
+                max: 4,
+                effect_description: "test number".into(),
+            },
+            PlayerId::P1,
+        );
+        assert!(matches!(
+            game.apply_action(PlayerId::P1, Action::ChooseNumber { number: 1 }),
+            Err(ActionError::InvalidPrompt)
+        ));
+        game.apply_action(PlayerId::P1, Action::ChooseNumber { number: 4 })
+            .unwrap();
+        assert!(game.pending_prompt.is_none());
+    }
+
+    #[test]
+    fn legacy_prompt_aliases_accept_their_generic_actions() {
+        let id = CardInstanceId::new(1);
+        let prompts_and_actions = vec![
+            (
+                Prompt::ChooseTargets {
+                    player: PlayerId::P1,
+                    count: 1,
+                    options: vec![id],
+                    effect_description: String::new(),
+                },
+                Action::ChoosePokemonTargets { target_ids: vec![id] },
+            ),
+            (
+                Prompt::ReorderCards {
+                    player: PlayerId::P1,
+                    cards: vec![id],
+                    destination_description: String::new(),
+                },
+                Action::ReorderDeckTop { card_ids: vec![id] },
+            ),
+            (
+                Prompt::OptionalDiscardAttachedEnergy {
+                    player: PlayerId::P1,
+                    source_id: id,
+                    options: Vec::new(),
+                    effect_description: String::new(),
+                    follow_up_search_zone: String::new(),
+                    attach_to: id,
+                },
+                Action::ChooseAttachedEnergy { energy_ids: Vec::new() },
+            ),
+            (
+                Prompt::OptionalDiscardForEffect {
+                    player: PlayerId::P1,
+                    options: Vec::new(),
+                    effect_description: String::new(),
+                    follow_up_targets: Vec::new(),
+                    damage_amount: 10,
+                },
+                Action::DiscardCardsFromHand { card_ids: Vec::new() },
+            ),
+            (
+                Prompt::CoinFlipForEffect {
+                    player: PlayerId::P1,
+                    effect_description: String::new(),
+                },
+                Action::ConfirmPrompt,
+            ),
+            (
+                Prompt::ChooseDrawCount {
+                    player: PlayerId::P1,
+                    min: 0,
+                    max: 3,
+                },
+                Action::ChooseNumber { number: 3 },
+            ),
+        ];
+        for (prompt, action) in prompts_and_actions {
+            assert!(action_matches_prompt(&prompt, &action), "{prompt:?} vs {action:?}");
+        }
     }
 }

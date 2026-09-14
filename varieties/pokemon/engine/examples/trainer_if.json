@@ -1,0 +1,15 @@
+{
+  "set":"EX", "number":"5", "name":"If Trainer", "supertype": "Trainer", "trainer_kind":"Item", "tags":[],
+  "effect_ast": {
+    "op": "If",
+    "predicate": "Always",
+    "then_effect": {
+      "op": "DrawCards",
+      "player": "Current",
+      "count": 2
+    },
+    "else_effect": {
+      "op": "NoOp"
+    }
+  }
+}

@@ -58,7 +58,43 @@ pub fn register_card_triggers(game: &mut GameState, slot: &PokemonSlot) {
     (game.hooks().register_triggers)(game, slot);
 }
 
+fn apply_attached_tool_type_effects(game: &mut GameState) {
+    let mut updates: Vec<(CardInstanceId, Vec<Type>)> = Vec::new();
+    for player in &game.players {
+        for slot in player.active.iter().chain(player.bench.iter()) {
+            let printed = game
+                .card_meta(&slot.card.def_id)
+                .map(|meta| meta.types.clone())
+                .unwrap_or_else(|| slot.types.clone());
+            let mut types = printed;
+            if let Some(tool) = slot.attached_tool.as_ref() {
+                if let Some(effect) = game
+                    .card_meta(&tool.def_id)
+                    .and_then(|meta| meta.trainer_effect.clone())
+                {
+                    if let Some(arr) = effect.get("types").and_then(|value| value.as_array()) {
+                        let parsed: Vec<Type> = arr
+                            .iter()
+                            .filter_map(|value| serde_json::from_value(value.clone()).ok())
+                            .collect();
+                        if !parsed.is_empty() {
+                            types = parsed;
+                        }
+                    }
+                }
+            }
+            updates.push((slot.card.id, types));
+        }
+    }
+    for (id, types) in updates {
+        if let Some(slot) = game.find_pokemon_slot_mut(id) {
+            slot.types = types;
+        }
+    }
+}
+
 pub fn apply_tool_stadium_effects(game: &mut GameState) {
+    apply_attached_tool_type_effects(game);
     (game.hooks().apply_tool_stadium_effects)(game);
 }
 
@@ -69,6 +105,15 @@ pub fn can_attach_tool(
     target_id: CardInstanceId,
 ) -> bool {
     (game.hooks().can_attach_tool)(game, player, tool_id, target_id)
+}
+
+pub fn can_attach_energy(
+    game: &GameState,
+    player: crate::PlayerId,
+    energy_id: CardInstanceId,
+    target_id: CardInstanceId,
+) -> bool {
+    (game.hooks().can_attach_energy)(game, player, energy_id, target_id)
 }
 
 pub fn on_tool_attached(

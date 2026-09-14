@@ -8,8 +8,8 @@
 //! card does 10 more damage to the Defending Pokemon (before applying
 //! Weakness and Resistance).
 
-use tcg_core::{CardInstanceId, GameState};
-use tcg_core::runtime_hooks::def_id_matches;
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::{Attack, CardInstanceId, GameState};
 
 /// Card identifiers
 pub const SET: &str = "DF";
@@ -51,6 +51,19 @@ pub fn battle_aura_bonus(game: &GameState, attacker_id: CardInstanceId) -> i32 {
 // ============================================================================
 // Tests
 // ============================================================================
+
+
+
+pub fn attack_overrides(
+    game: &GameState,
+    _attack: &Attack,
+    attacker_id: CardInstanceId,
+    _defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    overrides.pre_weakness_modifier += battle_aura_bonus(game, attacker_id);
+    overrides
+}
 
 #[cfg(test)]
 mod tests {

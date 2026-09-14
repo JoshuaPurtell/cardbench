@@ -45,6 +45,9 @@ fn apply_for_player(
         let active = target.active.as_mut().ok_or(SpecialConditionError::MissingActive)?;
         let target_id = active.card.id;
         let mut poison_damage = 0u16;
+        if !active.has_special_condition(SpecialCondition::Paralyzed) {
+            active.markers.retain(|m| m.name != "ParalysisCarried");
+        }
 
         for condition in &between_turns_order {
             if !active.has_special_condition(*condition) {
@@ -56,7 +59,15 @@ fn apply_for_player(
                 }
                 SpecialCondition::Burned | SpecialCondition::Asleep => {}
                 SpecialCondition::Paralyzed => {
-                    active.remove_special_condition(SpecialCondition::Paralyzed);
+                    let carried = active.markers.iter().any(|m| m.name == "ParalysisCarried");
+                    if current_player_first {
+                        if carried {
+                            active.remove_special_condition(SpecialCondition::Paralyzed);
+                            active.markers.retain(|m| m.name != "ParalysisCarried");
+                        }
+                    } else if !carried {
+                        active.markers.push(crate::markers::Marker::new("ParalysisCarried"));
+                    }
                 }
                 SpecialCondition::Confused => {}
             }
@@ -129,19 +140,19 @@ mod tests {
         let mut deck2 = Vec::new();
         for i in 0..60 {
             deck1.push(CardInstance::new(
-                CardDefId::new(format!("CG-{i:03}")),
+                CardDefId::new(format!("TEST-A-{i:03}")),
                 PlayerId::P1,
             ));
             deck2.push(CardInstance::new(
-                CardDefId::new(format!("DF-{i:03}")),
+                CardDefId::new(format!("TEST-B-{i:03}")),
                 PlayerId::P2,
             ));
         }
         let mut game = GameState::new(deck1, deck2, 12345, RulesetConfig::default());
         let mut active1 =
-            PokemonSlot::new(CardInstance::new(CardDefId::new("CG-999"), PlayerId::P1));
+            PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-A-999"), PlayerId::P1));
         let mut active2 =
-            PokemonSlot::new(CardInstance::new(CardDefId::new("DF-999"), PlayerId::P2));
+            PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-B-999"), PlayerId::P2));
         active1.hp = 80;
         active2.hp = 80;
         game.players[0].active = Some(active1);
@@ -155,7 +166,7 @@ mod tests {
         game.players[1]
             .bench
             .push(PokemonSlot::new(CardInstance::new(
-                CardDefId::new("DF-998"),
+                CardDefId::new("TEST-B-998"),
                 PlayerId::P2,
             )));
         game

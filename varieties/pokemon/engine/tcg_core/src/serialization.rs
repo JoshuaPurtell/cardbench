@@ -171,6 +171,8 @@ impl GameState {
             rng,
             event_log: snapshot.event_log,
             pending_broadcast_events: Vec::new(),
+            resolving_attack: None,
+            answering_prompt_version: None,
             pending_prompt: snapshot.pending_prompt,
             pending_prompt_version: snapshot.pending_prompt_version,
             pending_custom_effect_id: snapshot.pending_custom_effect_id,

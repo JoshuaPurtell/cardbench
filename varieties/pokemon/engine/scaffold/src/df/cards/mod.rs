@@ -89,7 +89,270 @@ pub mod df_099_tyranitar_ex;
 pub mod df_100_charizard_star;
 pub mod df_101_mew_star;
 
-// Re-export all card modules for convenience
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::{Attack, CardDefId, CardInstanceId, GameState, PokemonSlot};
+
+pub fn attack_overrides(
+    game: &GameState,
+    attack: &Attack,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    overrides.merge(df_001_ampharos::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_002_feraligatr::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_003_heracross::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_007_nidoqueen::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_009_pinsir::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_015_dewgong::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_016_gligar::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_021_quagsire::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_023_tropius::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_025_xatu::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_032_kirlia::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_035_nidorino::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_037_seadra::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_039_smeargle::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_049_feebas::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_060_ralts::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_065_swablu::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_094_kingdra_ex::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_098_salamence_ex::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides.merge(df_099_tyranitar_ex::attack_overrides(game, attack, attacker_id, defender_id));
+    overrides
+}
+
+pub fn attack_cost_modifier(game: &GameState, attacker_id: CardInstanceId, attack: &Attack) -> i32 {
+    df_097_rayquaza_ex::attack_cost_modifier(game, attacker_id, attack)
+}
+
+pub fn execute_power(game: &mut GameState, power_name: &str, source_id: CardInstanceId) -> bool {
+    match power_name {
+        "Dozing" => df_010_snorlax::execute_dozing(game, source_id),
+        "Sharing" => df_005_milotic::execute_sharing(game, source_id),
+        "Invitation" => df_007_nidoqueen::execute_invitation(game, source_id),
+        "Evolutionary Call" => df_004_meganium::execute_evolutionary_call(game, source_id),
+        "Volunteer" => df_008_ninetales::execute_volunteer(game, source_id),
+        "Shady Move" => df_012_typhlosion::execute_shady_move(game, source_id),
+        "Prowl" => df_018_ledian::execute_prowl(game, source_id),
+        "Power Circulation" => df_020_mantine::execute_power_circulation(game, source_id),
+        "Dig Up" => df_021_quagsire::execute_dig_up(game, source_id),
+        "Tropical Heal" => df_023_tropius::execute_tropical_heal(game, source_id),
+        "Sand Damage" => df_092_flygon_ex::execute_sand_damage(game, source_id),
+        "Imprison" => df_093_gardevoir_ex::execute_imprison(game, source_id),
+        "Type Shift" => df_098_salamence_ex::execute_type_shift(game, source_id),
+        "Power of Evolution" => df_029_electabuzz::execute_power_of_evolution(game, source_id),
+        "Baby Evolution" => crate::df::helpers::execute_baby_evolution(game, source_id),
+        "Extra Boost" => df_090_altaria_ex::execute_extra_boost(game, source_id),
+        "Fellow Boost" => df_095_latias_ex::execute_fellow_boost(game, source_id),
+        "Dark Horn" => df_006_nidoking::execute_dark_horn(game, source_id),
+        "Delta Copy" => df_011_togetic::execute_delta_copy(game, source_id),
+        "Alluring Kiss" => df_064_smoochum::execute_alluring_kiss(game, source_id),
+        "Dragon Roar" => df_091_dragonite_ex::execute_dragon_roar(game, source_id),
+        "Dual Stream" => df_098_salamence_ex::execute_dual_stream(game, source_id),
+        "Shock-wave" => df_099_tyranitar_ex::execute_shock_wave(game, source_id),
+        "Rotating Claws" => df_100_charizard_star::execute_rotating_claws(game, source_id),
+        "Mimicry" => df_101_mew_star::execute_mimicry(game, source_id),
+        "Rainbow Wave" => df_101_mew_star::execute_rainbow_wave(game, source_id),
+        _ => false,
+    }
+}
+
+pub fn after_attack(
+    game: &mut GameState,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) {
+    df_098_salamence_ex::after_attack(game, attacker_id, defender_id);
+}
+
+pub fn register_triggers(game: &mut GameState, slot: &PokemonSlot) {
+    df_004_meganium::register_triggers(game, slot);
+    df_014_cloyster::register_triggers(game, slot);
+    df_017_jynx::register_triggers(game, slot);
+    df_018_ledian::register_triggers(game, slot);
+    df_021_quagsire::register_triggers(game, slot);
+    df_023_tropius::register_triggers(game, slot);
+    df_024_vibrava::register_triggers(game, slot);
+    df_040_swellow::register_triggers(game, slot);
+    df_092_flygon_ex::register_triggers(game, slot);
+    df_096_latios_ex::register_triggers(game, slot);
+}
+
+pub fn power_effect_id(def_id: &CardDefId, power_name: &str) -> Option<String> {
+    if def_id_matches(def_id, df_004_meganium::SET, df_004_meganium::NUMBER)
+        && power_name == "Evolutionary Call"
+    {
+        return Some(df_004_meganium::evolutionary_call_effect_id());
+    }
+    if def_id_matches(def_id, df_010_snorlax::SET, df_010_snorlax::NUMBER) && power_name == "Dozing"
+    {
+        return Some(df_010_snorlax::dozing_effect_id());
+    }
+    if def_id_matches(def_id, df_005_milotic::SET, df_005_milotic::NUMBER) && power_name == "Sharing"
+    {
+        return Some(df_005_milotic::sharing_effect_id());
+    }
+    if def_id_matches(def_id, df_007_nidoqueen::SET, df_007_nidoqueen::NUMBER)
+        && power_name == "Invitation"
+    {
+        return Some(df_007_nidoqueen::invitation_effect_id());
+    }
+    if def_id_matches(def_id, df_018_ledian::SET, df_018_ledian::NUMBER) && power_name == "Prowl" {
+        return Some("DF-18:Prowl".to_string());
+    }
+    if def_id_matches(def_id, df_020_mantine::SET, df_020_mantine::NUMBER)
+        && power_name == "Power Circulation"
+    {
+        return Some("DF-20:Power Circulation".to_string());
+    }
+    if def_id_matches(def_id, df_021_quagsire::SET, df_021_quagsire::NUMBER) && power_name == "Dig Up"
+    {
+        return Some("DF-21:Dig Up".to_string());
+    }
+    if def_id_matches(def_id, df_023_tropius::SET, df_023_tropius::NUMBER)
+        && power_name == "Tropical Heal"
+    {
+        return Some("DF-23:Tropical Heal".to_string());
+    }
+    if def_id_matches(def_id, df_093_gardevoir_ex::SET, df_093_gardevoir_ex::NUMBER)
+        && power_name == "Imprison"
+    {
+        return Some("DF-93:Imprison".to_string());
+    }
+    if def_id_matches(def_id, df_098_salamence_ex::SET, df_098_salamence_ex::NUMBER)
+        && power_name == "Type Shift"
+    {
+        return Some("DF-98:Type Shift".to_string());
+    }
+    if def_id_matches(def_id, df_008_ninetales::SET, df_008_ninetales::NUMBER)
+        && power_name == "Volunteer"
+    {
+        return Some(df_008_ninetales::volunteer_effect_id());
+    }
+    if def_id_matches(def_id, df_029_electabuzz::SET, df_029_electabuzz::NUMBER)
+        && power_name == "Power of Evolution"
+    {
+        return Some("DF-29:Power of Evolution".to_string());
+    }
+    if def_id_matches(def_id, df_048_elekid::SET, df_048_elekid::NUMBER)
+        && power_name == "Baby Evolution"
+    {
+        return Some("DF-48:Baby Evolution".to_string());
+    }
+    if def_id_matches(def_id, df_064_smoochum::SET, df_064_smoochum::NUMBER)
+        && power_name == "Baby Evolution"
+    {
+        return Some("DF-64:Baby Evolution".to_string());
+    }
+    if def_id_matches(def_id, df_090_altaria_ex::SET, df_090_altaria_ex::NUMBER)
+        && power_name == "Extra Boost"
+    {
+        return Some("DF-90:Extra Boost".to_string());
+    }
+    if def_id_matches(def_id, df_095_latias_ex::SET, df_095_latias_ex::NUMBER)
+        && power_name == "Fellow Boost"
+    {
+        return Some("DF-95:Fellow Boost".to_string());
+    }
+    if def_id_matches(def_id, df_012_typhlosion::SET, df_012_typhlosion::NUMBER)
+        && power_name == "Shady Move"
+    {
+        return Some(df_012_typhlosion::shady_move_effect_id());
+    }
+    None
+}
+
+pub fn power_is_once_per_turn(def_id: &CardDefId, power_name: &str) -> bool {
+    (def_id_matches(def_id, df_004_meganium::SET, df_004_meganium::NUMBER)
+        && power_name == "Evolutionary Call")
+        || (def_id_matches(def_id, df_020_mantine::SET, df_020_mantine::NUMBER)
+            && power_name == "Power Circulation")
+        || (def_id_matches(def_id, df_021_quagsire::SET, df_021_quagsire::NUMBER)
+            && power_name == "Dig Up")
+        || (def_id_matches(def_id, df_005_milotic::SET, df_005_milotic::NUMBER)
+            && power_name == "Sharing")
+        || (def_id_matches(def_id, df_093_gardevoir_ex::SET, df_093_gardevoir_ex::NUMBER)
+            && power_name == "Imprison")
+        || (def_id_matches(def_id, df_098_salamence_ex::SET, df_098_salamence_ex::NUMBER)
+            && power_name == "Type Shift")
+        || (def_id_matches(def_id, df_008_ninetales::SET, df_008_ninetales::NUMBER)
+            && power_name == "Volunteer")
+        || (def_id_matches(def_id, df_029_electabuzz::SET, df_029_electabuzz::NUMBER)
+            && power_name == "Power of Evolution")
+        || (def_id_matches(def_id, df_048_elekid::SET, df_048_elekid::NUMBER)
+            && power_name == "Baby Evolution")
+        || (def_id_matches(def_id, df_064_smoochum::SET, df_064_smoochum::NUMBER)
+            && power_name == "Baby Evolution")
+        || (def_id_matches(def_id, df_090_altaria_ex::SET, df_090_altaria_ex::NUMBER)
+            && power_name == "Extra Boost")
+        || (def_id_matches(def_id, df_095_latias_ex::SET, df_095_latias_ex::NUMBER)
+            && power_name == "Fellow Boost")
+        || (def_id_matches(def_id, df_012_typhlosion::SET, df_012_typhlosion::NUMBER)
+            && power_name == "Shady Move")
+}
+
+pub fn resolve_custom_prompt(
+    game: &mut GameState,
+    effect_id: &str,
+    source_id: Option<CardInstanceId>,
+    target_ids: &[CardInstanceId],
+) -> bool {
+    if let Some(tail) = effect_id.strip_prefix("DF-11:Delta Copy:Attack:") {
+        return df_011_togetic::resolve_delta_copy_attack(game, tail, source_id);
+    }
+    if let Some(tail) = effect_id.strip_prefix("DF-101:Mimicry:Attack:") {
+        return df_101_mew_star::resolve_mimicry_attack(game, tail, source_id);
+    }
+    if let Some(tail) = effect_id.strip_prefix("DF-91:Dragon Roar:") {
+        return df_091_dragonite_ex::resolve_dragon_roar_overflow(game, tail, target_ids);
+    }
+    if let Some(tail) = effect_id.strip_prefix("DF-100:Rotating Claws:Energy:") {
+        return df_100_charizard_star::resolve_rotating_claws_energy(
+            game, tail, source_id, target_ids,
+        );
+    }
+    match effect_id {
+        "DF-20:Power Circulation" => df_020_mantine::resolve_power_circulation(game, source_id),
+        "DF-5:Sharing" => df_005_milotic::resolve_sharing(game, source_id, target_ids),
+        "DF-93:Imprison" => df_093_gardevoir_ex::resolve_imprison(game, source_id, target_ids),
+        "DF-12:Shady Move" => df_012_typhlosion::resolve_shady_move(game, target_ids),
+        "DF-8:Volunteer" => df_008_ninetales::resolve_volunteer(game, source_id, target_ids),
+        "DF-90:Extra Boost" => df_090_altaria_ex::resolve_extra_boost(game, source_id, target_ids),
+        "DF-95:Fellow Boost" => {
+            df_095_latias_ex::resolve_fellow_boost(game, source_id, target_ids)
+        }
+        "DF-6:Dark Horn" => df_006_nidoking::resolve_dark_horn(game, source_id, target_ids),
+        "DF-6:Dark Horn:Bench" => {
+            df_006_nidoking::resolve_dark_horn_bench(game, source_id, target_ids)
+        }
+        "DF-11:Delta Copy:Target" => {
+            df_011_togetic::resolve_delta_copy_target(game, source_id, target_ids)
+        }
+        "DF-64:Alluring Kiss:Pokemon" => {
+            df_064_smoochum::resolve_alluring_kiss_pokemon(game, source_id, target_ids)
+        }
+        "DF-64:Alluring Kiss:Energy" => {
+            df_064_smoochum::resolve_alluring_kiss_energy(game, source_id, target_ids)
+        }
+        "DF-91:Dragon Roar" => df_091_dragonite_ex::resolve_dragon_roar(game, source_id),
+        "DF-98:Dual Stream:Bench" => {
+            df_098_salamence_ex::resolve_dual_stream_bench(game, source_id, target_ids)
+        }
+        "DF-99:Shock-wave" => df_099_tyranitar_ex::resolve_shock_wave(game, source_id, target_ids),
+        "DF-100:Rotating Claws:Discard" => {
+            df_100_charizard_star::resolve_rotating_claws_discard(game, source_id, target_ids)
+        }
+        "DF-100:Rotating Claws" => {
+            df_100_charizard_star::resolve_rotating_claws(game, source_id)
+        }
+        "DF-101:Mimicry:Target" => {
+            df_101_mew_star::resolve_mimicry_target(game, source_id, target_ids)
+        }
+        "DF-101:Rainbow Wave" => df_101_mew_star::resolve_rainbow_wave(game, source_id, target_ids),
+        _ => false,
+    }
+}
 pub use df_001_ampharos as ampharos;
 pub use df_002_feraligatr as feraligatr;
 pub use df_003_heracross as heracross;

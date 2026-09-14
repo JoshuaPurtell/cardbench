@@ -1,5 +1,6 @@
 mod import_specs;
 pub mod runtime;
 pub mod cards;
+pub mod hooks;
 
 pub use import_specs::{attack_effect_ast, power_effect_ast, trainer_effect_ast, HP_POWERS, HP_TRAINERS};

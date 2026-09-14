@@ -93,18 +93,6 @@ impl Default for RulesetConfig {
 }
 
 impl RulesetConfig {
-    /// Repository-owned Limited format used by CyberneticsBench draft tasks.
-    ///
-    /// All era-specific gameplay rules remain identical to the default
-    /// CardBench ruleset; only the number of Prize cards changes. Deck-size
-    /// legality is enforced by the caller before `GameState` construction.
-    pub fn limited_40() -> Self {
-        Self {
-            prize_cards_per_player: 4,
-            ..Self::default()
-        }
-    }
-
     pub fn validate(&self) -> Result<(), RulesetConfigError> {
         if self.prize_cards_per_player == 0 {
             return Err(RulesetConfigError::InvalidPrizeCount);
@@ -288,12 +276,5 @@ mod tests {
         let config = RulesetConfig::default();
         let order = config.between_turns_order();
         assert_eq!(order.len(), 4);
-    }
-
-    #[test]
-    fn test_limited_40_uses_four_prizes() {
-        let config = RulesetConfig::limited_40();
-        assert_eq!(config.prize_cards_per_player(), 4);
-        assert!(config.validate().is_ok());
     }
 }

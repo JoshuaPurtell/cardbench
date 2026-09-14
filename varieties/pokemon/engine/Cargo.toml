@@ -5,6 +5,10 @@ edition = "2021"
 description = "Public SetBench engine core workspace with DF/HP references and neutral CG stubs"
 license = "MIT"
 
+[features]
+default = []
+cg_private = []
+
 [lib]
 path = "scaffold/src/lib.rs"
 
