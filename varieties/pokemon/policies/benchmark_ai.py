@@ -46,8 +46,10 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 import sys
 import os
@@ -125,9 +127,11 @@ def filter_duplicate_imports(code: str) -> str:
     return "\n".join(filtered_lines)
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-ENGINE_DIR = Path(__file__).resolve().parents[1] / "engine"
+POKEMON_ROOT = Path(__file__).resolve().parents[1]
+ENGINE_DIR = POKEMON_ROOT / "engine"
 REFERENCE_ALGOS_DIR = Path(__file__).parent / "reference"
 ALGO_BENCH_DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_TRAIN_ROSTER = POKEMON_ROOT / "rosters" / "code_policy_v1.json"
 
 
 def generate_ai_module(ai_code: str, ai_name: str) -> str:
@@ -141,38 +145,84 @@ def generate_ai_module(ai_code: str, ai_name: str) -> str:
 """
 
 
-def discover_reference_algos() -> list[dict]:
-    """Discover reference algos from reference_algos directory."""
-    algos = []
-    if not REFERENCE_ALGOS_DIR.exists():
-        return algos
+BUILTIN_PREFIX = "builtin:"
+BUILTIN_CONSTRUCTORS = {
+    "builtin:tcg_ai::RandomAiV4": "RandomAiV4::new(seed)",
+}
 
-    for path in sorted(REFERENCE_ALGOS_DIR.glob("*.rs")):
-        content = path.read_text()
-        match = re.search(r"pub struct (\w+)", content)
-        if not match:
+
+def _variant_name(opponent_id: str) -> str:
+    """``codex_run01`` -> ``RefCodexRun01``. Ids, not struct names.
+
+    Lifted opponents frequently share a struct name (every algo_bench result
+    declares ``CandidateAi``), so the enum variant has to be keyed on the roster
+    id. Each source still gets its own module, so the duplicate struct names
+    never collide.
+    """
+    cleaned = re.sub(r"[^0-9A-Za-z]+", " ", opponent_id).strip()
+    if not cleaned:
+        raise ValueError(f"opponent id {opponent_id!r} has no usable characters")
+    return "Ref" + "".join(part[:1].upper() + part[1:] for part in cleaned.split())
+
+
+def load_opponent_roster(path: Path) -> list[dict]:
+    """Load an explicit, ordered opponent roster.
+
+    The roster is authority: the benchmark plays exactly these opponents in
+    exactly this order. Nothing is discovered from the filesystem, so adding a
+    stray ``.rs`` file cannot silently change the evaluation surface.
+    """
+    payload = json.loads(path.read_text())
+    if isinstance(payload, dict):
+        # Accept a bare {"opponents": [...]} roster or the full committed
+        # roster, in which case the train split is the default surface.
+        entries = payload.get("opponents") or payload["train"]["opponents"]
+    else:
+        entries = payload
+    algos: list[dict] = []
+    seen: set[str] = set()
+    for entry in entries:
+        opponent_id = str(entry["id"])
+        if opponent_id in seen:
+            raise ValueError(f"duplicate opponent id in roster: {opponent_id}")
+        seen.add(opponent_id)
+        source = str(entry["source"])
+
+        if source.startswith(BUILTIN_PREFIX):
+            if source not in BUILTIN_CONSTRUCTORS:
+                raise ValueError(f"unknown builtin opponent: {source}")
+            algos.append(
+                {
+                    "id": opponent_id,
+                    "variant": _variant_name(opponent_id),
+                    "builtin": BUILTIN_CONSTRUCTORS[source],
+                }
+            )
             continue
-        struct_name = match.group(1)
-        module_name = f"ref_{path.stem}"
+
+        source_path = Path(source)
+        if not source_path.is_absolute():
+            source_path = (path.parent / source_path).resolve()
+            if not source_path.is_file():
+                source_path = (POKEMON_ROOT / source).resolve()
+        if not source_path.is_file():
+            raise FileNotFoundError(f"opponent source missing: {source} (id={opponent_id})")
+
+        match = re.search(r"\bpub\s+struct\s+(\w+)", source_path.read_text())
+        if not match:
+            raise ValueError(f"{source_path}: opponent must define a public struct")
         algos.append(
             {
-                "module": module_name,
-                "struct": struct_name,
-                "path": path,
-                "label": reference_label(struct_name),
+                "id": opponent_id,
+                "variant": _variant_name(opponent_id),
+                "module": f"ref_{re.sub(r'[^0-9a-zA-Z]+', '_', opponent_id).lower()}",
+                "struct": match.group(1),
+                "path": source_path,
             }
         )
+    if not algos:
+        raise ValueError(f"{path}: roster declares no opponents")
     return algos
-
-
-def reference_label(struct_name: str) -> str:
-    if struct_name == "RandomAi":
-        return "RandomAi (v1)"
-    if struct_name == "RandomAiV2":
-        return "RandomAiV2 (v2)"
-    if struct_name == "RandomAiV3":
-        return "RandomAiV3 (v3)"
-    return struct_name
 
 
 def generate_benchmark_binary(ai_name: str, ai_module_path: Path, reference_algos: list[dict]) -> str:
@@ -186,40 +236,41 @@ def generate_benchmark_binary(ai_name: str, ai_module_path: Path, reference_algo
     reference_opponents = []
 
     for algo in reference_algos:
-        module_name = algo["module"]
-        struct_name = algo["struct"]
-        label = algo["label"]
-        path_str = str(algo["path"]).replace("\\", "\\\\")
-        variant = f"Ref{struct_name}"
+        variant = algo["variant"]
+        opponent_id = algo["id"]
 
-        reference_modules.append(
-            f"""mod {module_name} {{
+        if "builtin" in algo:
+            reference_build_arms.append(
+                f"AiType::{variant} => Box::new({algo['builtin']}),"
+            )
+        else:
+            module_name = algo["module"]
+            struct_name = algo["struct"]
+            path_str = str(algo["path"]).replace("\\", "\\\\")
+            reference_modules.append(
+                f"""mod {module_name} {{
     include!(r#\"{path_str}\"#);
 }}"""
-        )
+            )
+            reference_build_arms.append(
+                f"AiType::{variant} => Box::new({module_name}::{struct_name}::new(seed)),"
+            )
+
         reference_variants.append(f"{variant},")
-        reference_ai_name_arms.append(f'AiType::{variant} => "{label}",')
-        reference_build_arms.append(
-            f"AiType::{variant} => Box::new({module_name}::{struct_name}::new(seed)),"
-        )
-        reference_opponents.append((variant, label))
+        reference_ai_name_arms.append(f'AiType::{variant} => "{opponent_id}",')
+        reference_opponents.append((variant, opponent_id))
 
     reference_modules_code = "\n\n".join(reference_modules)
     reference_variants_code = "\n    ".join(reference_variants)
     reference_ai_name_arms_code = "\n        ".join(reference_ai_name_arms)
     reference_build_arms_code = "\n        ".join(reference_build_arms)
-    if reference_opponents:
-        reference_opponents_code = (
-            ",\n        ".join(
-                [f'(AiType::{variant}, "{label}")' for variant, label in reference_opponents]
-            )
-            + ",\n        "
-        )
-    else:
-        reference_opponents_code = ""
+    reference_opponents_code = ",\n        ".join(
+        f'(AiType::{variant}, "{opponent_id}")'
+        for variant, opponent_id in reference_opponents
+    )
 
     return f"""use tcg_ai::{{AiController, RandomAiV4}};
-use tcg_core::{{Action, CardInstance, CardMetaMap, GameState, PlayerId, StepResult}};
+use tcg_core::{{Action, CardInstance, CardMetaMap, GameEvent, GameState, PlayerId, StepResult}};
 use tcg_rules_ex::RulesetConfig;
 
 {reference_modules_code}
@@ -266,17 +317,22 @@ fn run_match_loop_with_stats(
     mut p1_ai: Option<&mut dyn AiController>,
     mut p2_ai: Option<&mut dyn AiController>,
     max_steps: usize,
-) -> Option<(PlayerId, GameState, u16, u16)> {{
+) -> Option<(Option<PlayerId>, GameState, u16, u16)> {{
     let mut steps_left = max_steps;
     let mut actions_budget = 5_000usize;
     let mut p1_evolutions: u16 = 0;
     let mut p2_evolutions: u16 = 0;
+    // Every benchmark policy gets the same deterministic, prompt-complete
+    // fallback. It is consulted only if that policy's proposed responses are
+    // all rejected, so incomplete prompt coverage cannot silently drop games.
+    let mut p1_prompt_fallback = RandomAiV4::new(0xC0DE_0001);
+    let mut p2_prompt_fallback = RandomAiV4::new(0xC0DE_0002);
 
     while steps_left > 0 && actions_budget > 0 {{
         match game.step() {{
             StepResult::Event {{ .. }} => {{}}
             StepResult::GameOver {{ winner }} => {{
-                return Some((winner, game, p1_evolutions, p2_evolutions));
+                return Some((Some(winner), game, p1_evolutions, p2_evolutions));
             }}
             StepResult::Prompt {{ prompt, for_player }} => {{
                 let view = game.view_for_player(for_player);
@@ -297,17 +353,26 @@ fn run_match_loop_with_stats(
                     }}
                 }};
                 candidates.push(Action::EndTurn);
-                let applied = accepted_action(&mut game, for_player, candidates);
-                if let Some(action) = applied {{
-                    if matches!(action, Action::EvolveFromHand {{ .. }}) {{
-                        if for_player == PlayerId::P1 {{
-                            p1_evolutions = p1_evolutions.saturating_add(1);
-                        }} else {{
-                            p2_evolutions = p2_evolutions.saturating_add(1);
-                        }}
-                    }}
-                }} else {{
+                let mut applied = accepted_action(&mut game, for_player, candidates);
+                if applied.is_none() {{
+                    let mut fallback = match for_player {{
+                        PlayerId::P1 => p1_prompt_fallback.propose_prompt_response(&view, &prompt),
+                        PlayerId::P2 => p2_prompt_fallback.propose_prompt_response(&view, &prompt),
+                    }};
+                    fallback.push(Action::ConfirmPrompt);
+                    fallback.push(Action::CancelPrompt);
+                    fallback.push(Action::EndTurn);
+                    applied = accepted_action(&mut game, for_player, fallback);
+                }}
+                let Some(action) = applied else {{
                     return None;
+                }};
+                if matches!(action, Action::EvolveFromHand {{ .. }}) {{
+                    if for_player == PlayerId::P1 {{
+                        p1_evolutions = p1_evolutions.saturating_add(1);
+                    }} else {{
+                        p2_evolutions = p2_evolutions.saturating_add(1);
+                    }}
                 }}
                 actions_budget = actions_budget.saturating_sub(1);
             }}
@@ -349,24 +414,38 @@ fn run_match_loop_with_stats(
         steps_left -= 1;
     }}
 
-    None
+    // Exhausting the deterministic step/action budget is a completed draw, not
+    // an engine or prompt-coverage stall. `None` is reserved for a prompt for
+    // which neither the policy nor the safe fallback produced a legal action.
+    Some((None, game, p1_evolutions, p2_evolutions))
 }}
 
 #[derive(Default, Clone)]
 struct MatchStats {{
     p1_wins: usize,
     total: usize,
+    // Games started. A step/action-budget draw counts in `total`; only a prompt
+    // with no legal policy or fallback action remains an actual stall.
+    attempted: usize,
+    budget_draws: usize,
     outcomes: Vec<MatchOutcome>,
 }}
 
 #[derive(Clone)]
 struct MatchOutcome {{
     tracked_won: bool,
+    budget_draw: bool,
     turns: u32,
     tracked_prizes_taken: u8,
     opponent_prizes_taken: u8,
     tracked_evolutions: u16,
     opponent_evolutions: u16,
+    tracked_cards_drawn: u16,
+    tracked_pokemon_played: u16,
+    tracked_energy_attached: u16,
+    tracked_attacks_declared: u16,
+    total_damage_dealt: u32,
+    total_knockouts: u16,
 }}
 
 fn accepted_action(
@@ -380,6 +459,35 @@ fn accepted_action(
         }}
     }}
     None
+}}
+
+fn loaded_sets_for_decks(
+    deck1: &[CardInstance],
+    deck2: &[CardInstance],
+) -> Vec<&'static str> {{
+    let has_set = |wanted: &str| {{
+        deck1
+            .iter()
+            .chain(deck2.iter())
+            .any(|card| card.def_id.as_str().split_once('-').map(|(set, _)| set) == Some(wanted))
+    }};
+    [("CG", has_set("CG")), ("DF", has_set("DF")), ("HP", has_set("HP"))]
+        .into_iter()
+        .filter_map(|(set, present)| present.then_some(set))
+        .collect()
+}}
+
+#[cfg(test)]
+mod loaded_set_tests {{
+    use super::*;
+
+    #[test]
+    fn deck_order_does_not_change_loaded_sets() {{
+        let cg = vec![CardInstance::new(tcg_core::CardDefId::new("CG-21"), PlayerId::P1)];
+        let df = vec![CardInstance::new(tcg_core::CardDefId::new("DF-1"), PlayerId::P2)];
+        assert_eq!(loaded_sets_for_decks(&cg, &df), vec!["CG", "DF"]);
+        assert_eq!(loaded_sets_for_decks(&df, &cg), vec!["CG", "DF"]);
+    }}
 }}
 
 fn summarize_u32(values: &[u32]) -> serde_json::Value {{
@@ -441,6 +549,26 @@ fn summarize_match_outcomes(outcomes: &[MatchOutcome]) -> serde_json::Value {{
     }})
 }}
 
+fn raw_match_outcomes(outcomes: &[MatchOutcome]) -> Vec<serde_json::Value> {{
+    outcomes
+        .iter()
+        .map(|outcome| serde_json::json!({{
+            "won": outcome.tracked_won,
+            "budget_draw": outcome.budget_draw,
+            "turns": outcome.turns,
+            "prizes_taken": outcome.tracked_prizes_taken,
+            "opponent_prizes_taken": outcome.opponent_prizes_taken,
+            "evolutions": outcome.tracked_evolutions,
+            "cards_drawn": outcome.tracked_cards_drawn,
+            "pokemon_played": outcome.tracked_pokemon_played,
+            "energy_attached": outcome.tracked_energy_attached,
+            "attacks_declared": outcome.tracked_attacks_declared,
+            "total_damage_dealt": outcome.total_damage_dealt,
+            "total_knockouts": outcome.total_knockouts,
+        }}))
+        .collect()
+}}
+
 fn run_match_series(
     deck1: &[CardInstance],
     deck2: &[CardInstance],
@@ -454,6 +582,7 @@ fn run_match_series(
     let mut stats = MatchStats::default();
 
     for match_num in 0..num_matches {{
+        stats.attempted += 1;
         let seed = seed_base + match_num as u64;
         let rules = match std::env::var("CARDBENCH_POKEMON_FORMAT").as_deref() {{
             Ok("limited-40") => RulesetConfig::limited_40(),
@@ -461,13 +590,17 @@ fn run_match_series(
             Ok(other) => panic!("unsupported CARDBENCH_POKEMON_FORMAT: {{}}", other),
         }};
         let prize_cards = rules.prize_cards_per_player();
-        let game = GameState::new_with_card_meta(
+        let mut game = GameState::new_with_card_meta(
             deck1.to_vec(),
             deck2.to_vec(),
             seed,
             rules,
             card_meta.clone(),
         );
+        let loaded_sets = loaded_sets_for_decks(deck1, deck2);
+        if !loaded_sets.is_empty() {{
+            game.set_hooks(tcg_expansions::create_hooks_for(&loaded_sets));
+        }}
 
         let mut ai1_box = build_ai(p1_ai_type, seed);
         let mut ai2_box = build_ai(p2_ai_type, seed.wrapping_add(9001));
@@ -484,10 +617,43 @@ fn run_match_series(
             let p1_prizes_taken = prize_cards.saturating_sub(p1_prizes_remaining);
             let p2_prizes_taken = prize_cards.saturating_sub(p2_prizes_remaining);
             let turns = game.turn.number;
+            let tracked_cards_drawn = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::CardDrawn {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_pokemon_played = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::PokemonPlayed {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_energy_attached = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::EnergyAttached {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_attacks_declared = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::AttackDeclared {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let total_damage_dealt = game
+                .event_log
+                .iter()
+                .filter_map(|event| match event {{
+                    GameEvent::DamageDealt {{ amount, .. }} => Some(*amount as u32),
+                    _ => None,
+                }})
+                .sum();
+            let total_knockouts = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::PokemonKnockedOut {{ .. }}))
+                .count() as u16;
             let (tracked_won, tracked_prizes_taken, opponent_prizes_taken, tracked_evolutions, opponent_evolutions) =
                 if count_player == PlayerId::P1 {{
                     (
-                        winner == PlayerId::P1,
+                        winner == Some(PlayerId::P1),
                         p1_prizes_taken,
                         p2_prizes_taken,
                         p1_evolutions,
@@ -495,7 +661,7 @@ fn run_match_series(
                     )
                 }} else {{
                     (
-                        winner == PlayerId::P2,
+                        winner == Some(PlayerId::P2),
                         p2_prizes_taken,
                         p1_prizes_taken,
                         p2_evolutions,
@@ -504,16 +670,26 @@ fn run_match_series(
                 }};
 
             stats.total += 1;
+            if winner.is_none() {{
+                stats.budget_draws += 1;
+            }}
             if tracked_won {{
                 stats.p1_wins += 1;
             }}
             stats.outcomes.push(MatchOutcome {{
                 tracked_won,
+                budget_draw: winner.is_none(),
                 turns,
                 tracked_prizes_taken,
                 opponent_prizes_taken,
                 tracked_evolutions,
                 opponent_evolutions,
+                tracked_cards_drawn,
+                tracked_pokemon_played,
+                tracked_energy_attached,
+                tracked_attacks_declared,
+                total_damage_dealt,
+                total_knockouts,
             }});
         }}
     }}
@@ -552,6 +728,8 @@ fn run_blended_matchup(
     );
     stats.p1_wins += swapped.p1_wins;
     stats.total += swapped.total;
+    stats.attempted += swapped.attempted;
+    stats.budget_draws += swapped.budget_draws;
     stats.outcomes.extend(swapped.outcomes);
     stats
 }}
@@ -639,7 +817,19 @@ fn main() {{
         .get(4)
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
-    let selected_deck = args.get(5).map(|s| s.to_ascii_lowercase());
+    // arg5/arg6 name an exact ordered deck pair: the candidate always pilots
+    // arg5, the opponent always pilots arg6. Supplying only arg5 keeps the
+    // legacy "selected deck vs every other" behaviour; supplying neither keeps
+    // the legacy seed-modulo pair sweep.
+    let candidate_deck_arg = args
+        .get(5)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let opponent_deck_arg = args
+        .get(6)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let selected_deck = candidate_deck_arg.as_ref().map(|s| s.to_ascii_lowercase());
 
     println!("Benchmarking {ai_name} vs v1-v4");
     println!("==================================");
@@ -665,8 +855,23 @@ fn main() {{
         println!("  - {{}} ({{}} cards)", spec.name, count);
     }}
 
+    let find_deck = |wanted: &str| -> usize {{
+        deck_specs
+            .iter()
+            .position(|spec| spec.name.to_ascii_lowercase() == wanted.to_ascii_lowercase())
+            .unwrap_or_else(|| panic!("Unknown public deck: {{}}", wanted))
+    }};
+
     let mut deck_pairs: Vec<(usize, usize)> = Vec::new();
-    if let Some(selected) = selected_deck {{
+    if let (Some(candidate_name), Some(opponent_name)) =
+        (candidate_deck_arg.as_ref(), opponent_deck_arg.as_ref())
+    {{
+        if candidate_name.to_ascii_lowercase() == opponent_name.to_ascii_lowercase() {{
+            eprintln!("Mirror pairs are not scored: {{}}", candidate_name);
+            std::process::exit(2);
+        }}
+        deck_pairs.push((find_deck(candidate_name), find_deck(opponent_name)));
+    }} else if let Some(selected) = selected_deck {{
         let selected_idx = deck_specs
             .iter()
             .position(|spec| spec.name.to_ascii_lowercase() == selected)
@@ -701,25 +906,77 @@ fn main() {{
         deck2_spec.name
     );
 
+    // Roster order is authority; nothing is discovered at runtime.
     let opponents = [
-        {reference_opponents_code}(AiType::RandomAiV4, "RandomAiV4 (v4)"),
+        {reference_opponents_code}
     ];
 
     let mut overall_stats = MatchStats::default();
     let mut opponent_results = Vec::new();
+    let mut cell_metrics: Vec<serde_json::Value> = Vec::new();
 
     for (opponent_idx, (opponent_type, opponent_name)) in opponents.iter().enumerate() {{
         println!("\\nOpponent: {{}}", opponent_name);
         let opponent_seed_base = seed_base + (opponent_idx as u64) * 1_000_000;
-        let stats = run_blended_matchup(
+
+        // The two seats are scored as separate cells rather than blended, so a
+        // candidate and the baseline can be paired cell-by-cell downstream.
+        // Seat seeds match run_blended_matchup exactly, keeping scores
+        // comparable with the pre-split harness.
+        let p1_stats = run_match_series(
             &deck1,
             &deck2,
             AiType::TestAI,
             *opponent_type,
             num_matches,
             opponent_seed_base,
+            PlayerId::P1,
             &card_meta,
         );
+        let p2_stats = run_match_series(
+            &deck2,
+            &deck1,
+            *opponent_type,
+            AiType::TestAI,
+            num_matches,
+            opponent_seed_base + 50_000,
+            PlayerId::P2,
+            &card_meta,
+        );
+
+        for (side, side_stats) in [("p1", &p1_stats), ("p2", &p2_stats)] {{
+            cell_metrics.push(serde_json::json!({{
+                "cell_id": format!(
+                    "{{}}|{{}}|{{}}|{{}}|{{}}",
+                    deck1_spec.name, deck2_spec.name, opponent_name, side, seed_base
+                ),
+                "candidate_deck": deck1_spec.name,
+                "opponent_deck": deck2_spec.name,
+                "opponent_id": opponent_name,
+                "side": side,
+                "seed_base": seed_base,
+                "wins": side_stats.p1_wins,
+                "matches": side_stats.attempted,
+                "completed": side_stats.total,
+                "stalled": side_stats.attempted - side_stats.total,
+                "budget_draws": side_stats.budget_draws,
+                // Denominator is attempted, so a game that exhausted the step
+                // budget scores as a non-win rather than vanishing.
+                "win_rate": if side_stats.attempted > 0 {{
+                    (side_stats.p1_wins as f64) / (side_stats.attempted as f64)
+                }} else {{
+                    0.0
+                }},
+                "event_telemetry": raw_match_outcomes(&side_stats.outcomes),
+            }}));
+        }}
+
+        let mut stats = p1_stats;
+        stats.p1_wins += p2_stats.p1_wins;
+        stats.total += p2_stats.total;
+        stats.attempted += p2_stats.attempted;
+        stats.budget_draws += p2_stats.budget_draws;
+        stats.outcomes.extend(p2_stats.outcomes);
 
         let win_rate = if stats.total > 0 {{
             (stats.p1_wins as f64 / stats.total as f64) * 100.0
@@ -735,6 +992,8 @@ fn main() {{
         opponent_results.push((opponent_name.to_string(), stats.clone()));
         overall_stats.p1_wins += stats.p1_wins;
         overall_stats.total += stats.total;
+        overall_stats.attempted += stats.attempted;
+        overall_stats.budget_draws += stats.budget_draws;
         overall_stats.outcomes.extend(stats.outcomes.clone());
     }}
 
@@ -774,7 +1033,14 @@ fn main() {{
         "version": "algo_bench_metrics_v1",
         "matches_per_opponent_per_side": num_matches,
         "opponent_count": opponent_results.len(),
+        "candidate_deck": deck1_spec.name,
+        "opponent_deck": deck2_spec.name,
+        "seed_base": seed_base,
+        "per_cell": cell_metrics,
         "total_games": overall_stats.total,
+        "attempted_games": overall_stats.attempted,
+        "stalled_games": overall_stats.attempted - overall_stats.total,
+        "budget_draws": overall_stats.budget_draws,
         "overall_win_rate": if overall_stats.total > 0 {{
             (overall_stats.p1_wins as f64) / (overall_stats.total as f64)
         }} else {{
@@ -786,6 +1052,59 @@ fn main() {{
     println!("BENCHMARK_METRICS_JSON: {{}}", benchmark_metrics);
 }}
 """
+
+
+CARGO_CACHE_ENV = "CARDBENCH_CARGO_CACHE"
+CARGO_CACHE_KEEP_ENV = "CARDBENCH_CARGO_CACHE_KEEP"
+DEFAULT_CARGO_CACHE_KEEP = 6
+# Never evict a tree another process may still be linking into.
+_EVICTION_GRACE_SECONDS = 1800
+
+
+def cargo_cache_root() -> Path:
+    """Where per-candidate cargo target trees live.
+
+    Defaults to ``<repo>/.cache`` but is overridable so a harness can keep the
+    cache off the agent workspace. ``benchmark_ai`` is invoked from whichever
+    checkout the caller passes, so without the override an agent that compiles
+    to test its own policy writes ~1GB into its workspace — which then gets
+    retained in the run's results tree.
+    """
+    override = os.environ.get(CARGO_CACHE_ENV, "").strip()
+    root = Path(override).expanduser() if override else BASE_DIR / ".cache"
+    return root / "policy-cargo-target"
+
+
+def evict_stale_builds(cache_root: Path, *, keep: str) -> None:
+    """Bound the cache to the N most recent build keys.
+
+    Every distinct candidate gets its own target tree, and each tree carries a
+    full copy of the compiled dependencies (~1GB). Nothing reclaimed them
+    before, so a single sweep session could leave tens of GB behind.
+    """
+    try:
+        limit = int(os.environ.get(CARGO_CACHE_KEEP_ENV, DEFAULT_CARGO_CACHE_KEEP))
+    except ValueError:
+        limit = DEFAULT_CARGO_CACHE_KEEP
+    if limit <= 0 or not cache_root.is_dir():
+        return
+
+    now = time.time()
+    entries = []
+    for path in cache_root.iterdir():
+        if not path.is_dir() or path.name == keep:
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime < _EVICTION_GRACE_SECONDS:
+            continue  # possibly an in-flight build from a concurrent lane
+        entries.append((mtime, path))
+
+    entries.sort(reverse=True)
+    for _, path in entries[max(0, limit - 1) :]:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def write_benchmark_workspace(
@@ -809,6 +1128,12 @@ def write_benchmark_workspace(
     benchmark_file.write_text(benchmark_content)
 
     overzealous_path = str(overzealous_dir).replace("\\", "/")
+    private_cg = overzealous_dir / "scaffold" / "src" / "cg_private"
+    if not private_cg.is_dir():
+        raise RuntimeError(
+            "private Crystal Guardians module missing; install scaffold/src/cg_private "
+            "before building a Pokémon benchmark"
+        )
     cargo_content = f"""[package]
 name = "ai_benchmark"
 version = "0.1.0"
@@ -826,6 +1151,7 @@ tcg_core = {{ path = "{overzealous_path}/tcg_core" }}
 tcg_db = {{ path = "{overzealous_path}/tcg_db" }}
 tcg_rules_ex = {{ path = "{overzealous_path}/tcg_rules_ex" }}
 tcg_ai = {{ path = "{overzealous_path}/tcg_ai" }}
+tcg_expansions = {{ path = "{overzealous_path}", features = ["cg_private"] }}
 rusqlite = {{ version = "0.32", features = ["bundled"] }}
 serde = {{ version = "1.0", features = ["derive"] }}
 serde_json = "1.0"
@@ -833,10 +1159,36 @@ rand = "0.8"
 rand_chacha = "0.3"
 """
     cargo_toml.write_text(cargo_content)
+    # The opponent roster is compiled into the binary, so it must key the build
+    # cache too — otherwise a train-roster binary would be silently reused to
+    # score the heldout split.
+    roster_key = "\0".join(
+        f"{algo['id']}:{algo.get('builtin') or algo['path']}" for algo in reference_algos
+    )
+    engine_digest = hashlib.sha256()
+    for path in sorted(overzealous_dir.rglob("*")):
+        if not path.is_file() or "target" in path.relative_to(overzealous_dir).parts:
+            continue
+        engine_digest.update(path.relative_to(overzealous_dir).as_posix().encode("utf-8"))
+        engine_digest.update(b"\0")
+        engine_digest.update(path.read_bytes())
+        engine_digest.update(b"\0")
     build_key = hashlib.sha256(
-        (ai_name + "\0" + ai_module_content + "\0" + str(overzealous_dir.resolve())).encode()
+        (
+            ai_name
+            + "\0"
+            + ai_module_content
+            + "\0"
+            + str(overzealous_dir.resolve())
+            + "\0"
+            + engine_digest.hexdigest()
+            + "\0"
+            + roster_key
+        ).encode()
     ).hexdigest()[:20]
-    target_dir = BASE_DIR / ".cache" / "policy-cargo-target" / build_key
+    cache_root = cargo_cache_root()
+    target_dir = cache_root / build_key
+    evict_stale_builds(cache_root, keep=build_key)
     (work_dir / ".cardbench-target-dir").write_text(str(target_dir))
     return {
         "work_dir": work_dir,
@@ -871,6 +1223,7 @@ def run_benchmark_binary(
     matches: int,
     seed_base: int,
     deck_name: str | None = None,
+    opponent_deck: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a pre-built benchmark binary."""
     command = [
@@ -880,8 +1233,10 @@ def run_benchmark_binary(
             str(matches),
             str(seed_base),
     ]
-    if deck_name:
-        command.append(deck_name)
+    if deck_name or opponent_deck:
+        command.append(deck_name or "")
+    if opponent_deck:
+        command.append(opponent_deck)
     return subprocess.run(command)
 
 
@@ -909,6 +1264,23 @@ def main():
     parser.add_argument("--cards-db", type=str, default=default_cards, help="Path to cards DB")
     parser.add_argument("--deck-name", help="Evaluate with this public deck as the tracked deck")
     parser.add_argument(
+        "--deck-pair",
+        help=(
+            "Exact ordered deck pair as 'candidate deck,opponent deck'. The "
+            "candidate always pilots the first deck. Required for cell-addressed "
+            "scoring; without it the harness falls back to seed-modulo selection."
+        ),
+    )
+    parser.add_argument(
+        "--opponent-roster",
+        type=Path,
+        default=DEFAULT_TRAIN_ROSTER,
+        help=(
+            "JSON roster naming the opponents to play, in order. Accepts either "
+            "{'opponents': [...]} or the full committed roster (train split)."
+        ),
+    )
+    parser.add_argument(
         "--engine-dir",
         type=Path,
         default=ENGINE_DIR,
@@ -920,9 +1292,15 @@ def main():
 
     args = parser.parse_args()
 
-    reference_algos = discover_reference_algos()
-    if not reference_algos:
-        print("Warning: no reference algos found in reference_algos directory.")
+    reference_algos = load_opponent_roster(args.opponent_roster)
+
+    candidate_deck = args.deck_name
+    opponent_deck = None
+    if args.deck_pair:
+        parts = [part.strip() for part in args.deck_pair.split(",")]
+        if len(parts) != 2 or not all(parts):
+            parser.error("--deck-pair must be 'candidate deck,opponent deck'")
+        candidate_deck, opponent_deck = parts
 
     if args.mode in {"single", "build"}:
         if not args.ai_code_file and not args.ai_code:
@@ -973,7 +1351,8 @@ def main():
             cards_db=args.cards_db,
             matches=args.matches,
             seed_base=args.seed_base,
-            deck_name=args.deck_name,
+            deck_name=candidate_deck,
+            opponent_deck=opponent_deck,
         )
         if run_result.returncode != 0:
             print("Benchmark failed")
@@ -1003,7 +1382,8 @@ def main():
             cards_db=args.cards_db,
             matches=args.matches,
             seed_base=args.seed_base,
-            deck_name=args.deck_name,
+            deck_name=candidate_deck,
+            opponent_deck=opponent_deck,
         )
         if run_result.returncode != 0:
             print("Benchmark failed")
