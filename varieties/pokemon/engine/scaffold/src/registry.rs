@@ -468,10 +468,14 @@ mod tests {
         // CG set rules fire for CG cards only.
         assert!((mixed.is_double_rainbow)(&CardDefId::new("CG-88")));
         assert!(!(mixed.is_double_rainbow)(&CardDefId::new("DF-88")));
-        assert_eq!(
-            (mixed.tool_discard_timing_override)(&game, &CardDefId::new("CG-80")),
-            Some("EndOfTurnIfAttacked")
-        );
+        let cg_80_timing =
+            (mixed.tool_discard_timing_override)(&game, &CardDefId::new("CG-80"));
+        #[cfg(not(feature = "cg_private"))]
+        assert_eq!(cg_80_timing, Some("EndOfTurnIfAttacked"));
+        // The private composed module supplies Memory Berry through its trainer
+        // effect rather than duplicating the public engine timing hook.
+        #[cfg(feature = "cg_private")]
+        assert_eq!(cg_80_timing, None);
         assert_eq!(
             (mixed.tool_discard_timing_override)(&game, &CardDefId::new("DF-80")),
             None

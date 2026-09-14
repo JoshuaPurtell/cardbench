@@ -1231,6 +1231,22 @@ mod setbench_eventlog_eval {
                     target_ids: selected,
                 }
             }
+            Prompt::ChoosePokemonTargets {
+                valid_targets,
+                min,
+                max,
+                ..
+            } => {
+                let selected = if choose_front {
+                    pick_ids_front(valid_targets, *min, *max)
+                } else {
+                    pick_ids_back(valid_targets, *min, *max)
+                }
+                .unwrap_or_default();
+                Action::ChoosePokemonTargets {
+                    target_ids: selected,
+                }
+            }
             Prompt::ReorderDeckTop { options, .. } => Action::ReorderDeckTop {
                 card_ids: options.clone(),
             },
@@ -1643,7 +1659,7 @@ mod setbench_eventlog_eval {
         let deck_p2 = build_deck(&deck_p2_cards, PlayerId::P2);
         let rules = RulesetConfig::default();
         let card_meta = build_card_meta();
-        let hooks = create_hooks();
+        let hooks = create_hooks("CG");
         let mut game = GameState::new_with_hooks(deck_p1, deck_p2, spec.seed, rules, card_meta, hooks);
 
         let mut steps = 0usize;

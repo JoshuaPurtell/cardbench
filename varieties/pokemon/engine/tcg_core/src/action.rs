@@ -2270,22 +2270,6 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 _ => return Err(ActionError::InvalidPrompt),
             };
             let discarded_ids = card_ids.clone();
-            if let Some(effect_id) = game.pending_custom_effect_id.clone() {
-                let source_id = game.pending_custom_source_id;
-                let prompt_version = game.pending_prompt_version;
-                if crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids) {
-                    // A follow-up custom prompt opened by the hook keeps its own id.
-                    if game.pending_prompt_version == prompt_version {
-                        game.pending_custom_effect_id = None;
-                        game.pending_custom_source_id = None;
-                    }
-                    finalize_pending_trainer(game);
-                    if !finalize_pending_attack(game, &mut events) {
-                        settle_effect_knockouts(game, &mut events);
-                    }
-                    return Ok(events);
-                }
-            }
             let target = match target_player {
                 crate::PlayerId::P1 => &mut game.players[0],
                 crate::PlayerId::P2 => &mut game.players[1],
@@ -2298,9 +2282,18 @@ pub fn execute(game: &mut GameState, action: Action) -> Result<Vec<GameEvent>, A
                 }
             }
             if legacy { return Ok(events); }
+            game.pending_prompt = None;
             let custom_resolved = if let Some(effect_id) = game.pending_custom_effect_id.clone() {
                 let source_id = game.pending_custom_source_id;
-                let _ = crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids);
+                let prompt_version = game.pending_prompt_version;
+                if !crate::resolve_custom_prompt(game, &effect_id, source_id, &discarded_ids) {
+                    return Err(ActionError::InvalidPrompt);
+                }
+                // A follow-up custom prompt opened by the hook keeps its own id.
+                if game.pending_prompt_version == prompt_version {
+                    game.pending_custom_effect_id = None;
+                    game.pending_custom_source_id = None;
+                }
                 true
             } else {
                 false
