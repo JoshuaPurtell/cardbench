@@ -17,7 +17,7 @@ eval_host_file = "cards"
 readiness = "public_train"
 
 [engine_core]
-commit = "982d79fdd855bd13a086a9846a585e0ca4498bbc"
+commit = "5182c4e44f2eab5409977004878dbe3aeb362ae0"
 
 [[graded_files]]
 name = "cards"
