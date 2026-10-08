@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 27
+definition_id = "RAV-OATHSWORN-GIANT"
+card_name = "Oathsworn Giant"
+printed_mana_cost = "{4}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 3
+toughness = 4
+keywords = ["vigilance"]
+abilities = ["other creatures you control get +0/+2 and vigilance"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-casting"
+summary = "Cast Oathsworn Giant through the normal stack for `{4}{W}{W}` and verify its live 3/4 characteristics and printed vigilance."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-static-bindings"
+summary = "Resolve both candidate-owned bindings: other creatures you control get +0/+2 and vigilance, while Oathsworn Giant is excluded from its own effects."
+trace_required = true
+
+[[features]]
+id = "other-creature-characteristics"
+summary = "Cast Watchwolf first and record its 3/3 baseline; after Oathsworn Giant resolves, verify that same object is 3/5 with vigilance while the Giant remains 3/4 with vigilance."
+trace_required = true
+
+[[features]]
+id = "vigilance-combat-terminal-and-replay"
+summary = "Attack with both creatures, verify both deal combat damage and remain untapped, reach a terminal result, and reproduce the seeded full game."
+trace_required = true
+
+[[features]]
+id = "targeted-semantic-mutations"
+summary = "Wrong toughness bonus, missing granted vigilance, and missing printed vigilance must each fail the live state or combat trace."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and colored costs", "106.1 and 106.4 Mana and payment", "117 Priority", "208.1 and 613.4c Power/toughness characteristics and continuous effects", "302.1-302.2 Creature permanents and control", "508 Declaring attackers", "510 Combat damage", "702.20 Vigilance", "601.2 Casting spells", "608.3a Resolving permanent spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Oathsworn Giant"
+collector_number = 27
+url = "https://scryfall.com/card/rav/27/oathsworn-giant"
+retained_data = "Public identity, mana cost, color, type, power, toughness, printed vigilance, and the static effects required by the trace"

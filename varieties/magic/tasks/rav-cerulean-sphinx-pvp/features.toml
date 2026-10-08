@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 39
+definition_id = "RAV-CERULEAN-SPHINX"
+card_name = "Cerulean Sphinx"
+printed_mana_cost = "{4}{U}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 5
+toughness = 5
+keywords = ["flying"]
+abilities = ["{U}: shuffle Cerulean Sphinx into its owner's library"]
+source_authority = "RAV printed card identity, cost, color, Creature type, 5/5 body, flying, and owner-relative shuffle activation represented by candidate-owned definition and binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-exact-casting"
+summary = "Cast Cerulean Sphinx in a legal PvP main phase for exact {4}{U}{U} payment."
+trace_required = true
+
+[[features]]
+id = "base-characteristics-and-flying"
+summary = "Verify the exact source is a 5/5 blue Creature with flying on the battlefield."
+trace_required = true
+
+[[features]]
+id = "controller-activation-owner-library-shuffle"
+summary = "After the opponent gains control, pay {U} to activate the Sphinx and move the exact source into its owner's library, then shuffle that library without changing the controller's library."
+trace_required = true
+
+[[features]]
+id = "combat-and-full-game-terminal"
+summary = "Use a Sphinx in legal flying combat and continue the shuffled duel through a terminal PvP result."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay deterministically and detect mutations omitting flying, the owner-library shuffle effect, or the {U} activation cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "302.6 Creature summoning sickness", "601.2 Casting spells", "602.1-602.2 Activated abilities", "608.2 Resolving spells and abilities", "701.17 Shuffling", "702.9 Flying", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 188
+definition_id = "RAV-URSAPINE"
+card_name = "Ursapine"
+printed_mana_cost = "{3}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 3
+toughness = 3
+keywords = []
+abilities = ["{G}: Target creature gets +1/+1 until end of turn."]
+source_authority = "RAV printing identity and candidate-owned activated ability binding for a targeted green +1/+1 effect"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-casting"
+summary = "Cast and resolve Ursapine for three generic and two green mana in a shuffled 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "targeted-green-activation"
+summary = "Pay exactly {G} to activate Ursapine's ability and target a controlled Watchwolf."
+trace_required = true
+
+[[features]]
+id = "until-end-of-turn-pump"
+summary = "The targeted Watchwolf changes from 3/3 to 4/4, attacks for four damage, then returns to 3/3 during cleanup."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-mutations"
+summary = "The full-game trace ends in a Player 0 win, replays deterministically, and detects incorrect pump amounts, ability costs, or a missing binding."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and payment", "117 Priority and timing", "208.1 Power and toughness", "602.2 Activating an activated ability", "608.2 Resolving targeted abilities", "613.4 Power/toughness modification layer", "508.1 Declaring attackers", "510 Combat damage", "514 Cleanup step"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Ursapine"
+collector_number = 188
+url = "https://scryfall.com/card/rav/188/ursapine"
+retained_data = "Public card identity, mana cost, colors, type, printed power/toughness, and activated ability required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

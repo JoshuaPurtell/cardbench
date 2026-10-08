@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 259
+definition_id = "RAV-CYCLOPEAN-SNARE"
+card_name = "Cyclopean Snare"
+printed_mana_cost = "{2}"
+colors = []
+card_types = ["artifact"]
+keywords = []
+abilities = ["{3}, {T}: tap target creature; return this artifact to its owner's hand"]
+source_authority = "RAV printing identity and candidate-owned artifact activation; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "colorless-artifact-identity-and-cast-cost"
+summary = "Represent the artifact as colorless with exact generic {2} mana cost and no creature characteristics."
+trace_required = true
+
+[[features]]
+id = "target-creature-activation-costs"
+summary = "Expose the bound {3}, tap ability with one creature target, and verify both activation costs are paid."
+trace_required = true
+
+[[features]]
+id = "tap-target-and-return-source"
+summary = "Resolve by tapping the exact opponent-controlled creature, then return the exact source object to its owner's hand."
+trace_required = true
+
+[[features]]
+id = "ordered-full-game-and-replay"
+summary = "Verify cast, activation payment, target tap, source return, later combat, and terminal win in a deterministic PvP game."
+trace_required = true
+
+[[features]]
+id = "compiled-semantic-mutations"
+summary = "Detect missing target tap, source return, source tap cost, wrong activation mana cost, or creature target requirement."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117.1b and 117.3c Priority", "301.1 Artifacts", "400.7 Zone changes", "601.2 Casting and payment", "602.1-602.2 Activated abilities", "701.21 Tap"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Cyclopean Snare"
+collector_number = 259
+url = "https://scryfall.com/card/rav/259/cyclopean-snare"
+retained_data = "Public card identity, colorless artifact characteristics, generic costs, tap target, and source-return operation needed by the trace"

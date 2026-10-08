@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-conclave-phalanx"
+definition_id = "RAV-CONCLAVE-PHALANX"
+expansion = "RAV"
+variant = "single-card"
+bundle = "conclave_phalanx_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/conclave_phalanx.rs"
+authority_bin = "rav-conclave-phalanx-pvp"
+materializer = "varieties/magic/scripts/materialize_conclave_phalanx_task.py"
+scorer = "varieties/magic/scripts/score_conclave_phalanx_pvp.py"
+review_scope = "Conclave Phalanx diagnostic full-game task, 291-name/306-printing catalog denominator, pinned source contract and source binding, ordered typed payment/cast/entry/trigger/life/combat events, engine event and payment trust paths, live characteristics, exact Convoke contributors, resolution-time controller creature count, replay, semantic mutants, compile-valid stub and generic Harbor qualification, authority, scorer, materializer, bundle, Cargo lock and shared manifests"
+review_files = [
+  "adapters/harbor/bundles/conclave_phalanx_card/README.md",
+  "adapters/harbor/bundles/conclave_phalanx_card/instruction.md",
+  "adapters/harbor/bundles/conclave_phalanx_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_conclave_phalanx_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_conclave_phalanx_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_conclave_phalanx_pvp.rs",
+  "varieties/magic/session/src/bin/rav_gather_courage_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/conclave_phalanx.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/convoke_etb_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/convoke_manifest_merge_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-conclave-phalanx-pvp/README.md",
+  "varieties/magic/tasks/rav-conclave-phalanx-pvp/features.toml",
+  "varieties/magic/tasks/rav-conclave-phalanx-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Conclave Phalanx identity, {4}{W} cost, 2/4 body, or Convoke differs"
+
+[mutation]
+find = "power: Some(2)"
+replace = "power: Some(1)"
+expected_diagnostic = "Conclave Phalanx identity, {4}{W} cost, 2/4 body, or Convoke differs"

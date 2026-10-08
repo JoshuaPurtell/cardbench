@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-snapping-drake"
+definition_id = "RAV-SNAPPING-DRAKE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "snapping_drake_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/snapping_drake.rs"
+authority_bin = "rav-snapping-drake-pvp"
+materializer = "varieties/magic/scripts/materialize_snapping_drake_task.py"
+scorer = "varieties/magic/scripts/score_snapping_drake_pvp.py"
+review_scope = "RAV Snapping Drake single-card PvP trace, source contract, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/snapping_drake_card/README.md",
+  "adapters/harbor/bundles/snapping_drake_card/instruction.md",
+  "adapters/harbor/bundles/snapping_drake_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_snapping_drake_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_snapping_drake_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_snapping_drake_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/snapping_drake.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-snapping-drake-pvp/README.md",
+  "varieties/magic/tasks/rav-snapping-drake-pvp/features.toml",
+  "varieties/magic/tasks/rav-snapping-drake-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "resolved Snapping Drake is not a 3/2"
+
+[mutation]
+find = "power: Some(3)"
+replace = "power: Some(2)"
+expected_diagnostic = "resolved Snapping Drake is not a 3/2"

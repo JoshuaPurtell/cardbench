@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-peregrine-mask"
+definition_id = "RAV-PEREGRINE-MASK"
+expansion = "RAV"
+variant = "single-card"
+bundle = "peregrine_mask_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/peregrine_mask.rs"
+authority_bin = "rav-peregrine-mask-pvp"
+materializer = "varieties/magic/scripts/materialize_peregrine_mask_task.py"
+scorer = "varieties/magic/scripts/score_peregrine_mask_pvp.py"
+review_scope = "Peregrine Mask RAV #268 identity and {1} cost; Equipment definition; {2} sorcery-speed equip targeting a controlled creature; exact attachment; Defender/Flying/First Strike; illegal Defender attack rejection; Flying block; First Strike combat event order; terminal PvP duel; deterministic replay; gameplay mutations; scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/peregrine_mask_card/README.md",
+  "adapters/harbor/bundles/peregrine_mask_card/instruction.md",
+  "adapters/harbor/bundles/peregrine_mask_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_peregrine_mask_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_peregrine_mask_pvp.py",
+  "varieties/magic/session/src/bin/rav_peregrine_mask_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/peregrine_mask.rs",
+  "varieties/magic/tasks/rav-peregrine-mask-pvp/README.md",
+  "varieties/magic/tasks/rav-peregrine-mask-pvp/features.toml",
+  "varieties/magic/tasks/rav-peregrine-mask-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Peregrine Mask equip ability is outside the printed source contract"
+
+[mutation]
+find = "mana_cost: ManaCost::new(2)"
+replace = "mana_cost: ManaCost::new(3)"
+expected_diagnostic = "Peregrine Mask equip ability is outside the printed source contract"

@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 261
+definition_id = "RAV-GLASS-GOLEM"
+card_name = "Glass Golem"
+printed_mana_cost = "{5}"
+colors = []
+card_types = ["artifact", "creature"]
+power = 6
+toughness = 2
+keywords = []
+abilities = []
+source_authority = "RAV printed card identity and characteristics already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "colorless-identity-and-generic-cost-casting"
+summary = "Cast Glass Golem through the ordinary full-game spell lifecycle, paying exactly five generic mana from a normal 60-card RAV deck."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical spell moves from the stack onto the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "vanilla-characteristics"
+summary = "The entered permanent is a colorless 6/2 artifact creature with no keywords or functional abilities."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and generic mana costs", "117 Timing and Priority", "208.1 and 302.4c Power and Toughness", "301 Artifact Spells", "302.1-302.2 Creatures and creature spells", "601.2 Casting Spells", "608.3a Permanent Spell Resolution", "613 Continuous Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

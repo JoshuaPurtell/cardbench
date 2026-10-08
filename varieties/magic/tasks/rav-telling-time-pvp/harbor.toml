@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-telling-time"
+definition_id = "RAV-TELLING-TIME"
+expansion = "RAV"
+variant = "single-card"
+bundle = "telling_time_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/telling_time.rs"
+authority_bin = "rav-telling-time-pvp"
+materializer = "varieties/magic/scripts/materialize_telling_time_task.py"
+scorer = "varieties/magic/scripts/score_telling_time_pvp.py"
+review_scope = "RAV Telling Time identity and {1}{U} instant characteristics; legal shuffled PvP cast and payment; controller-private ordered top-three snapshot; exhaustive hand/top/bottom partition; opponent-view secrecy; zone/library-order result; deterministic replay; semantic mutations; isolated candidate workspace and Harbor reference scoring"
+review_files = [
+  "adapters/harbor/bundles/telling_time_card/README.md",
+  "adapters/harbor/bundles/telling_time_card/instruction.md",
+  "adapters/harbor/bundles/telling_time_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_telling_time_task.py",
+  "varieties/magic/scripts/score_telling_time_pvp.py",
+  "varieties/magic/session/src/bin/rav_telling_time_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/telling_time.rs",
+  "varieties/magic/tasks/rav-telling-time-pvp/README.md",
+  "varieties/magic/tasks/rav-telling-time-pvp/features.toml",
+  "varieties/magic/tasks/rav-telling-time-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Telling Time definition differs from its RAV identity"
+
+[mutation]
+find = "LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count: 3 }"
+replace = "DrawController"
+expected_diagnostic = "candidate Telling Time definition differs from its RAV identity"

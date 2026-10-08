@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 285
+definition_id = "RAV-VITU-GHAZI"
+card_name = "Vitu-Ghazi, the City-Tree"
+printed_mana_cost = ""
+colors = []
+card_types = ["land"]
+keywords = []
+abilities = ["tap: add {C}", "{2}{G}{W}, tap: create a green 1/1 Saproling creature token"]
+source_authority = "RAV printing identity and candidate-owned colorless mana and Saproling activation bindings; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "land-identity-and-colorless-output"
+summary = "Represent the colorless land identity and activate its bound tap ability to add exactly one colorless mana."
+trace_required = true
+
+[[features]]
+id = "colored-saproling-activation-cost"
+summary = "After the colorless mana activation has ended and the land has untapped, use the same Vitu-Ghazi for its {2}{G}{W} ability and pay its tap cost."
+trace_required = true
+
+[[features]]
+id = "saproling-token-resolution-state"
+summary = "Resolve the activation and verify one controlled green 1/1 Saproling creature token on the battlefield."
+trace_required = true
+
+[[features]]
+id = "event-order-combat-and-full-game"
+summary = "Assert typed ordered mana, activation, token, combat, and terminal events in a deterministic shuffled 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "compiled-semantic-mutations"
+summary = "Reject wrong colorless output, a missing source tap cost, and a missing token effect through gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana and payment", "111.3 Tokens", "117.1b and 117.3c Priority", "305.1-305.2 Playing lands", "602.1-602.2 Activating abilities", "605.1a and 605.3 Mana abilities", "508 Declaring attackers", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Vitu-Ghazi, the City-Tree"
+collector_number = 285
+url = "https://scryfall.com/card/rav/285/vitu-ghazi-the-city-tree"
+retained_data = "Public card identity, land type, colorless mana operation, and Saproling token operation needed by the trace"

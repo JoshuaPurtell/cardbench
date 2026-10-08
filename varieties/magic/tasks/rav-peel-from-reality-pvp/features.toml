@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 61
+definition_id = "RAV-PEEL-FROM-REALITY"
+card_name = "Peel from Reality"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = []
+abilities = ["return-a-controlled-creature", "return-an-opponent-creature", "owner-preserving-hand-moves"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-instant-casting"
+summary = "Cast Peel from Reality as a blue instant for {1}{U} in a shuffled two-player 60-card duel."
+trace_required = true
+
+[[features]]
+id = "two-target-scopes-and-order"
+summary = "Announce a controlled creature first and an opponent-controlled creature second; resolve both returns in that order."
+trace_required = true
+
+[[features]]
+id = "owner-preserving-zone-moves"
+summary = "Move each target to its owner's hand and observe it in that owner's private hand view after the move."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the full game to a seat-zero win and reproduce the ordered event log for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Swapping either target scope, removing the second instruction, or changing the exact cost must make the gameplay oracle fail."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["109.5 Objects and owners", "115 Targets", "117 Priority", "601.2 Casting and target announcement", "608.2b Target legality on resolution", "608.3 Resolving instructions in order", "400.3 Zone changes and owner zones"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

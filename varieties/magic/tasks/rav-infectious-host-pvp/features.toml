@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 91
+definition_id = "RAV-INFECTIOUS-HOST"
+card_name = "Infectious Host"
+printed_mana_cost = "{2}{B}"
+colors = ["black"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["when this creature dies, target player loses 2 life"]
+source_authority = "RAV printed card identity and characteristics represented by candidate-owned card and triggered-ability bindings"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-creature-cast-and-entry"
+summary = "Cast Infectious Host from a legal 60-card Golgari deck with two generic and one black mana, then resolve its live 1/1 permanent entry."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-targeted-dies-trigger"
+summary = "Putrefy destroys the exact battlefield incarnation; its mandatory dies trigger opens a player-target decision only after the Host is in its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "target-player-loses-two-life"
+summary = "The policy chooses the opponent as the trigger target and the typed life-loss event records that player losing exactly two life."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "The full constructed match replays deterministically; body, removed-trigger, and wrong-life-loss semantic mutants are rejected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and Priority", "302 Creatures", "601.2 Casting Spells", "603.2 Trigger Events", "603.6c Dies Triggers", "608.2 Resolving Spells and Abilities", "119 Life Totals"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

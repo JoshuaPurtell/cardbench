@@ -1,0 +1,62 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 168
+definition_id = "RAV-GOLIATH-SPIDER"
+card_name = "Goliath Spider"
+printed_mana_cost = "{6}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 7
+toughness = 6
+keywords = ["Reach"]
+abilities = []
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-cost-casting"
+summary = "Cast the eight-mana green creature, paying two green symbols and six generic symbols through the ordinary spell stack lifecycle."
+trace_required = true
+
+[[features]]
+id = "reach-flying-block"
+summary = "A real opposing Skyknight Legionnaire with Flying attacks while Goliath Spider is untapped; the legal Reach block is accepted."
+trace_required = true
+
+[[features]]
+id = "combat-damage-and-flyer-removal"
+summary = "The 7/6 Goliath Spider deals combat damage to the blocked 2/2 flyer, which moves to its owner's graveyard; Goliath survives."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-replay"
+summary = "The same seeded 60-card match continues to a clean result and reproduces its ordered full event log."
+trace_required = true
+
+[[features]]
+id = "reach-mutation-sensitivity"
+summary = "Removing Reach rejects the same attempted block with the engine's flying-block diagnostic and changes the combat route."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1 and 106.4 Mana and payment", "117 Priority", "302.1-302.6 Creatures", "508 Declare Attackers", "509.1 Declare Blockers", "601.2 Casting Spells", "608.3a Resolving Permanent Spells", "702.9 Flying", "702.17 Reach"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Goliath Spider"
+collector_number = 168
+url = "https://scryfall.com/card/rav/168/goliath-spider"
+retained_data = "Public card identity, mana cost, colors, type, power, toughness, and Reach keyword needed by the trace"
+
+[[source_references]]
+source = "RAV printing"
+card = "Skyknight Legionnaire"
+collector_number = 232
+url = "https://scryfall.com/card/rav/232/skyknight-legionnaire"
+retained_data = "Public opposing-card identity and Flying characteristic needed to stage an actual flying attack"

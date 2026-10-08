@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-suppression-field"
+definition_id = "RAV-SUPPRESSION-FIELD"
+expansion = "RAV"
+variant = "single-card"
+bundle = "suppression_field_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/suppression_field.rs"
+authority_bin = "rav-suppression-field-pvp"
+materializer = "varieties/magic/scripts/materialize_suppression_field_task.py"
+scorer = "varieties/magic/scripts/score_suppression_field_pvp.py"
+review_scope = "Suppression Field identity and exact {1}{W} cast, live nonmana ability cost increase from {3}{U} to {5}{U}, modifier source, exact payment, post-Field Island mana ability exemption, targeted draw, terminal full-game PvP result, replay, isolated materialization, and gameplay mutations"
+review_files = [
+  "adapters/harbor/bundles/suppression_field_card/README.md",
+  "adapters/harbor/bundles/suppression_field_card/instruction.md",
+  "adapters/harbor/bundles/suppression_field_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_suppression_field_task.py",
+  "varieties/magic/scripts/score_suppression_field_pvp.py",
+  "varieties/magic/session/src/bin/rav_suppression_field_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/suppression_field.rs",
+  "varieties/magic/tasks/rav-suppression-field-pvp/README.md",
+  "varieties/magic/tasks/rav-suppression-field-pvp/features.toml",
+  "varieties/magic/tasks/rav-suppression-field-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Suppression Field candidate cost modifier must add exactly {2} to nonmana abilities"
+
+[mutation]
+find = "ActivatedAbilityCostModifier::IncreaseGeneric {\n            amount: 2,\n            nonmana_only: true,\n        }"
+replace = "ActivatedAbilityCostModifier::IncreaseGeneric {\n            amount: 1,\n            nonmana_only: true,\n        }"
+expected_diagnostic = "Suppression Field candidate cost modifier must add exactly {2} to nonmana abilities"

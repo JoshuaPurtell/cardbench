@@ -1,0 +1,42 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-grifters-blade"
+definition_id = "RAV-GRIFTERS-BLADE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "grifters_blade_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/grifters_blade.rs"
+authority_bin = "rav-grifters-blade-pvp"
+materializer = "varieties/magic/scripts/materialize_grifters_blade_task.py"
+scorer = "varieties/magic/scripts/score_grifters_blade_pvp.py"
+review_scope = "Grifter's Blade RAV #263 printed identity and {3} cost; Flash timing; non-targeting optional as-enters attachment choice with no trigger/target/response window; exact +1/+1 Equipment layer; sorcery-speed {1} Equip to a distinct controlled creature; deterministic terminal 60-card PvP trace; mutations; source guard; entry-choice engine substrate and its noncast-entry limit; scorer, materializer, and Harbor bundle"
+review_files = [
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/materialize_grifters_blade_task.py",
+  "varieties/magic/scripts/score_grifters_blade_pvp.py",
+  "varieties/magic/session/src/bin/rav_grifters_blade_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/grifters_blade.rs",
+  "varieties/magic/tasks/rav-grifters-blade-pvp/README.md",
+  "varieties/magic/tasks/rav-grifters-blade-pvp/source-note.md",
+  "varieties/magic/tasks/rav-grifters-blade-pvp/features.toml",
+  "varieties/magic/tasks/rav-grifters-blade-pvp/harbor.toml",
+  "adapters/harbor/bundles/grifters_blade_card/README.md",
+  "adapters/harbor/bundles/grifters_blade_card/instruction.md",
+  "adapters/harbor/bundles/grifters_blade_card/tests/test.sh",
+]
+stub_expected_diagnostic = "Grifter's Blade equip binding differs from its printed cost or recipient"
+
+[mutation]
+find = "mana_cost: ManaCost::new(1)"
+replace = "mana_cost: ManaCost::new(2)"
+expected_diagnostic = "Grifter's Blade equip binding differs from its printed cost or recipient"

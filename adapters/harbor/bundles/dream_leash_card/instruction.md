@@ -1,0 +1,5 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/dream_leash.rs` as a declarative `CardDefinition` constructor. Preserve the single RAV printing: blue `{3}{U}{U}` Enchantment — Aura, `Enchant permanent`, cast only targeting a tapped permanent, and control of the enchanted permanent.
+
+The tapped requirement applies when casting. In the reference trace, the opponent's Watchwolf attacks and becomes tapped; the pilot casts Dream Leash targeting that specific Watchwolf; then the opponent activates Tidewater Minion to untap that same target before the Aura resolves. Dream Leash must still resolve and attach, and its control effect must remain active while the target is untapped. The full shuffled duel ends normally with a seat-zero win and deterministic replay.
+
+Keep the module literal-only. The trusted authority checks normalized source and the AST before calling candidate functions, rejects a compile-valid injected side-effect candidate, and detects missing cast-time target restriction, control change, and printed mana cost. Do not add files.

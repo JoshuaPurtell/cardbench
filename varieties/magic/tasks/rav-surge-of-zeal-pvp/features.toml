@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 146
+definition_id = "RAV-SURGE-OF-ZEAL"
+card_name = "Surge of Zeal"
+printed_mana_cost = "{R}"
+colors = ["red"]
+card_types = ["instant"]
+abilities = ["Radiance grants haste to the target creature and creatures sharing a color with it until end of turn"]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "exact-red-instant-payment"
+summary = "Cast Surge of Zeal from a shuffled library and record the exact one-red mana payment and target selection."
+trace_required = true
+
+[[features]]
+id = "radiance-haste-across-controllers"
+summary = "Resolve the target-bound layer-six haste effect for every creature sharing a color with the target, including a red creature controlled by the opponent."
+trace_required = true
+
+[[features]]
+id = "color-exclusion-and-summoning-sickness"
+summary = "Leave a colorless Glass Golem unaffected and verify that the newly cast target attacks in the same turn after gaining haste."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-and-mutations"
+summary = "Complete the shuffled two-player game, replay it deterministically, and detect mutations to Radiance scope, haste, and red mana cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and casting instants", "202.1-202.2 Color identity and colored mana symbols", "601.2 Casting spells, targets, and paying costs", "608.2b-608.2c Target legality and resolution", "611.2 Continuous effects with end-of-turn duration", "613.1f-613.1g Layer six keyword-granting effects", "702.50 Radiance shared-color recipients", "302.6 Summoning sickness and haste"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Surge of Zeal"
+collector_number = 146
+url = "https://scryfall.com/card/rav/146/surge-of-zeal"
+retained_data = "Public card identity, mana cost, color, type, and CardBench-authored Radiance/haste operation needed by the trace"

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-elves-of-deep-shadow"
+definition_id = "RAV-ELVES-OF-DEEP-SHADOW"
+expansion = "RAV"
+variant = "single-card"
+bundle = "elves_of_deep_shadow_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/elves_of_deep_shadow.rs"
+authority_bin = "rav-elves-of-deep-shadow-pvp"
+materializer = "varieties/magic/scripts/materialize_elves_of_deep_shadow_task.py"
+scorer = "varieties/magic/scripts/score_elves_of_deep_shadow_pvp.py"
+review_scope = "Elves of Deep Shadow #161 full-game diagnostic vertical: exact {G} cast and live 1/1 characteristics; tapped source produces exactly one {B} followed by one controller damage; Last Gasp pays {1}{B}, removes the attacking Watchwolf through a zero-toughness state-based action; own Watchwolf wins in legal combat; ordered typed event projection and deterministic replay; five semantic mutants. Catalog denominator is 291 unique card names and 306 printings; zero cards are credited and reward is zero."
+review_files = [
+  "adapters/harbor/bundles/elves_of_deep_shadow_card/README.md",
+  "adapters/harbor/bundles/elves_of_deep_shadow_card/instruction.md",
+  "adapters/harbor/bundles/elves_of_deep_shadow_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/engine/tests/bound_mana_ability_contract.rs",
+  "varieties/magic/engine/tests/cast_payment_receipt_invariants.rs",
+  "varieties/magic/engine/tests/generalized_activation_payment_selection_red.rs",
+  "varieties/magic/engine/tests/policy_cast_payment_red.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/protocol/Cargo.toml",
+  "varieties/magic/protocol/src/lib.rs",
+  "varieties/magic/scripts/materialize_elves_of_deep_shadow_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_elves_of_deep_shadow_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_elves_of_deep_shadow_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/elves_of_deep_shadow.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-elves-of-deep-shadow-pvp/README.md",
+  "varieties/magic/tasks/rav-elves-of-deep-shadow-pvp/features.toml",
+  "varieties/magic/tasks/rav-elves-of-deep-shadow-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Elves of Deep Shadow identity, exact green cost, 1/1 characteristics, tap cost, black output, or controller damage differs from the source contract"
+
+[mutation]
+find = "controller_damage: Some(1)"
+replace = "controller_damage: None"
+expected_diagnostic = "Elves of Deep Shadow identity, exact green cost, 1/1 characteristics, tap cost, black output, or controller damage differs from the source contract"

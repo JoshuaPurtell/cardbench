@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 7
+definition_id = "RAV-CHANT-OF-VITU-GHAZI"
+card_name = "Chant of Vitu-Ghazi"
+printed_mana_cost = "{6}{W}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = ["convoke"]
+abilities = ["Prevent creature-sourced damage for the turn; gain life equal to damage actually prevented by this effect"]
+source_authority = "RAV printed identity, exact cost, color, type, Convoke, and creature-damage prevention/life-gain effect represented by candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-instant-exact-cost-convoke"
+summary = "Cast the white Instant for exact {6}{W}{W}; use Convoke to pay generic symbols while paying both white symbols with white mana."
+trace_required = true
+
+[[features]]
+id = "creature-source-damage-prevention"
+summary = "Resolve the spell before combat damage and prevent creature-sourced damage that would otherwise be dealt to a player."
+trace_required = true
+
+[[features]]
+id = "actual-prevented-damage-life-gain"
+summary = "Gain life equal to the damage actually prevented by Chant; typed ordered events and the live life total agree with the prevention receipts."
+trace_required = true
+
+[[features]]
+id = "noncombat-creature-damage-and-terminal-game"
+summary = "Exercise creature-sourced noncombat damage during the effect's duration, then reach a terminal full-game result."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-compiled-mutants"
+summary = "Replay the shuffled full game deterministically and reject compiled mutants that remove Convoke or replace creature-damage prevention with an incorrect effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["119.1 and 119.4 Life totals and life gain", "120.1-120.4 Damage", "601.2 Casting spells and paying costs", "608.2 Resolving spells", "615 Damage prevention effects", "702.50 Convoke", "508.1 Declaring attackers", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-selesnya-sanctuary"
+definition_id = "RAV-SELESNYA-SANCTUARY"
+expansion = "RAV"
+variant = "single-card"
+bundle = "selesnya_sanctuary_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_sanctuary.rs"
+authority_bin = "rav-selesnya-sanctuary-pvp"
+materializer = "varieties/magic/scripts/materialize_selesnya_sanctuary_task.py"
+scorer = "varieties/magic/scripts/score_selesnya_sanctuary_pvp.py"
+review_scope = "RAV Selesnya Sanctuary identity and candidate-owned definition, tapped land entry, controlled-land ETB trigger and target, exact free green-white bundle; shuffled 60-card PvP; full trigger/move/mana event order; Watchwolf cast and terminal combat win; deterministic replay; tapped, target, trigger, and bundle mutations; compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/selesnya_sanctuary_card/README.md",
+  "adapters/harbor/bundles/selesnya_sanctuary_card/instruction.md",
+  "adapters/harbor/bundles/selesnya_sanctuary_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_selesnya_sanctuary_task.py",
+  "varieties/magic/scripts/score_selesnya_sanctuary_pvp.py",
+  "varieties/magic/session/src/bin/rav_selesnya_sanctuary_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_sanctuary.rs",
+  "varieties/magic/tasks/rav-selesnya-sanctuary-pvp/README.md",
+  "varieties/magic/tasks/rav-selesnya-sanctuary-pvp/features.toml",
+  "varieties/magic/tasks/rav-selesnya-sanctuary-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Selesnya Sanctuary candidate or registry differs from RAV #281 contract"
+
+[mutation]
+find = "TargetRequirement::ControlledLand"
+replace = "TargetRequirement::Creature"
+expected_diagnostic = "Selesnya Sanctuary candidate or registry differs from RAV #281 contract"

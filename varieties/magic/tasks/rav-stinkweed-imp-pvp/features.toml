@@ -1,0 +1,76 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-STINKWEED-IMP"
+set_code = "RAV"
+collector_number = 107
+card_name = "Stinkweed Imp"
+printed_mana_cost = "{2}{B}"
+colors = ["black"]
+card_types = ["creature"]
+subtypes = ["Imp"]
+power = 1
+toughness = 2
+keywords = ["Flying", "Dredge 5"]
+abilities = ["Whenever this creature deals combat damage to a creature, destroy that creature", "Dredge 5"]
+source_authority = "Original RAV #107 printing controls identity and tested mechanics under RAV_PVP_SOURCE_CONTRACT.md; current Oracle is consulted only for interpretation. The Imp subtype is retained identity but is not asserted because CardDefinition has no creature subtype field."
+oracle_reconciliation = "Current Oracle changes the combat-trigger subject from the card name to 'this creature' but preserves the same damage recipient and destruction effect. The RAV Dredge reminder text is represented as the Dredge 5 keyword; Flying is unchanged, with no gameplay difference in the tested branches."
+public_identity_record = "https://www.mtg.wtf/card/rav/107/Stinkweed-Imp"
+model_limitations = "CardDefinition represents Creature but not the printed Imp subtype; subtype is retained identity only. Flying and Dredge 5 are executable keywords, and the combat-damage trigger is candidate-owned."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-candidate-owned-bindings"
+summary = "Define the black {2}{B} 1/2 creature with Flying and Dredge 5, and bind its mandatory combat-damage trigger in the candidate module. Imp is retained printed subtype identity but is not modeled or asserted by CardDefinition."
+trace_required = true
+
+[[features]]
+id = "damage-recipient-provenance-and-destruction"
+summary = "In legal combat, Stinkweed Imp blocks Watchwolf, deals exactly 1 combat damage to that exact object, and its resolved trigger destroys the same object. Capture combat damage, trigger stack/resolution, destruction, and graveyard state in event order."
+trace_required = true
+
+[[features]]
+id = "exact-dredge-five-replacement"
+summary = "After Stinkweed Imp dies and is in its owner's graveyard, replace one actual draw with Dredge 5. Verify the five exact library-top objects move to the graveyard in order, then this same Imp object returns to hand and is recast."
+trace_required = true
+
+[[features]]
+id = "deterministic-terminal-pvp-and-mutations"
+summary = "Replay the shuffled 60-card duel deterministically and continue to a terminal result. Detect mutations to cost, body, Flying, Dredge presence/count, trigger condition/effect, and a compile-valid injected process-exit candidate before any candidate function executes."
+trace_required = true
+
+[[features]]
+id = "pre-call-literal-source-guard"
+summary = "Require the normalized parsed AST to match the literal candidate module before invoking any candidate function; report rejection of a compile-valid injected side effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and draw replacement decisions", "202.1-202.2 Mana cost and color", "302 Creatures", "510 Combat damage", "603 Triggered abilities", "608 Resolving abilities", "704 State-based actions", "702.9 Flying", "702.52 Dredge"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Stinkweed Imp"
+collector_number = 107
+url = "https://www.mtg.wtf/card/rav/107/Stinkweed-Imp"
+retained_data = "Public identity, {2}{B} cost, black Creature — Imp type line, 1/2 body, Flying, Dredge 5, and the combat-damage trigger identity"
+
+[[source_references]]
+source = "Current Oracle wording, consulted for interpretation"
+card = "Stinkweed Imp"
+url = "https://www.mtg.wtf/card/rav/107/Stinkweed-Imp"
+retained_data = "Trigger subject is modernized to 'this creature'; the same creature that receives its combat damage is destroyed. Dredge 5 and Flying are unchanged."
+
+[[source_references]]
+source = "Official Wizards Time Spiral Remastered card/release record corroborating name-based trigger wording"
+card = "Stinkweed Imp"
+url = "https://media.wizards.com/2021/downloads/TSR_Release_Notes/EN_MTGTSR_FAQ_20210118.pdf"
+retained_data = "Public printing identity and name-based combat-damage trigger wording only; the RAV printing remains the task's identity authority."

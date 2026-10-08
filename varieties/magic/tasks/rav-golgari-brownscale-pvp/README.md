@@ -1,0 +1,7 @@
+# CardBench Magic single-card task: Golgari Brownscale
+
+Implement the candidate-owned Golgari Brownscale definition and its graveyard-to-hand trigger in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_brownscale.rs`.
+
+Before any candidate function is called, the trusted authority compares the normalized parsed source tree with the literal module contract and rejects a compile-valid injected side effect. It then runs a deterministic, legal two-player 60-card game. The pilot casts Golgari Brownscale, blocks an attacking Watchwolf so the exact Brownscale object enters its owner's graveyard, and replaces a later draw with Dredge 2. The trace checks the two library objects milled in order, the same Brownscale object moving from graveyard to hand, its source-bound trigger being stacked and resolved after the Dredge replacement, exactly 2 life gained, and the returned card being recast before the game reaches a terminal result. Replay and semantic mutations cover identity, cost, body, Dredge presence/count, trigger condition/effect/amount, and the source guard.
+
+The printed subtype is Lizard. The current `CardDefinition` model represents Creature but has no creature-subtype field, so Lizard is retained as public identity and is not asserted by the candidate definition or gameplay trace. This is an uncredited diagnostic task against the 291-name / 306-printing RAV catalog; it reports zero card credit and zero reward. Candidate evaluation remains separate. See [source-note.md](source-note.md) for the RAV printing and Oracle audit.

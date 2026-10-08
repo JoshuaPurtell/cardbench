@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 49
+definition_id = "RAV-FLIGHT-OF-FANCY"
+card_name = "Flight of Fancy"
+printed_mana_cost = "{3}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Enchant a creature; that creature has flying; draw two cards when Flight of Fancy enters the battlefield"]
+source_authority = "RAV printed card identity, cost, color, type line, Aura attachment restriction, flying effect, and mandatory ETB draw trigger represented by candidate-owned definition and binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-aura-exact-casting"
+summary = "Cast the blue Aura for exact {3}{U} payment in a legal PvP main phase."
+trace_required = true
+
+[[features]]
+id = "creature-attachment-and-flying"
+summary = "Attach Flight of Fancy to the exact controlled creature and verify that creature has flying while the Aura remains attached."
+trace_required = true
+
+[[features]]
+id = "mandatory-etb-draw-two"
+summary = "Stack and resolve the ETB trigger and verify exactly two cards move from library to hand."
+trace_required = true
+
+[[features]]
+id = "combat-and-full-game-terminal"
+summary = "Use the enchanted creature in legal combat and continue the shuffled duel to a terminal result."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay deterministically and reject mutations that omit flying, remove the trigger, or change the draw count."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "303.4 Auras", "601.2 Casting spells", "603.2 and 603.3 Triggered abilities", "608.2 Resolving spells and abilities", "613 Continuous effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 74
+definition_id = "RAV-VEDALKEN-ENTRANCER"
+card_name = "Vedalken Entrancer"
+printed_mana_cost = "{3}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+keywords = ["defender"]
+abilities = ["{U}, {T}: Target player mills two cards"]
+source_authority = "RAV printed identity, collector number, {3}{U} cost, blue 1/4 Creature, Defender, {U} and tap activated cost, target-player requirement, and exact two-card mill represented by the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-defender-exact-cost"
+summary = "Cast Vedalken Entrancer as a blue 1/4 Creature with Defender for exactly {3}{U}, evidenced by the four-mana payment and its battlefield characteristics."
+trace_required = true
+
+[[features]]
+id = "instant-speed-blue-tap-player-target"
+summary = "After summoning sickness ends, pay {U} and tap the exact Entrancer object to activate on the opponent's turn with that opponent as the target player."
+trace_required = true
+
+[[features]]
+id = "exact-top-two-library-mill"
+summary = "Record the two exact top library object identities and owners, move both to the targeted opponent's graveyard, and verify the library shrinks by two."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-replay-and-mutants"
+summary = "Continue the shuffled duel through Watchwolf combat to a terminal pilot win, replay deterministically, and detect five semantic gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.6: summoning sickness and tap-symbol costs", "602.2: activating abilities and paying costs", "608.2: resolving an activated ability", "701.13: milling cards", "508.1 and 510.1: declaring attackers and combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

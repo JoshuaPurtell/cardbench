@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, ContinuousChange, Duration, Effect, Game,
-    GameEvent, ManaCost, PlayerId, PolicyAction, Step, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, Color, ContinuousChange, DefenderChoice, Duration,
+    Effect, Game, GameEvent, ManaCost, PlayerId, PolicyAction, Step, Target, TargetRequirement,
+    Zone,
 };
 
 const FILLER: &str = "CONTROLLED-ATTACKER-OWNER-DEPARTURE-FILLER";
@@ -132,11 +133,11 @@ fn owner_departure_removes_a_controlled_attacker_from_live_combat_before_object_
     game.submit_policy_move(
         active,
         "test.owner-departure.v1",
-        PolicyAction::DeclareAttackers {
-            attackers: vec![attacker],
+        PolicyAction::DeclareAttackersAgainst {
+            attackers: vec![(attacker, DefenderChoice::Player(defender))],
         },
     )
-    .expect("active player may attack with the stolen creature");
+    .expect("active player may attack a named opponent with the stolen creature");
 
     for expected in [active, defender, departing_owner] {
         assert_eq!(

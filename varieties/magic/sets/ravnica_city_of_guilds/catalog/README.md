@@ -224,12 +224,10 @@ boundary. One public immediate-helper trace remains solely as a frozen parity
 fixture and is not a substitute for the direct policy and event-log contracts.
 
 Empty the Catacombs is a positive-manifest entry. After both players pass on
-its target-free spell, each living player with a creature card in their own
-public graveyard submits exactly one visible card through the generic decision
-surface. The engine retains the source stack object and every selected card's
-incarnation through the serial choices, revalidates each selection, then moves
-the selected cards to their owners' hands before the normal spell terminal
-receipts. This is a policy decision rather than deterministic graveyard order.
+its target-free spell, the engine snapshots every creature card in each living
+player's own public graveyard and returns all of them to their owners' hands.
+The spell does not ask players to choose cards; only the usual optional
+commander-zone replacement choice can interrupt those moves.
 
 Mausoleum Turnkey is a positive-manifest entry. Its intervening-condition ETB
 keeps the current public target-selection decision outside the stack until its
@@ -245,11 +243,12 @@ ordinary optional stack decision, where accepting creates one typed Saproling
 and declining creates none; an opponent-controlled Aura cannot queue that
 trigger.
 
-Drake Familiar is a positive-manifest entry. Its Flying and target-bearing ETB
-use the ordinary public trigger-target decision: only a live enchantment may
-be selected, and its owner-indexed hand move occurs during the stack
-resolution before the ability receipt. A non-enchantment answer is an atomic
-rejection rather than a fallback return operation.
+Drake Familiar is a positive-manifest entry. Its Flying and ETB use the
+ordinary stack lifecycle, then make a non-targeted resolution-time choice among
+all battlefield enchantments, including opposing enchantments. The chosen card
+returns to its owner's hand; declining the choice or having no eligible
+permanent sacrifices Drake Familiar. The choice is not restricted by shroud or
+other target-protection effects.
 
 Boros Garrison, Dimir Aqueduct, Golgari Rot Farm, and Selesnya Sanctuary are
 positive-manifest entries through one shared land abstraction. Each enters
@@ -441,16 +440,15 @@ does not yet use last-known counter information, so it is not in the positive
 full-fidelity manifest.
 
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
-Grave-Shell Scarab, and Shambling Shell follows the same
-fail-closed boundary. Each
-definition records only its public identity, mana cost, color, type, base
-characteristics, and the engine's existing generic Dredge or Convoke hook. The
-public fixed scenarios exercise that generic hook and normal casting where it is
-safe to do so. The definition comments name every omitted printed behavior;
-none of these eight cards claims full-card fidelity. The author checked public
-RAV collector identity and the presence of its generic keyword against the
-Scryfall API snapshot described above, but did not retain source JSON or copy
-rules text into this repository.
+and Shambling Shell follows the same fail-closed boundary. Those definitions
+record their public identity, mana cost, color, type, base characteristics, and
+the engine's generic Dredge or Convoke hook; their fixed scenarios do not
+replace card-specific coverage. Grave-Shell Scarab now has a separate
+candidate-owned PvP vertical for its full identity, sacrifice-to-draw ability,
+and Dredge replacement after the source has been sacrificed. The author checked
+public RAV collector identity and generic keyword facts against the Scryfall
+API snapshot described above, but did not retain source JSON or copy rules text
+into this repository.
 
 Executable compatibility definitions use only the small public facts needed by
 their declared `supported_rules` fields (for example, card identity, colors,
@@ -669,7 +667,8 @@ prevention receipts, consumes only the next damage, and is removed at target or
 turn departure. The focused Char trace checks the two damage events, the
 prevented portion, and the final invariant audit.
 
-Ghosts of the Innocent is an executable bounded compatibility slice. Its RAV
+Ghosts of the Innocent is an executable full-fidelity compatibility slice for
+its printed characteristics and global damage-halving ability. Its RAV
 collector identity, color, cost, creature characteristics, and sole global
 damage-amount behavior were checked against the public
 [Scryfall RAV #20 record](https://scryfall.com/card/rav/20/ghosts-of-the-innocent)
@@ -677,15 +676,18 @@ on 2026-08-02; no source response, card prose, image, or art is retained. The
 expansion-neutral binding discovers each live source incarnation and records a
 replacement receipt before the reduced player- or permanent-damage receipt.
 The focused Rust trace covers both recipient kinds and the final invariant
-audit. Concurrent ordering with the engine's broader replacement families is
-still explicitly bounded, so this entry is not added to the positive
+audit. A second focused trace gives the affected player both legal orders for
+Ghosts and Szadek's competing combat-damage replacement and verifies each
+result. The supported ordering slice is explicit; broader replacement
+families remain separately scoped. Ghosts is included in the positive
 full-fidelity manifest.
 
-Chant of Vitu-Ghazi is a complete dynamic-Convoke life-gain slice. Its
-resolution counts every current battlefield creature, including opposing
-creatures and tokens, then emits one source-controller `LifeGained` receipt.
-The focused trace pays with two Convoke creatures and verifies the count at
-resolution rather than at cast time.
+Chant of Vitu-Ghazi is a complete Convoke damage-prevention slice. Its
+resolution creates a current-turn replacement for every creature-source
+damage packet, including combat and noncombat damage; its controller gains
+life equal only to the amount this effect actually prevents. The focused trace
+orders it against a finite damage shield and checks the exact remaining amount,
+then verifies the card's Convoke cost and combat-prevention path.
 
 The first-range easy-creature bounded wave includes Drake Familiar and Grozoth.
 Each supports normal colored-cost creature casting and base power/toughness;

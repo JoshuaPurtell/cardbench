@@ -1,12 +1,10 @@
-//! Regression for Empty the Catacombs' all-player graveyard return.
+//! Regression for Empty the Catacombs' all-creature graveyard return.
 
-use cardbench_magic_engine::{
-    CastRequest, Color, DecisionKind, DecisionSelection, Game, PlayerId, Zone,
-};
+use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, Zone};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn empty_the_catacombs_returns_one_creature_card_per_graveyard_to_hand() {
+fn empty_the_catacombs_returns_all_creatures_without_a_card_choice() {
     let definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-EMPTY-THE-CATACOMBS")
@@ -14,7 +12,7 @@ fn empty_the_catacombs_returns_one_creature_card_per_graveyard_to_hand() {
     assert!(
         definition
             .supported_rules
-            .contains(&"each-player-returns-creature-card-from-graveyard-to-hand")
+            .contains(&"each-player-returns-all-creature-cards-from-own-graveyard-to-hand")
     );
 
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture constructs");
@@ -25,8 +23,14 @@ fn empty_the_catacombs_returns_one_creature_card_per_graveyard_to_hand() {
         .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Graveyard)
         .expect("first creature setup");
     let second = game
-        .add_card(PlayerId(1), "RAV-BOROS-RECRUIT", Zone::Graveyard)
+        .add_card(PlayerId(0), "RAV-GLASS-GOLEM", Zone::Graveyard)
         .expect("second creature setup");
+    let opponent_creature = game
+        .add_card(PlayerId(1), "RAV-BOROS-RECRUIT", Zone::Graveyard)
+        .expect("opponent creature setup");
+    let noncreature = game
+        .add_card(PlayerId(1), "RAV-ISLAND", Zone::Graveyard)
+        .expect("noncreature setup");
     game.grant_mana(PlayerId(0), Color::Black, 4)
         .expect("spell mana");
 
@@ -43,59 +47,28 @@ fn empty_the_catacombs_returns_one_creature_card_per_graveyard_to_hand() {
     game.pass_priority(PlayerId(0)).expect("caster passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
 
-    let first_choice = game
-        .view_for_player(PlayerId(0))
-        .expect("first player view")
-        .pending_decision
-        .expect("first graveyard choice is pending");
-    assert_eq!(
-        first_choice.kind,
-        DecisionKind::PublicGraveyardCreatureReturn
-    );
-    game.submit_decision(
-        PlayerId(0),
-        first_choice.id,
-        DecisionSelection::Objects(vec![first]),
-    )
-    .expect("first player selects their creature");
-    let second_choice = game
-        .view_for_player(PlayerId(1))
-        .expect("second player view")
-        .pending_decision
-        .expect("second graveyard choice is pending");
-    assert_eq!(
-        second_choice.kind,
-        DecisionKind::PublicGraveyardCreatureReturn
-    );
-    game.submit_decision(
-        PlayerId(1),
-        second_choice.id,
-        DecisionSelection::Objects(vec![second]),
-    )
-    .expect("second player selects their creature");
-
     assert_eq!(game.zone_of(first), Some(Zone::Hand));
     assert_eq!(game.zone_of(second), Some(Zone::Hand));
-    assert_eq!(
-        game.canonical_event_log(),
-        vec![
-            "SpellCast { player: PlayerId(0), card: ObjectId(1) }",
-            "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 2 }",
-            "PriorityPassed { player: PlayerId(0) }",
-            "PriorityPassed { player: PlayerId(1) }",
-            "DecisionOpened { decision: DecisionId(1), player: PlayerId(0), kind: PublicGraveyardCreatureReturn, visibility: Public, min_selections: 1, max_selections: 1 }",
-            "DecisionCompleted { decision: DecisionId(1), player: PlayerId(0), kind: PublicGraveyardCreatureReturn }",
-            "DecisionOpened { decision: DecisionId(2), player: PlayerId(1), kind: PublicGraveyardCreatureReturn, visibility: Public, min_selections: 1, max_selections: 1 }",
-            "DecisionCompleted { decision: DecisionId(2), player: PlayerId(1), kind: PublicGraveyardCreatureReturn }",
-            "CardMoved { card: ObjectId(2), to: Hand }",
-            "ObjectIncarnationAdvanced { object: ObjectId(2), incarnation: 2 }",
-            "CardMoved { card: ObjectId(3), to: Hand }",
-            "ObjectIncarnationAdvanced { object: ObjectId(3), incarnation: 2 }",
-            "SpellResolved { card: ObjectId(1) }",
-            "CardMoved { card: ObjectId(1), to: Graveyard }",
-            "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 3 }",
-        ]
+    assert_eq!(game.zone_of(opponent_creature), Some(Zone::Hand));
+    assert_eq!(game.zone_of(noncreature), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(spell), Some(Zone::Graveyard));
+    assert!(
+        game.view_for_player(PlayerId(0))
+            .expect("controller view")
+            .pending_decision
+            .is_none()
+    );
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none()
+    );
+    assert!(
+        game.canonical_event_log()
+            .iter()
+            .all(|event| !event.starts_with("DecisionOpened"))
     );
     game.validate_invariants()
-        .expect("all-player graveyard return stays valid");
+        .expect("all-creature graveyard return stays valid");
 }

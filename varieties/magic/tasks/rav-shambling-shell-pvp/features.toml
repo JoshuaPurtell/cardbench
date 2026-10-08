@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 230
+definition_id = "RAV-SHAMBLING-SHELL"
+card_name = "Shambling Shell"
+printed_mana_cost = "{1}{B}{G}"
+colors = ["black", "green"]
+card_types = ["creature"]
+subtypes = ["Plant", "Zombie"]
+power = 3
+toughness = 1
+keywords = ["Dredge 3"]
+abilities = ["Sacrifice Shambling Shell: Put a +1/+1 counter on target creature"]
+source_authority = "Original RAV #230 printing controls identity and tested mechanics under RAV_PVP_SOURCE_CONTRACT.md; current Oracle is consulted only for interpretation. Plant and Zombie are retained identity but are not asserted because CardDefinition has no creature-subtype field."
+oracle_reconciliation = "Current Oracle uses 'this creature' for the source and 'mill' in Dredge reminder wording; those phrasings preserve the RAV self-sacrifice, targeted +1/+1 counter, and Dredge 3 operations."
+public_identity_record = "https://aetherhub.com/Card/RAV/Shambling-Shell/230"
+model_limitations = "CardDefinition represents Creature but not the printed Plant or Zombie subtypes; both are retained identity only. The {1}{B}{G} cost, black-green color, 3/1 body, sacrifice activation, targeted +1/+1 counter, and Dredge 3 operation are represented."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "exact-rav-identity-and-subtype-boundary"
+summary = "Define the black-green {1}{B}{G} 3/1 Creature with the sacrifice activation and Dredge 3. Plant and Zombie remain printed identity and are not represented as CardDefinition subtypes."
+trace_required = true
+
+[[features]]
+id = "sacrifice-cost-target-and-counter"
+summary = "Activate Shambling Shell's ability by sacrificing that exact battlefield object as a cost; resolve the ability and verify its chosen creature receives exactly one +1/+1 counter."
+trace_required = true
+
+[[features]]
+id = "exact-dredge-three-draw-replacement"
+summary = "With this Shambling Shell in its owner's graveyard and at least three library cards, replace an actual draw with Dredge 3; verify exactly the top three objects are milled and the same Shell returns to hand."
+trace_required = true
+
+[[features]]
+id = "deterministic-terminal-pvp-and-mutations"
+summary = "Replay the legal two-player game deterministically, continue to a terminal result, and detect changes to the printed cost, body, sacrifice activation, targeted counter effect, or Dredge number."
+trace_required = true
+
+[[features]]
+id = "pre-call-literal-source-guard"
+summary = "Validate normalized candidate source and its literal AST before candidate calls, and reject a compile-valid injected side-effect candidate."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106 Mana", "113.3b Activated abilities", "115 Targets", "117 Timing and priority", "121 Drawing a card", "122 Counters", "602 Activating activated abilities", "608 Resolving spells and abilities", "614 Replacement effects", "701.21 Sacrifice", "702.52 Dredge"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Shambling Shell"
+collector_number = 230
+url = "https://aetherhub.com/Card/RAV/Shambling-Shell/230"
+retained_data = "Public identity, {1}{B}{G} cost, black-green Creature — Plant Zombie type line, 3/1 body, activated self-sacrifice ability, and Dredge 3; Plant and Zombie are not represented as asserted engine subtypes"
+
+[[source_references]]
+source = "Current Oracle wording, consulted for interpretation"
+card = "Shambling Shell"
+url = "https://www.mtg.wtf/card/rav/230/Shambling-Shell"
+retained_data = "Rules interpretation only: 'this creature' source phrasing and 'mill' Dredge reminder wording preserve the original source-bound sacrifice, targeted counter, and Dredge 3 operation"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

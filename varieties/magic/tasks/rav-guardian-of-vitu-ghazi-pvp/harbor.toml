@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-guardian-of-vitu-ghazi"
+definition_id = "RAV-GUARDIAN-OF-VITU-GHAZI"
+expansion = "RAV"
+variant = "single-card"
+bundle = "guardian_vitu_ghazi_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/guardian_of_vitu_ghazi.rs"
+authority_bin = "rav-guardian-of-vitu-ghazi-pvp"
+materializer = "varieties/magic/scripts/materialize_guardian_vitu_ghazi_task.py"
+scorer = "varieties/magic/scripts/score_guardian_vitu_ghazi_pvp.py"
+review_scope = "Guardian of Vitu-Ghazi full-game diagnostic, 291-name/306-printing catalog denominator, source contract and module authority, exact Green/White symbol payment and six generic Convoke contributors, ordered typed event projection and engine payment/event trust paths, live 4/7 Convoke/Vigilance, Vigilance attack untapped state and combat damage, deterministic replay, semantic mutants, compile-valid public stub and generic Harbor qualification, authority, scorer, materializer, bundle, Cargo lock and shared manifests"
+review_files = [
+  "adapters/harbor/bundles/guardian_vitu_ghazi_card/README.md",
+  "adapters/harbor/bundles/guardian_vitu_ghazi_card/instruction.md",
+  "adapters/harbor/bundles/guardian_vitu_ghazi_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_guardian_vitu_ghazi_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_guardian_vitu_ghazi_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_guardian_of_vitu_ghazi_pvp.rs",
+  "varieties/magic/session/src/bin/rav_gather_courage_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/guardian_of_vitu_ghazi.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/guardian_of_vitu_ghazi_full_fidelity.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-guardian-of-vitu-ghazi-pvp/README.md",
+  "varieties/magic/tasks/rav-guardian-of-vitu-ghazi-pvp/features.toml",
+  "varieties/magic/tasks/rav-guardian-of-vitu-ghazi-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Guardian literal is outside the task source contract"
+
+[mutation]
+find = "power: Some(4)"
+replace = "power: Some(3)"
+expected_diagnostic = "Guardian literal is outside the task source contract"

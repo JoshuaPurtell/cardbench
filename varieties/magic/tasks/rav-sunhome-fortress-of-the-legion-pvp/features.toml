@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 282
+definition_id = "RAV-SUNHOME-FORTRESS"
+card_name = "Sunhome, Fortress of the Legion"
+printed_mana_cost = ""
+colors = []
+mana_colors = ["colorless"]
+card_types = ["land"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["tap for one colorless mana", "{2}{R}{W}, tap: target creature gains Double Strike until end of turn"]
+source_authority = "RAV printed identity and candidate-owned mana and activated ability bindings; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public identity and the semantics needed by the trace"
+
+[[features]]
+id = "land-identity-and-colorless-mana"
+summary = "Play Sunhome as a land, then tap its definition-bound mana ability to add one colorless mana used for a real creature spell's generic cost."
+trace_required = true
+
+[[features]]
+id = "targeted-activated-cost"
+summary = "Activate the land's ability with the exact {2}{R}{W} cost and tap Sunhome as an activation cost while choosing a creature the pilot controls."
+trace_required = true
+
+[[features]]
+id = "until-end-of-turn-double-strike"
+summary = "Resolve the ability, verify Double Strike on the chosen live creature, then record both first-strike and regular combat-damage packets from its attack."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Reach a terminal two-player result, reproduce the full event stream, and reject wrong mana output, wrong activation cost, missing tap cost, and missing Double Strike."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1 and 106.4 Mana production and payment", "117 Priority", "305.1 and 305.6 Lands", "602.1-602.2 Activating abilities and paying costs", "608.2-608.3 Resolving abilities", "611.2a and 613 Until-end-of-turn continuous effects", "508 and 510 Combat", "702.4 Double Strike"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Sunhome, Fortress of the Legion"
+collector_number = 282
+url = "https://scryfall.com/card/rav/282/sunhome-fortress-of-the-legion"
+retained_data = "Public card identity, land type, colorless mana ability, and activated Double Strike grant needed by the trace"

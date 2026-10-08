@@ -67,3 +67,21 @@ rules prose or private benchmark material.
   receipts. The ordered-receipt invariant rejects a contextual basic-land
   marker that is not immediately followed by its matching intrinsic receipt
   or that is not followed by the enclosing spell receipt.
+
+## MTG-CARDVIEW-001 — live basic-land type and intrinsic mana color
+
+- **Rule boundary:** Comprehensive Rules 305.6–305.7 and layer-four type-changing effects.
+- **Failure contract:**
+  `terraformer_full_fidelity::terraformer_replaces_only_controller_land_types_and_intrinsic_mana_through_end_of_turn`.
+- **Observed failure:** after a layer-four effect changed an Island's basic
+  land type to Forest, engine state used its green intrinsic mana ability,
+  but `CardView` still showed the printed Island type and blue mana color.
+  Policies could therefore choose a mana color the live permanent could no
+  longer produce.
+- **Required repair:** project basic land type and intrinsic mana colors from
+  live, layer-applied characteristics so policy decisions match engine
+  legality.
+- **Resolution:** `Game::card_view` now uses computed characteristics for the
+  typed land and derives its intrinsic mana color from that live type. The
+  Terraformer regression checks the Island-to-Forest view and activates both
+  controller lands for green.

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 36
+definition_id = "RAV-WOJEK-APOTHECARY"
+card_name = "Wojek Apothecary"
+printed_mana_cost = "{2}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["{T}: Prevent the next 1 damage that would be dealt to target creature this turn and each other creature that shares a color with it"]
+source_authority = "RAV printing identity and candidate-owned activated ability; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "apothecary-creature-identity-and-cost"
+summary = "Represent the white {2}{W}{W} 1/1 creature with no printed keyword abilities."
+trace_required = true
+
+[[features]]
+id = "tap-costed-creature-target"
+summary = "Expose a no-mana-cost instant-speed activated ability that taps its source and requires one creature target."
+trace_required = true
+
+[[features]]
+id = "one-point-radiance-prevention-scope"
+summary = "Create a one-point shield for the target and every other battlefield creature sharing any of its colors, including the white source itself when it qualifies."
+trace_required = true
+
+[[features]]
+id = "combat-prevention-and-full-game"
+summary = "Verify the exact shield recipient set, one damage prevented from each of two opposing combat packets, the remaining two damage in each direction, deterministic replay, and a later full-game win."
+trace_required = true
+
+[[features]]
+id = "compiled-semantic-mutations"
+summary = "Detect missing Radiance scope, wrong shield amount, missing source tap cost, a wrong target requirement, or an incorrect casting cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "107.5 Tap symbol", "117 Priority", "302.6 Summoning sickness", "602.1-602.2 Activated abilities", "608.2 Ability resolution", "120 Damage", "615.3-615.7 Damage prevention and shields", "611.2a End-of-turn duration", "510 Combat damage", "704.5g Lethal damage state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Wojek Apothecary"
+collector_number = 36
+url = "https://scryfall.com/card/rav/36/wojek-apothecary"
+retained_data = "Public card identity, white creature characteristics, mana cost, tap activation, and one-point shared-color prevention effect needed by the trace"

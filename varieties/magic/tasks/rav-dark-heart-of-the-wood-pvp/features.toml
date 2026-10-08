@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 200
+definition_id = "RAV-DARK-HEART-OF-THE-WOOD"
+card_name = "Dark Heart of the Wood"
+printed_mana_cost = "{B}{G}"
+colors = ["black", "green"]
+card_types = ["enchantment"]
+abilities = ["{G}, sacrifice a Forest: gain 3 life"]
+source_authority = "RAV printing identity and characteristics; semantic summary and activated binding are CardBench-authored and candidate-owned"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-green-enchantment-cast"
+summary = "Cast Dark Heart of the Wood from a shuffled legal 60-card deck for exactly {B}{G}; verify its enchantment identity."
+trace_required = true
+
+[[features]]
+id = "green-payment-and-typed-forest-sacrifice"
+summary = "Pay exactly {G} to activate the Heart and sacrifice a controlled permanent with the Forest basic land type; prove the cost and graveyard move precede stack placement."
+trace_required = true
+
+[[features]]
+id = "three-life-gain-on-resolution"
+summary = "After a prior combat hit, resolve the ability and verify exactly 3 life is gained, with no life change before resolution."
+trace_required = true
+
+[[features]]
+id = "terminal-game-replay-and-mutations"
+summary = "Continue the full PvP game to a terminal win, replay the seed deterministically, and detect mutations to printed mana cost, activation mana cost, sacrifice type, and life-gain amount."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "106.1 and 106.4 Mana", "202.1-202.2 Mana cost and color", "303 Enchantments", "601.2 Casting", "602.2 Activating abilities and paying costs", "608 Resolving abilities", "701.17 Sacrifice", "119.3 Gaining life", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Dark Heart of the Wood"
+collector_number = 200
+url = "https://scryfall.com/card/rav/200/dark-heart-of-the-wood"
+retained_data = "Public card identity, mana cost, colors, enchantment type, green payment, Forest sacrifice, and three-life result needed by the trace"

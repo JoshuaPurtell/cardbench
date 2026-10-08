@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 40
+definition_id = "RAV-COMPULSIVE-RESEARCH"
+card_name = "Compulsive Research"
+printed_mana_cost = "{2}{U}"
+colors = ["blue"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["Target player draws three cards, then discards a land card or two cards"]
+source_authority = "CardBench-authored semantic summary of RAV Compulsive Research's identity, characteristics, targeted player draw, and recipient-private conditional discard"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-sorcery-target-and-payment"
+summary = "Cast Compulsive Research for {2}{U} in a legal PvP main phase with a player target and ordered payment receipts."
+trace_required = true
+
+[[features]]
+id = "draw-three-before-discard"
+summary = "On resolution, the targeted player draws three cards before the discard decision opens."
+trace_required = true
+
+[[features]]
+id = "recipient-private-conditional-discard"
+summary = "Only the targeted player may privately choose one land or two distinct cards from their post-draw hand; the caster receives no choice view."
+trace_required = true
+
+[[features]]
+id = "both-discard-branches-and-terminal-game"
+summary = "Exercise the one-land and two-card branches in deterministic, replayed full games that finish at a terminal result."
+trace_required = true
+
+[[features]]
+id = "spell-and-choice-semantic-mutations"
+summary = "Gameplay mutations must detect a wrong cost, a missing three-card draw, and a wrong choice recipient or discard branch."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["400.2 Public and hidden zones", "601.2 Casting spells", "608.2 Resolving spells", "121.2-121.3 Drawing cards", "701.8 Discarding cards"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only Comprehensive Rules effective by the cutoff date are in scope."

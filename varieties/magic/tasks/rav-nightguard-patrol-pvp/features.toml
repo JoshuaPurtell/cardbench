@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 26
+definition_id = "RAV-NIGHTGUARD-PATROL"
+card_name = "Nightguard Patrol"
+printed_mana_cost = "{2}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 2
+toughness = 1
+keywords = ["first strike", "vigilance"]
+abilities = []
+source_authority = "RAV printed card identity and characteristics already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-casting"
+summary = "Cast Nightguard Patrol with its exact {2}{W} cost through a normal full-game spell and priority lifecycle."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical spell moves from the stack onto the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "live-creature-characteristics"
+summary = "The entered permanent has 2 power, 1 toughness, First Strike, and Vigilance in live characteristics."
+trace_required = true
+
+[[features]]
+id = "vigilant-first-strike-combat"
+summary = "On a later turn, Nightguard Patrol attacks and remains untapped; Elves of Deep Shadow legally blocks, takes 2 damage in the First Strike damage step, dies before the normal damage step, and deals no damage to Patrol."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and colored mana costs", "117 Timing and Priority", "208.1 and 302.4c Power and Toughness", "302.1-302.2 Creatures and creature spells", "508.1a, 508.1f, and 702.20b Declaring Attackers and Vigilance", "510.4 and 702.7 First Strike", "601.2 Casting Spells", "608.3a Permanent Spell Resolution", "613 Continuous Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

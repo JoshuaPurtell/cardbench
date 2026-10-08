@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 253
+definition_id = "RAV-SHADOW-OF-DOUBT"
+card_name = "Shadow of Doubt"
+printed_mana_cost = "{U/B}{U/B}"
+colors = ["blue", "black"]
+card_types = ["instant"]
+keywords = []
+abilities = ["players can't search libraries this turn", "draw a card"]
+source_authority = "CardBench-authored semantic summary of RAV Shadow of Doubt's identity, hybrid cost, current-turn search prevention, and controller draw"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "hybrid-instant-and-exact-payment"
+summary = "Cast Shadow of Doubt as an instant using exactly two Blue/Black hybrid mana payments in a legal PvP game."
+trace_required = true
+
+[[features]]
+id = "same-turn-global-library-search-prevention"
+summary = "Resolve Shadow while an opponent's Farseek is on the stack, record the current turn, and prove its search finds no card while the prohibition is active."
+trace_required = true
+
+[[features]]
+id = "ordered-controller-draw"
+summary = "After recording the search-prevention effect, move exactly one card from the controller's library to hand before Shadow resolves."
+trace_required = true
+
+[[features]]
+id = "expiration-and-later-search"
+summary = "Resolve a later Farseek on a subsequent turn, privately select a legal Mountain, and verify the library is shuffled after each search."
+trace_required = true
+
+[[features]]
+id = "terminal-full-game-replay-and-mutations"
+summary = "Continue the shuffled 60-card duel through combat to a deterministic terminal seat-zero win; detect omitted prevention, omitted or duplicated draw, and reversed effect order."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601 Casting spells", "608 Resolving spells and abilities", "701.19 Searching a library", "121 Drawing a card", "400.2 Public and hidden zones"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only Comprehensive Rules effective by the cutoff date are in scope."

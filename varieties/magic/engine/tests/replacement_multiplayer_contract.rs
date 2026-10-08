@@ -9,8 +9,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, DeckEntry, DeckList, Effect, Game, GameEvent,
-    Keyword, ManaCost, PlayerId, PolicyAction, PolicyMoveKind, RulesError, Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, DeckEntry, DeckList, DefenderChoice, Effect, Game,
+    GameEvent, Keyword, ManaCost, PlayerId, PolicyAction, PolicyMoveKind, RulesError, Step, Zone,
 };
 
 const FILLER: &str = "REPLACEMENT-FILLER";
@@ -587,11 +587,11 @@ fn defender_lost_to_combat_damage_is_skipped_by_later_priority_and_turn_transiti
     game.submit_policy_move(
         attacker_controller,
         "test.replacement-multiplayer.v1",
-        PolicyAction::DeclareAttackers {
-            attackers: vec![attacker],
+        PolicyAction::DeclareAttackersAgainst {
+            attackers: vec![(attacker, DefenderChoice::Player(defeated_defender))],
         },
     )
-    .expect("active player declares the legal attacker");
+    .expect("active player declares the legal attacker against the named seat");
     pass_all_current_players(&mut game);
     assert_eq!(game.step, Step::DeclareBlockers);
     assert_eq!(game.next_policy_player(), defeated_defender);

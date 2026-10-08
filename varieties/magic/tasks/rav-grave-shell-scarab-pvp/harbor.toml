@@ -1,0 +1,14 @@
+schema_version = "cardbench.magic.harbor_card_task.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 211
+card_name = "Grave-Shell Scarab"
+authority_bin = "rav-grave-shell-scarab-pvp"
+scorer = "varieties/magic/scripts/score_grave_shell_scarab_pvp.py"
+materializer = "varieties/magic/scripts/materialize_grave_shell_scarab_task.py"
+bundle = "adapters/harbor/bundles/grave_shell_scarab_card"
+candidate_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/grave_shell_scarab.rs"
+credit = 0
+reward = 0.0
+provider_trials_authorized = false
+review_scope = "RAV Grave-Shell Scarab #211 identity and {2}{B}{G}{G} 4/4 black-green creature, Dredge 1, {1} source-sacrifice activation, replacing the activated ability's draw with the Scarab's own Dredge after sacrifice, exact mill and same-object return, exact-object recast, ordinary draw after declining, terminal PvP win, deterministic replay, semantic mutations, scorer, materializer, and Harbor bundle"

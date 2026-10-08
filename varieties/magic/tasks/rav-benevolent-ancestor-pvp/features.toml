@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 3
+definition_id = "RAV-BENEVOLENT-ANCESTOR"
+card_name = "Benevolent Ancestor"
+printed_mana_cost = "{2}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 0
+toughness = 4
+keywords = ["defender"]
+abilities = ["{T}: prevent the next 1 damage that would be dealt to target creature or player this turn"]
+source_authority = "RAV printing identity and candidate-owned definition and activated prevention binding; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-defender"
+summary = "Cast the white {2}{W} 0/4 Benevolent Ancestor and verify its Defender characteristic in a shuffled 60-card game."
+trace_required = true
+
+[[features]]
+id = "targeted-tap-activation"
+summary = "Activate its zero-mana tap ability during an opposing attack and target seat zero."
+trace_required = true
+
+[[features]]
+id = "damage-shield-and-prevention"
+summary = "Resolve one target-specific shield, prevent exactly 1 damage from the live attacker, and verify that the prevented point was not dealt."
+trace_required = true
+
+[[features]]
+id = "full-game-order-and-terminal"
+summary = "Project cast, activation, shield, prevention, and Watchwolf combat events in order through a clean seat-zero win; replay the shuffled match deterministically."
+trace_required = true
+
+[[features]]
+id = "compiled-gameplay-mutations"
+summary = "Reject mutations removing the shield effect, legal target, source tap cost, or printed white component of the casting cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and Priority", "202 Mana Cost and Color", "302.1 Creatures and Defender", "510.1-510.2 Combat Damage", "601.2 Casting Spells", "602.1-602.2 Activated Abilities, Costs, Targets, and Stack Placement", "608.2 Resolving Spells and Abilities", "611.2a Continuous Effects Created on Resolution", "615.3-615.7 Prevention Effects and Damage Shields"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Benevolent Ancestor"
+collector_number = 3
+url = "https://scryfall.com/card/rav/3/benevolent-ancestor"
+retained_data = "Public card identity, cost, color, creature type, power/toughness, Defender, and one-point targeted prevention ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

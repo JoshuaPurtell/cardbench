@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 244
+definition_id = "RAV-CENTAUR-SAFEGUARD"
+card_name = "Centaur Safeguard"
+printed_mana_cost = "{G/W}{G/W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+power = 3
+toughness = 1
+keywords = []
+abilities = ["optional dies trigger gains three life"]
+source_authority = "RAV printed card identity and characteristics represented by the candidate card module and typed triggered-ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-hybrid-cost-and-creature-entry"
+summary = "Cast the 3/1 Centaur Safeguard with two actual green/white hybrid payments through a legal full-game priority and resolution lifecycle."
+trace_required = true
+
+[[features]]
+id = "dies-trigger-after-graveyard-move"
+summary = "A legal blocker deals lethal combat damage to Centaur Safeguard; its exact battlefield incarnation moves to the graveyard before its dies ability is stacked."
+trace_required = true
+
+[[features]]
+id = "optional-three-life-choice"
+summary = "The controller receives the optional dies-trigger choice while Centaur Safeguard remains in its graveyard; accepting gains exactly three life and declining gains none from the trigger."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Both accepted and declined branches replay identically from the same shuffled 60-card matchup; a toughness mutant and a removed dies-trigger binding are rejected by the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and hybrid mana symbols", "117 Timing and Priority", "119 Life", "302.1-302.2 Creatures and creature spells", "510.1-510.3 Combat Damage", "601.2 Casting Spells", "603.2 and 603.6c Trigger Events and Dies Triggers", "603.5 Optional Triggered Abilities", "608.2 Resolving Spells and Abilities", "704.5f Lethal Damage State-Based Action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

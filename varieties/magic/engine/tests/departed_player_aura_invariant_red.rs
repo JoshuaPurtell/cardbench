@@ -214,6 +214,118 @@ fn a_departed_players_aura_receipt_does_not_reject_a_later_legal_action() {
     });
 }
 
+/// Same CR 800.4a sequence as the Aura receipt test, but the live continuous
+/// effect is attached damage redirection. The invariant used to dereference
+/// the departed Equipment/Aura with `object()`, which rejected the pass that
+/// caused the loss (`unknown card N`).
+#[test]
+fn a_departed_players_redirect_effect_does_not_reject_a_later_legal_action() {
+    let doomed = PlayerId(0);
+    let survivor = PlayerId(1);
+    let bystander = PlayerId(2);
+
+    fn redirect_shackle() -> CardDefinition {
+        let mut card = shackle();
+        card.id = "DEPARTED-REDIRECT-SHACKLE";
+        card.name = "DEPARTED-REDIRECT-SHACKLE";
+        card.effects = vec![Effect::AttachSourceToTarget {
+            target: TargetRequirement::Creature,
+            changes: vec![ContinuousChange::RedirectDamageToAttachmentController],
+        }];
+        card
+    }
+
+    let mut game = Game::new([creature(BEAR), redirect_shackle(), finisher()], 3)
+        .expect("three-player fixture initializes");
+
+    let target = game
+        .add_card(bystander, BEAR, Zone::Battlefield)
+        .expect("bystander's creature enters the battlefield");
+    let aura = game
+        .add_card(doomed, "DEPARTED-REDIRECT-SHACKLE", Zone::Hand)
+        .expect("doomed player's redirect aura enters hand");
+    let bolt = game
+        .add_card(survivor, FINISHER, Zone::Hand)
+        .expect("survivor's finisher enters hand");
+    for seat in [doomed, survivor, bystander] {
+        for _ in 0..8 {
+            game.add_card(seat, BEAR, Zone::Library)
+                .expect("library filler enters");
+        }
+    }
+
+    game.begin_game().expect("game begins");
+    advance_to_main(&mut game);
+    game.submit_policy_move(
+        doomed,
+        "fixture",
+        cardbench_magic_engine::PolicyAction::Cast(CastRequest {
+            card: aura,
+            targets: vec![Target::Permanent(target)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        }),
+    )
+    .expect("the redirect aura is cast");
+    resolve_stack(&mut game);
+    for _ in 0..8 {
+        if game.priority == survivor {
+            break;
+        }
+        let actor = game.priority;
+        game.submit_policy_move(
+            actor,
+            "fixture",
+            cardbench_magic_engine::PolicyAction::PassPriority,
+        )
+        .expect("passing priority toward the survivor");
+    }
+    game.submit_policy_move(
+        survivor,
+        "fixture",
+        cardbench_magic_engine::PolicyAction::Cast(CastRequest {
+            card: bolt,
+            targets: vec![Target::Player(doomed)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        }),
+    )
+    .expect("the finisher is cast");
+    let mut rejection = None;
+    for _ in 0..8 {
+        if game.stack.is_empty() {
+            break;
+        }
+        let actor = game.next_policy_player();
+        if let Err(error) = game.submit_policy_move(
+            actor,
+            "fixture",
+            cardbench_magic_engine::PolicyAction::PassPriority,
+        ) {
+            rejection = Some(error);
+            break;
+        }
+    }
+    assert!(
+        rejection.is_none(),
+        "resolving a lethal spell must not be rejected by redirect-effect \
+         audit after CR 800.4a: {rejection:?}"
+    );
+    assert!(game.players[doomed.0].lost);
+    game.validate_invariants().unwrap_or_else(|error| {
+        panic!("departed redirect source must not break the invariant audit: {error:?}")
+    });
+    let actor = game.next_policy_player();
+    game.submit_policy_move(
+        actor,
+        "fixture",
+        cardbench_magic_engine::PolicyAction::PassPriority,
+    )
+    .unwrap_or_else(|error| {
+        panic!("an ordinary pass after redirect-source departure must be accepted: {error:?}")
+    });
+}
+
 /// Advances to the active player's precombat main phase, where a sorcery-speed
 /// spell is legal.
 fn advance_to_main(game: &mut Game) {

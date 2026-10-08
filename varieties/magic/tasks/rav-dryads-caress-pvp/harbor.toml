@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dryads-caress-pvp"
+definition_id = "RAV-DRYADS-CARESS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dryads_caress_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dryads_caress.rs"
+authority_bin = "rav-dryads-caress-pvp"
+materializer = "varieties/magic/scripts/materialize_dryads_caress_task.py"
+scorer = "varieties/magic/scripts/score_dryads_caress_pvp.py"
+review_scope = "RAV Dryad's Caress #160 identity and green {4}{G}{G} instant cost; battlefield-creature-count life gain; White-mana-spent condition; untapping all controlled creatures while the opponent's tapped creature stays tapped; shuffled 60-card full-game PvP; ordered combat/payment/cast/life/untap/resolution/terminal receipts; deterministic replay; missing-life, missing-untap, wrong-color, and wrong-cost mutations; compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/dryads_caress_card/README.md",
+  "adapters/harbor/bundles/dryads_caress_card/instruction.md",
+  "adapters/harbor/bundles/dryads_caress_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/scripts/materialize_dryads_caress_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_dryads_caress_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_dryads_caress_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dryads_caress.rs",
+  "varieties/magic/tasks/rav-dryads-caress-pvp/README.md",
+  "varieties/magic/tasks/rav-dryads-caress-pvp/features.toml",
+  "varieties/magic/tasks/rav-dryads-caress-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Dryad's Caress must gain life per battlefield creature and untap its controller's creatures if White mana was spent"
+
+[mutation]
+find = "color: Color::White,"
+replace = "color: Color::Green,"
+expected_diagnostic = "Dryad's Caress must gain life per battlefield creature and untap its controller's creatures if White mana was spent"

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 152
+definition_id = "RAV-WOJEK-EMBERMAGE"
+card_name = "Wojek Embermage"
+printed_mana_cost = "{3}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 1
+toughness = 2
+keywords = []
+abilities = ["{T}: Wojek Embermage deals 1 damage to target creature and each other creature that shares a color with it"]
+source_authority = "RAV printing identity and candidate-owned activated ability; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "embermage-creature-identity-and-cost"
+summary = "Represent the red {3}{R} 1/2 creature with no printed keyword abilities."
+trace_required = true
+
+[[features]]
+id = "tap-costed-creature-target"
+summary = "Expose a no-mana-cost instant-speed activated ability that taps its source and requires one creature target."
+trace_required = true
+
+[[features]]
+id = "one-damage-radiance-scope"
+summary = "Deal exactly 1 to the target creature and every other battlefield creature sharing any of its colors; exclude creatures outside that set."
+trace_required = true
+
+[[features]]
+id = "ordered-full-game-and-replay"
+summary = "Verify exact casting payment, activation, damage to both matching-color creatures, deterministic replay, and a later full-game win."
+trace_required = true
+
+[[features]]
+id = "compiled-semantic-mutations"
+summary = "Detect missing Radiance scope, incorrect damage amount, missing source tap cost, wrong target requirement, or incorrect casting cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "107.5 Tap symbol", "117 Priority", "302.6 Summoning sickness", "602.1-602.2 Activated abilities", "608.2 Ability resolution", "120 Damage", "704.5g Lethal damage", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Wojek Embermage"
+collector_number = 152
+url = "https://scryfall.com/card/rav/152/wojek-embermage"
+retained_data = "Public card identity, red creature characteristics, mana cost, tap activation, and one-damage shared-color effect needed by the trace"

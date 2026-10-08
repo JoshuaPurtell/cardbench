@@ -1,0 +1,59 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 45
+definition_id = "RAV-DREAM-LEASH"
+card_name = "Dream Leash"
+printed_mana_cost = "{3}{U}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+subtypes = ["Aura"]
+keywords = ["Enchant permanent"]
+abilities = ["You may cast this Aura only targeting a tapped permanent; you control the enchanted permanent."]
+source_authority = "RAV #45 original printing; current Oracle wording is used only to interpret the tapped target restriction timing"
+oracle_reconciliation = "The original printing says to play Dream Leash only on a tapped permanent. Current Oracle says an untapped permanent cannot be chosen as the spell's target as it is cast. The restriction is checked at casting and is not rechecked when the target untaps while the spell is on the stack or while enchanted."
+model_limitations = "The Aura subtype is retained as public identity; the current CardDefinition type model stores Enchantment but not the Aura subtype. The executable Aura binding and attachment lifecycle are checked. The new tapped-target effect gates only casting; stack resolution and ongoing attachment legality use the generic Permanent requirement."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary grounded in the RAV original printing and current Oracle interpretation; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-aura-identity-cost-and-enchant-scope"
+summary = "Match RAV #45's blue {3}{U}{U} Enchantment — Aura identity and permit any battlefield permanent as the enchant target."
+trace_required = true
+
+[[features]]
+id = "cast-time-tapped-target"
+summary = "Cast Dream Leash targeting the opponent's exact Watchwolf while it is tapped from attacking; reject an untapped permanent in a separate legal-state target-control probe."
+trace_required = true
+
+[[features]]
+id = "target-untapped-before-resolution"
+summary = "After the cast-time legality check, the opponent resolves Tidewater Minion's ability to untap the exact Watchwolf while Dream Leash remains on the stack; Dream Leash must still resolve and attach."
+trace_required = true
+
+[[features]]
+id = "aura-control-follows-live-source"
+summary = "Record the Aura attachment and the source-relative controller change from seat one to seat zero, then verify the Aura remains attached when its target is untapped."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-replay-and-mutations"
+summary = "Continue a shuffled 60-card duel to a normal seat-zero win, replay deterministically, and detect removal of the tapped restriction, control effect, or exact mana cost."
+trace_required = true
+
+[[features]]
+id = "pre-call-source-validation"
+summary = "Validate normalized candidate source and its literal AST shape before candidate calls; reject a compile-valid injected side-effect function."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Aura spells and enchant restrictions", "601.2 Casting spells and choosing targets", "608.2b Target legality at resolution", "613.1b Control-changing effects", "117 Priority", "508.1 Attackers and tapping", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The tap restriction is a cast-time restriction per Oracle's 2005-10-01 ruling; it is not an ongoing enchant condition."

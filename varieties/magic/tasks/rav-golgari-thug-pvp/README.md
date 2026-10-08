@@ -1,0 +1,7 @@
+# CardBench Magic single-card task: Golgari Thug
+
+Implement the candidate-owned RAV #87 Golgari Thug definition and death-trigger binding in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_thug.rs`.
+
+The trusted authority checks a canonical normalized source AST against its literal module contract before calling either candidate function. It also rejects a compile-valid injected side effect at that pre-call boundary. The deterministic, legal two-player trace casts a setup Golgari Brownscale and lets the opposing Watchwolf kill it. The pilot then casts Golgari Thug, blocks the same Watchwolf on a later attack, and chooses the exact Brownscale card in their graveyard as the death trigger target. The trace follows that target to the top of its owner's library, then replaces the pilot's next draw with Dredge 4 on the same Thug object, mills four objects in order (the moved Brownscale first), returns Thug to hand, recasts that same object, and reaches a normal terminal game result.
+
+The RAV type line is Creature — Human Warrior. The current `CardDefinition` model represents Creature but has no creature-subtype field, so Human Warrior is retained identity and is not asserted by the candidate definition or gameplay trace. See [source-note.md](source-note.md) for the RAV printing and Oracle audit. The catalog denominator is 291 unique names / 306 printings; the task reports zero credits and zero reward.

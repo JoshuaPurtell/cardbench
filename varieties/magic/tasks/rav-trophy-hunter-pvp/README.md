@@ -1,0 +1,7 @@
+# Trophy Hunter card task
+
+Implement the candidate-owned definition and ability bindings in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/trophy_hunter.rs`. Preserve RAV #187 identity, the green `{2}{G}` 2/3 creature, its `{1}{G}, tap` instant-speed ability that deals 1 damage to target creature with flying, and its mandatory source-aware trigger: when a creature damaged by this exact Trophy Hunter incarnation this turn is put into a graveyard from the battlefield, put a +1/+1 counter on Trophy Hunter.
+
+The trusted off-registry authority first checks a pinned, normalized source contract and literal-only AST shape, then rejects a compile-valid injected side effect before calling any candidate function. It uses shuffled legal 60-card decks in a full two-player game. It casts Trophy Hunter and a 0/1 flying creature, pays `{1}{G}` and taps the source for the targeted damage ability, verifies positive committed damage and the exact target/source incarnations, observes the target die, resolves the trigger and source counter, then continues to a terminal win. The authority checks deterministic replay and gameplay mutations for damage, the tap cost, trigger condition/effect, mana cost, and characteristics. Engine regression coverage must also distinguish prevention, unrelated deaths, prior-turn damage, incarnation changes, and simultaneous death with last-known source information.
+
+This is a local diagnostic task. It awards no cards or reward and does not run Harbor/provider trials during reference qualification.

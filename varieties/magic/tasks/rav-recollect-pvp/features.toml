@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 178
+definition_id = "RAV-RECOLLECT"
+card_name = "Recollect"
+printed_mana_cost = "{2}{G}"
+colors = ["green"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["Return target card from your graveyard to your hand"]
+source_authority = "RAV printing identity and candidate-owned definition; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-mana-payment"
+summary = "Register Recollect as a green sorcery and pay exact {2}{G} in a full PvP game."
+trace_required = true
+
+[[features]]
+id = "any-card-in-own-graveyard-target"
+summary = "Target the pilot's noncreature instant Gather Courage in its own graveyard, confirming this effect accepts any card type."
+trace_required = true
+
+[[features]]
+id = "graveyard-to-hand-zone-change"
+summary = "Move exactly the targeted card from the pilot's graveyard to that player's hand during Recollect resolution."
+trace_required = true
+
+[[features]]
+id = "stack-and-terminal-zone-order"
+summary = "Verify target selection, Recollect casting, target return, spell resolution, and Recollect's own graveyard move in rules order."
+trace_required = true
+
+[[features]]
+id = "deterministic-full-game-and-mutations"
+summary = "Replay the shuffled game through repeated Watchwolf combat to a seat-zero win and detect wrong target scope, player target, mana cost, and color mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Priority", "202.1-202.2 Mana cost and color", "304.1 Sorceries", "400.7 Zone changes and new game objects", "601.2 Casting a spell and announcing targets", "608.2 Resolving spells and abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Recollect"
+collector_number = 178
+url = "https://scryfall.com/card/rav/178/recollect"
+retained_data = "Public card identity, cost, color, card type, and target-own-graveyard-to-hand effect required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "This task uses the RAV source contract and Comprehensive Rules version identified above."

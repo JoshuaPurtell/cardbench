@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 191
+definition_id = "RAV-AUTOCHTHON-WURM"
+card_name = "Autochthon Wurm"
+printed_mana_cost = "{10}{G}{G}{G}{W}{W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+power = 9
+toughness = 14
+keywords = ["Convoke", "Trample"]
+abilities = ["Convoke — creatures can be tapped to pay for the spell, with colored contributions matching a colored symbol", "Trample — assign lethal damage to blockers in the attacker's chosen order before assigning excess to the defending player"]
+source_authority = "RAV printed identity, {10}{G}{G}{G}{W}{W} cost, green-white 9/14 Creature type, Convoke, Trample, and ordered multi-block combat represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-white-nine-fourteen-exact-cost"
+summary = "Cast Autochthon Wurm as a green-white 9/14 creature with exact cost {10}{G}{G}{G}{W}{W}."
+trace_required = true
+
+[[features]]
+id = "nine-distinct-convoke-payers"
+summary = "Tap nine distinct creatures for Convoke: two green, two white, and five generic contributions, while paying the remaining six mana from the pool."
+trace_required = true
+
+[[features]]
+id = "ordered-two-blocker-trample"
+summary = "The opponent casts Birds of Paradise and Caregiver and blocks with both. The attacker orders both blockers; Autochthon Wurm assigns one lethal damage to each, then seven excess Trample damage to the opponent."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal-replay-and-mutants"
+summary = "Record both blockers' lethal-damage state-based actions and graveyard moves, continue the shuffled duel to a terminal pilot win, replay deterministically, and detect removed Convoke, removed Trample, and changed printed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "702.50 Convoke", "702.19 Trample", "508.1 Declaring attackers", "509.1 Declaring blockers", "509.2 Ordering blockers", "510.1 Combat damage", "704.5g Lethal-damage state-based action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

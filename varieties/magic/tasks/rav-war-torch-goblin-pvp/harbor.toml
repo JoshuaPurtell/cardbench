@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-war-torch-goblin"
+definition_id = "RAV-WAR-TORCH-GOBLIN"
+expansion = "RAV"
+variant = "single-card"
+bundle = "war_torch_goblin_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/war_torch_goblin.rs"
+authority_bin = "rav-war-torch-goblin-pvp"
+materializer = "varieties/magic/scripts/materialize_war_torch_goblin_task.py"
+scorer = "varieties/magic/scripts/score_war_torch_goblin_pvp.py"
+review_scope = "War-Torch Goblin RAV identity and exact {R} 1/1 definition, candidate-owned blocking-creature damage ability binding, shuffled cast and payment, real hasty attacker and blocker, red activation payment, sacrifice cost, two damage, lethal state-based action, graveyard movement, later combat and terminal game, targeted mutations, source contract, candidate materialization, trusted authority, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/war_torch_goblin_card/README.md",
+  "adapters/harbor/bundles/war_torch_goblin_card/instruction.md",
+  "adapters/harbor/bundles/war_torch_goblin_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_war_torch_goblin_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_war_torch_goblin_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_war_torch_goblin_pvp.rs",
+  "varieties/magic/engine/INVARIANTS.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/catalog.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/war_torch_goblin.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-war-torch-goblin-pvp/README.md",
+  "varieties/magic/tasks/rav-war-torch-goblin-pvp/features.toml",
+  "varieties/magic/tasks/rav-war-torch-goblin-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "War-Torch Goblin module is outside its literal source contract"
+
+[mutation]
+find = "amount: 0, target: TargetRequirement::BlockingCreature"
+replace = "amount: 2, target: TargetRequirement::BlockingCreature"
+expected_diagnostic = "War-Torch Goblin module is outside its literal source contract"

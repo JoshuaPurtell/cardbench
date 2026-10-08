@@ -1,0 +1,86 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 263
+definition_id = "RAV-GRIFTERS-BLADE"
+card_name = "Grifter's Blade"
+printed_mana_cost = "{3}"
+colors = []
+card_types = ["artifact"]
+printed_subtypes = ["Equipment"]
+runtime_subtypes_asserted = false
+keywords = ["Flash"]
+abilities = ["As Grifter's Blade enters, its controller may choose a creature they control and attach it to that creature; otherwise it enters unattached", "Equipped creature gets +1/+1", "Equip {1} at sorcery speed"]
+source_authority = "Original RAV #263 identity and entry-choice semantics control. The attachment is non-targeting, creates no ETB trigger or response window, and may be declined; current Oracle makes the as-enters timing explicit. Equipment is asserted through the typed attachment binding because CardDefinition has no artifact subtype field."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "flash-casting-window"
+summary = "Cast the colorless {3} Equipment at instant speed during the opponent's upkeep, with the ordinary cast payment, spell stack, and resolution receipts."
+trace_required = true
+
+[[features]]
+id = "nontargeting-entry-attachment-choice"
+summary = "While the permanent spell remains on the stack, offer its controller a public 0-or-1 non-targeting choice from legal controlled creatures; if selected, enter and attach before capturing ETB triggers or checking state-based actions. If declined, enter unattached."
+trace_required = true
+
+[[features]]
+id = "equipment-bonus-and-equip-one"
+summary = "Apply the equipped creature's persistent +1/+1 layer, then pay exactly {1} at sorcery speed to attach Grifter's Blade to a different controlled creature and verify its bonus."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-and-mutations"
+summary = "Complete and replay the shuffled 60-card PvP game deterministically; detect changes to Flash, entry attachment, +1/+1, or Equip cost. The parsed side-effect fixture is rejected before candidate constructors run; compile validity is not claimed."
+trace_required = true
+
+[[features]]
+id = "equipment-subtype-schema-boundary"
+summary = "Retain Equipment as printed identity and verify Equipment behavior through attachment metadata; CardDefinition does not assert artifact subtypes directly."
+trace_required = true
+
+[[features]]
+id = "noncast-entry-path-limit"
+summary = "The current resumable decision only covers permanent spells resolving from the stack; direct noncast zone-entry effects are explicitly excluded from this vertical's fidelity claim."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and timing", "301 Artifacts and Equipment", "601.2 Casting spells", "614 Replacement effects and as-enters choices", "608.2 Spell and ability resolution", "613.7 Continuous power/toughness effects", "702.8 Flash", "702.6 Equip"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds identity and card-facts record"
+card = "Grifter's Blade"
+collector_number = 263
+url = "https://starcitygames.com/grifters-blade-sgl-mtg-rav-263-enf/"
+retained_data = "Public card identity, collector number, {3} cost, Artifact — Equipment type, Flash, enters-attached choice, +1/+1, and Equip {1}"
+
+[[source_references]]
+source = "Current Oracle wording consulted for reconciliation"
+card = "Grifter's Blade"
+collector_number = 263
+url = "https://www.cardkingdom.com/mtg/ravnica/grifters-blade"
+retained_data = "Current explicit as-enters choice and unattached option; no image or full payload retained"
+
+[[source_references]]
+source = "Contemporary RAV preview discussion"
+card = "Grifter's Blade"
+collector_number = 263
+url = "https://forums.tomshardware.com/threads/grifters-blade.122329/"
+retained_data = "Original entry-equipping phrasing and contemporary explanation that the attachment happens on entry rather than as a trigger"
+
+[source_reconciliation]
+printed_wording = "The RAV printing describes Grifter's Blade entering equipped to a creature of its controller's choice."
+oracle_wording = "Current Oracle wording states the as-enters choice explicitly and allows the Equipment to enter unattached when no choice is made."
+semantic_difference = "The current template clarifies entry timing. Both wordings are non-targeting and create no ETB trigger, target, stack object, or response window. This task implements the printed entry choice and rejects the former target-bearing model."
+subtype_limit = "The printed type line includes Equipment; CardDefinition has no artifact-subtype field. Equipment is retained as public identity and asserted through AttachmentBinding metadata and behavior."
+engine_limit = "EntryAttachmentBinding currently suspends only a permanent spell resolving from the stack. Direct noncast battlefield entries are not implemented by this vertical."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the current rules release identified by the RAV source contract while preserving the original RAV printed card behavior."

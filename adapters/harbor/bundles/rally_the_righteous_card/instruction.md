@@ -1,0 +1,5 @@
+# Implement Rally the Righteous
+
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/rally_the_righteous.rs` as a literal-only module with `definition()`. Preserve its RAV #222 identity, `{1}{R}{W}` instant cost, red-white colors, and Radiance effect: untap all creatures that share a color with the target creature, then give those creatures +2/+0 until end of turn. Radiance is an ability word; encode the executable behavior in the card definition rather than as a keyword.
+
+The reference authority plays a shuffled two-player game. After attacking with two Boros Swiftblades, it casts Rally the Righteous at instant speed, pays Red, White, and Red, and chooses one Swiftblade on the live stack. It checks that both same-color attackers untap and become 3/2s. A mono-green Golgari Brownscale blocks the targeted attacker and dies to first-strike damage before normal combat; the other Swiftblade deals 3 damage in each combat damage step and wins the game. The diagnostic report credits no RAV coverage or Harbor reward.

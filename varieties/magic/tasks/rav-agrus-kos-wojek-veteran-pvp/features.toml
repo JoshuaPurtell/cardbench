@@ -1,0 +1,62 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 190
+definition_id = "RAV-AGRUS-KOS-WOJEK-VETERAN"
+card_name = "Agrus Kos, Wojek Veteran"
+printed_mana_cost = "{3}{R}{W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+card_supertypes = ["legendary"]
+card_subtypes = ["Human", "Soldier"]
+keywords = []
+abilities = ["Whenever Agrus Kos, Wojek Veteran attacks, attacking red creatures get +2/+0 and attacking white creatures get +0/+2 until end of turn."]
+source_authority = "Ravnica: City of Guilds official FAQ reproducing the original printing and confirming that a red-white attacker receives both bonuses"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no artwork, scans, flavor text, or rules-text corpus"
+
+[[features]]
+id = "attack-trigger-stacks-and-resolves"
+summary = "Verify Agrus's mandatory attack trigger reaches the stack and resolves after its controller declares it as an attacker."
+trace_required = true
+
+[[features]]
+id = "independent-color-specific-attacker-modifiers"
+summary = "Verify each attacking red creature gets +2/+0 and each attacking white creature gets +0/+2; red-white attackers receive both independent modifiers."
+trace_required = true
+
+[[features]]
+id = "nonattacker-exclusion-and-cleanup-expiry"
+summary = "Verify a same-colored nonattacking red creature receives neither trigger effect and all six per-color attacker modifiers expire at Cleanup."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Verify a shuffled PvP game reaches a clean seat-zero win, replay is deterministic, and definition or trigger mutations are detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and timing", "202.1-202.2 Characteristics and colors", "208.1 Power and toughness", "508.1 Declaring attackers", "603.2 Triggered abilities", "608.2 Resolving spells and abilities", "613.4 Layer 7", "514 Cleanup step"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Ravnica: City of Guilds Official FAQ"
+card = "Agrus Kos, Wojek Veteran"
+collector_number = 190
+url = "https://www.mtgsalvation.com/forums/magic-fundamentals/the-rumor-mill/224968-rav-official-faq"
+retained_data = "Printed identity, mana cost, type line, base body, attack-trigger text, and the red-white double-bonus ruling"
+
+[[source_references]]
+source = "Current public card record"
+card = "Agrus Kos, Wojek Veteran"
+collector_number = 190
+url = "https://mtg.wtf/card/rav/190/Agrus-Kos-Wojek-Veteran"
+retained_data = "Card identity, mana cost, color, type line, base body, and current wording"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

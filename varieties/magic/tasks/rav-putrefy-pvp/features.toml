@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 221
+definition_id = "RAV-PUTREFY"
+card_name = "Putrefy"
+printed_mana_cost = "{1}{B}{G}"
+colors = ["black", "green"]
+card_types = ["instant"]
+abilities = ["Destroy target artifact or creature; it can't be regenerated"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; candidate module owns the executable effect"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-green-instant-cast"
+summary = "Cast Putrefy at instant speed and record the actual generic, black, and green mana payment."
+trace_required = true
+
+[[features]]
+id = "artifact-or-creature-target"
+summary = "Target an opposing artifact creature and retain its exact identity through spell resolution."
+trace_required = true
+
+[[features]]
+id = "destruction-bypasses-regeneration"
+summary = "Create a regeneration shield on the target, then destroy it without consuming that shield."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the shuffled legal 60-card duel to a clean seat-zero win and reproduce the same ordered event log."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Gameplay mutations removing destruction, restoring ordinary regeneration, or changing the printed cost must fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1-106.4 Mana", "109.5 and 115 Targets", "117 Priority", "601.2 Casting spells", "608.2 Resolving spells", "701.7 Destroy", "701.15 Regeneration", "704 State-based actions", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"

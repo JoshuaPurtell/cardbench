@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-glass-golem"
+definition_id = "RAV-GLASS-GOLEM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "glass_golem_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/glass_golem.rs"
+authority_bin = "rav-glass-golem-pvp"
+materializer = "varieties/magic/scripts/materialize_glass_golem_task.py"
+scorer = "varieties/magic/scripts/score_glass_golem_pvp.py"
+review_scope = "RAV Glass Golem single-card PvP trace, source contract, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/glass_golem_card/README.md",
+  "adapters/harbor/bundles/glass_golem_card/instruction.md",
+  "adapters/harbor/bundles/glass_golem_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_glass_golem_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_glass_golem_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_glass_golem_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/glass_golem.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-glass-golem-pvp/README.md",
+  "varieties/magic/tasks/rav-glass-golem-pvp/features.toml",
+  "varieties/magic/tasks/rav-glass-golem-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "resolved Glass Golem is not a 6/2"
+
+[mutation]
+find = "power: Some(6)"
+replace = "power: Some(5)"
+expected_diagnostic = "resolved Glass Golem is not a 6/2"

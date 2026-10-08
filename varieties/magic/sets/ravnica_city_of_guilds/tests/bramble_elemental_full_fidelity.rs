@@ -1,4 +1,4 @@
-//! Green contract for Bramble Elemental's optional Aura-entry token trigger.
+//! Green contract for Bramble Elemental's optional Aura-attachment token trigger.
 
 use cardbench_magic_engine::{
     CastRequest, Color, Game, GameEvent, PlayerId, PolicyAction, Step, Target, Zone,
@@ -80,8 +80,7 @@ fn aura_entry_fixture() -> (Game, cardbench_magic_engine::ObjectId) {
     let bramble = game
         .put_on_battlefield(PlayerId(0), "RAV-BRAMBLE-ELEMENTAL")
         .expect("Bramble setup");
-    let creature = game
-        .put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
+    game.put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
         .expect("Aura target setup");
     let aura = game
         .add_card(PlayerId(0), "RAV-MOLDERVINE-CLOAK", Zone::Hand)
@@ -105,7 +104,7 @@ fn aura_entry_fixture() -> (Game, cardbench_magic_engine::ObjectId) {
         PlayerId(0),
         CastRequest {
             card: aura,
-            targets: vec![Target::Permanent(creature)],
+            targets: vec![Target::Permanent(bramble)],
             convoke: vec![],
             payment_mana_abilities: vec![],
         },
@@ -115,13 +114,13 @@ fn aura_entry_fixture() -> (Game, cardbench_magic_engine::ObjectId) {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == bramble && *ability == "controlled-aura-enters-create-saproling"
+            if *source == bramble && *ability == "aura-attached-create-two-saprolings"
     )));
     (game, bramble)
 }
 
 #[test]
-fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling() {
+fn bramble_elemental_accepts_aura_attachment_and_creates_two_saprolings() {
     let (mut game, bramble) = aura_entry_fixture();
     pass_pair(&mut game);
     let choice = game
@@ -130,7 +129,7 @@ fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling
         .optional_triggered_ability_choice
         .expect("optional trigger choice is controller-visible");
     assert_eq!(choice.source, bramble);
-    assert_eq!(choice.ability, "controlled-aura-enters-create-saproling");
+    assert_eq!(choice.ability, "aura-attached-create-two-saprolings");
     assert!(choice.can_pay, "zero-mana may-trigger is always acceptable");
     assert!(choice.conditional_targets.is_empty());
     assert!(
@@ -152,7 +151,7 @@ fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling
                 .expect("optional trigger choice")
                 .decision,
             source: bramble,
-            ability: "controlled-aura-enters-create-saproling",
+            ability: "aura-attached-create-two-saprolings",
             pay: true,
             target: None,
         },
@@ -169,7 +168,7 @@ fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling
                 .is_some_and(|token| token == &cardbench_magic_engine::TokenSpec::saproling())
         })
         .count();
-    assert_eq!(saprolings, 1);
+    assert_eq!(saprolings, 2);
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TokenCreated { player, .. } if *player == PlayerId(0)
@@ -180,7 +179,7 @@ fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling
 }
 
 #[test]
-fn bramble_elemental_decline_creates_no_token() {
+fn bramble_elemental_decline_creates_no_saprolings() {
     let (mut game, bramble) = aura_entry_fixture();
     pass_pair(&mut game);
     game.submit_policy_move(
@@ -194,7 +193,7 @@ fn bramble_elemental_decline_creates_no_token() {
                 .expect("optional trigger choice")
                 .decision,
             source: bramble,
-            ability: "controlled-aura-enters-create-saproling",
+            ability: "aura-attached-create-two-saprolings",
             pay: false,
             target: None,
         },
@@ -210,7 +209,7 @@ fn bramble_elemental_decline_creates_no_token() {
 }
 
 #[test]
-fn bramble_elemental_does_not_observe_an_opponents_aura_entry() {
+fn bramble_elemental_triggers_when_an_opponents_aura_attaches_to_it() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
@@ -224,8 +223,7 @@ fn bramble_elemental_does_not_observe_an_opponents_aura_entry() {
     let bramble = game
         .put_on_battlefield(PlayerId(0), "RAV-BRAMBLE-ELEMENTAL")
         .expect("Bramble setup");
-    let creature = game
-        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+    game.put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("opponent Aura target setup");
     let aura = game
         .add_card(PlayerId(1), "RAV-MOLDERVINE-CLOAK", Zone::Hand)
@@ -249,7 +247,7 @@ fn bramble_elemental_does_not_observe_an_opponents_aura_entry() {
         PlayerId(1),
         CastRequest {
             card: aura,
-            targets: vec![Target::Permanent(creature)],
+            targets: vec![Target::Permanent(bramble)],
             convoke: vec![],
             payment_mana_abilities: vec![],
         },
@@ -257,12 +255,19 @@ fn bramble_elemental_does_not_observe_an_opponents_aura_entry() {
     .expect("opponent Aura casts");
     pass_pair(&mut game);
 
-    assert!(!game.event_log.iter().any(|event| matches!(
+    assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == bramble && *ability == "controlled-aura-enters-create-saproling"
+            if *source == bramble && *ability == "aura-attached-create-two-saprolings"
     )));
-    assert!(game.stack.is_empty());
-    game.validate_invariants()
-        .expect("opponent Aura entry preserves controller-scoped trigger invariants");
+    assert_eq!(
+        game.stack
+            .last()
+            .expect("Bramble trigger is stacked")
+            .controller,
+        PlayerId(0)
+    );
+    game.validate_invariants().expect(
+        "opponent-controlled Aura attachment preserves source-controller trigger invariants",
+    );
 }

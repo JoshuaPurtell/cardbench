@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 161
+definition_id = "RAV-ELVES-OF-DEEP-SHADOW"
+card_name = "Elves of Deep Shadow"
+printed_mana_cost = "{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["{T}: Add {B}. Elves of Deep Shadow deals 1 damage to you."]
+source_authority = "RAV printing identity and characteristics, with the mana ability represented in a candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-cast-and-live-characteristics"
+summary = "Pay exactly {G}, cast Elves of Deep Shadow, and verify its live green 1/1 creature characteristics on the battlefield."
+trace_required = true
+
+[[features]]
+id = "tap-for-black"
+summary = "Activate the candidate-owned bound mana ability and verify its tap cost, exactly one black mana, and source identity."
+trace_required = true
+
+[[features]]
+id = "controller-damage-drawback"
+summary = "Verify exactly one point of damage is dealt to the activating player after black mana is added, then use that mana to pay the black symbol of Last Gasp."
+trace_required = true
+
+[[features]]
+id = "full-game-removal-and-terminal-combat"
+summary = "Resolve Last Gasp against an attacking Watchwolf, verify the zero-toughness state-based action and graveyard movement, and reach a legal terminal Watchwolf combat win."
+trace_required = true
+
+[[features]]
+id = "typed-event-replay-mutants"
+summary = "Check ordered typed events, deterministic full-game replay, exact colored payments, and five compiled cost, characteristic, color, drawback, and tap-cost semantic mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 colored mana", "117 priority and turn timing", "302.1-302.6 creature characteristics and summoning sickness", "601.2 casting spells and paying costs", "605.1a and 605.3 activated mana abilities", "608.2 resolving spells", "704 state-based actions", "508-510 combat"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Elves of Deep Shadow"
+collector_number = 161
+url = "https://scryfall.com/card/rav/161/elves-of-deep-shadow"
+retained_data = "Public card identity, mana cost, color, type, power, toughness, and mana-ability operation needed by the trace"
+
+[[rules_cutoff]]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

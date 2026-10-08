@@ -1,0 +1,54 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 148
+definition_id = "RAV-VIASHINO-FANGTAIL"
+card_name = "Viashino Fangtail"
+printed_mana_cost = "{2}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 3
+toughness = 3
+abilities = ["Tap-cost activated ability: deal 1 damage to a player or creature target"]
+source_authority = "RAV printing identity and characteristics, with the complete executable activated ability in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "cast-and-payment"
+summary = "Cast a Viashino Fangtail drawn from a shuffled library and pay the red 3/3 creature's {2}{R}{R} cost with four red mana."
+trace_required = true
+
+[[features]]
+id = "tap-cost-activation-and-target"
+summary = "After the Fangtail is no longer summoning sick, activate its stack-backed tap ability, confirm the source tapped, and deal 1 damage to the opponent's live Elves of Deep Shadow."
+trace_required = true
+
+[[features]]
+id = "damage-and-state-based-action"
+summary = "The 1 damage is lethal to the target 1/1; a lethal-damage state-based action moves it to its owner's graveyard, while Fangtail remains a live 3/3."
+trace_required = true
+
+[[features]]
+id = "ordinary-game-combat-win"
+summary = "Fangtail later attacks and deals 3 combat damage in the same shuffled match, which reaches a terminal seat-zero win."
+trace_required = true
+
+[[features]]
+id = "semantic-and-cost-mutations"
+summary = "Reference mutations to damage amount, tap cost, target boundary, and red casting cost each fail the full-game trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "117 Priority", "120 Damage", "302.6 Summoning sickness", "601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities, targets, and costs", "608.2 Resolving an activated ability", "704.5g Lethal damage state-based action", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Viashino Fangtail"
+collector_number = 148
+url = "https://scryfall.com/card/rav/148/viashino-fangtail"
+retained_data = "Public card identity, cost, color, creature type, power/toughness, and tap-activated damage operation needed by the trace"

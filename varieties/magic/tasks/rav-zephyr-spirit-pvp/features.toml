@@ -1,0 +1,69 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 76
+definition_id = "RAV-ZEPHYR-SPIRIT"
+card_name = "Zephyr Spirit"
+printed_mana_cost = "{5}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 0
+toughness = 6
+keywords = []
+abilities = ["Mandatory Blocks-triggered return of the source to its owner's hand"]
+source_authority = "RAV printing identity and candidate-owned source-relative Blocks trigger represented by CardBench's typed trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-cast-and-live-body"
+summary = "Pay the actual {5}{U} cost, resolve Zephyr Spirit in a legal 60-card PvP game, and observe it live as a 0/6 creature."
+trace_required = true
+
+[[features]]
+id = "declared-block-trigger-stack"
+summary = "A real opposing ground creature attacks and Zephyr Spirit legally blocks it; only the committed block creates the mandatory trigger on the ordinary stack."
+trace_required = true
+
+[[features]]
+id = "source-relative-owner-hand-return"
+summary = "Resolve the Blocks trigger and return that Zephyr Spirit object to its owner's hand before combat damage, then verify combat resumes and the game reaches a terminal result."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-and-stub-rejection"
+summary = "The targeted wrong-effect mutation and compile-valid DrawController starter stub both reach the PvP trace and fail the source-relative return gate."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.6: summoning sickness does not restrict blocking", "509.1: declaring blockers", "603.2: Blocks event trigger", "117 and 608: priority and resolving the triggered ability", "400.7 and 701.21: source return to its owner's hand", "510: combat damage after blocker removal", "601.2: casting and paying spell costs"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Zephyr Spirit"
+collector_number = 76
+url = "https://scryfall.com/card/rav/76/zephyr-spirit"
+retained_data = "Public identity, mana cost, creature type, power/toughness, and Blocks trigger semantics used by the trace"
+
+[[source_references]]
+source = "RAV support printing"
+card = "Elves of Deep Shadow"
+collector_number = 161
+url = "https://scryfall.com/card/rav/161/elves-of-deep-shadow"
+retained_data = "Public identity and one-green-mana 1/1 ground attacker used to exercise the legal Blocks event"
+
+[[source_references]]
+source = "RAV support printing"
+card = "Watchwolf"
+collector_number = 239
+url = "https://scryfall.com/card/rav/239/watchwolf"
+retained_data = "Public identity and green-white 3/3 body used to reach a terminal PvP win"
+
+[[rules_cutoff]]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 18
+definition_id = "RAV-FLICKERFORM"
+card_name = "Flickerform"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Aura enchant creature", "{2}{W}{W}: Exile enchanted creature and attached Auras until the next end step, then return them under their owners' control"]
+source_authority = "RAV printed identity, {1}{W} cost, white Enchantment Aura restricted to Creature, and {2}{W}{W} linked exile and next-end-step return ability represented by candidate-owned definition and activation binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-aura-attachment"
+summary = "Cast Flickerform as a white {1}{W} Aura and attach it to the exact Watchwolf permanent."
+trace_required = true
+
+[[features]]
+id = "second-aura-same-creature"
+summary = "Attach Moldervine Cloak to the same Watchwolf so the linked-exile action must include two distinct Aura objects."
+trace_required = true
+
+[[features]]
+id = "instant-speed-linked-exile-activation"
+summary = "Pay {2}{W}{W} for the instant-speed activated ability and exile the enchanted creature plus every Aura attached to it."
+trace_required = true
+
+[[features]]
+id = "exact-object-delayed-return"
+summary = "Verify one end-step delayed action returns the exact three card objects with newer incarnations and restores both Aura attachments."
+trace_required = true
+
+[[features]]
+id = "post-return-combat-terminal-replay-and-mutants"
+summary = "Verify the returned Watchwolf has +3/+3 from Moldervine Cloak, deals combat damage, wins the full shuffled duel, replays deterministically, and detects linked-effect, cost, and attachment mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "303.4 Auras and enchant restrictions", "400.7 Zone changes and object identity", "602.1-602.2 Activated abilities and costs", "608.2 Resolving abilities", "607.1 Linked abilities and objects", "513.1 End-step delayed actions", "510.1 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

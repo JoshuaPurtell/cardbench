@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId, Target, Zone,
+    CardType, CastRequest, Color, ContinuousChange, Game, GameEvent, Keyword, ManaCost, PlayerId,
+    Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_static_continuous_effect_bindings,
@@ -31,6 +32,16 @@ fn light_of_sanction_has_its_static_controller_relative_prevention_contract() {
             .supported_rules
             .contains(&"static-prevent-friendly-source-damage")
     );
+    assert!(matches!(
+        rav_static_continuous_effect_bindings()
+            .into_iter()
+            .find(|binding| binding.card_definition == "RAV-LIGHT-OF-SANCTION")
+            .expect("Light of Sanction static effect is registered")
+            .change,
+        ContinuousChange::ControlledCreaturesAddKeyword(
+            Keyword::PreventDamageFromControlledSources
+        )
+    ));
 }
 
 fn pass_pair(game: &mut Game) {

@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 157
+definition_id = "RAV-CIVIC-WAYFINDER"
+card_name = "Civic Wayfinder"
+printed_mana_cost = "{2}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = []
+abilities = ["Search your library for a basic land card, reveal it, put it into your hand, then shuffle"]
+source_authority = "RAV printed card identity, cost, color, type line, power, toughness, and mandatory enter-the-battlefield basic-land search represented by candidate-owned definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-2-2-creature"
+summary = "Resolve a green 2/2 Creature with exact {2}{G} cost and live characteristics."
+trace_required = true
+
+[[features]]
+id = "mandatory-etb-basic-land-search"
+summary = "Stack and resolve Civic Wayfinder's mandatory ETB trigger as a private basic-land search to hand."
+trace_required = true
+
+[[features]]
+id = "selected-basic-land-reveal-and-transfer"
+summary = "Select Plains from a library containing multiple basic land types, reveal it before movement, move it into the controller's hand, then shuffle."
+trace_required = true
+
+[[features]]
+id = "may-fail-to-find-choice"
+summary = "In a separate full game, decline a legal search selection without revealing or moving a land; still shuffle the library."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay each full game deterministically and reject compiled mutations that remove the trigger, omit Plains from the search quality, or suppress the selected-land reveal."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "302.1 Creatures", "601.2 Casting spells", "603.2 and 603.3 Triggered abilities", "608.2 Resolving spells and abilities", "701.16 Revealing cards", "701.19 Searching a library"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 227
+definition_id = "RAV-SEEDS-OF-STRENGTH"
+card_name = "Seeds of Strength"
+printed_mana_cost = "{G}{W}"
+colors = ["green", "white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["Up to three target creatures each get +1/+1 until end of turn"]
+source_authority = "RAV printed identity, {G}{W} cost, green-white Instant type, and three independently targeted +1/+1 effects through end of turn represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-white-instant-exact-cost"
+summary = "Cast Seeds of Strength as a green-white {G}{W} Instant and capture the exact two-color payment from the spell receipt."
+trace_required = true
+
+[[features]]
+id = "three-exact-creature-targets"
+summary = "Target three distinct controlled creature objects: one Watchwolf and two Elves of Deep Shadow."
+trace_required = true
+
+[[features]]
+id = "three-independent-temporary-modifiers"
+summary = "Verify three effect-creation receipts from the Seeds spell and +1/+1 on each exact target until cleanup."
+trace_required = true
+
+[[features]]
+id = "end-of-turn-expiration-and-combat"
+summary = "Verify three matching effect-expiration receipts, restored base characteristics, and damage from all three creatures attacking afterward."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-and-semantic-mutants"
+summary = "Continue the shuffled duel to a terminal result, replay deterministically, and detect modifier, missing-instruction, and cost mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "601.2 Casting spells and choosing targets", "608.2 Resolving spells", "613.1g Power/toughness-changing effects", "514 Cleanup step and end-of-turn expiration", "510.1 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

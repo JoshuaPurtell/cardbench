@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-infectious-host"
+definition_id = "RAV-INFECTIOUS-HOST"
+expansion = "RAV"
+variant = "single-card"
+bundle = "infectious_host_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/infectious_host.rs"
+authority_bin = "rav-infectious-host-pvp"
+materializer = "varieties/magic/scripts/materialize_infectious_host_task.py"
+scorer = "varieties/magic/scripts/score_infectious_host_pvp.py"
+review_scope = "Infectious Host single-card full-game trace, 291-name/306-printing denominator, source contract, typed cast/payment/death/targeted-trigger/life-loss projection, materializer, authority, semantic controls, scorer, and bundle"
+review_files = [
+  "adapters/harbor/bundles/infectious_host_card/README.md",
+  "adapters/harbor/bundles/infectious_host_card/instruction.md",
+  "adapters/harbor/bundles/infectious_host_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_infectious_host_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_infectious_host_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_infectious_host_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/infectious_host.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/decks/rav_golgari_midrange.toml",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-infectious-host-pvp/README.md",
+  "varieties/magic/tasks/rav-infectious-host-pvp/features.toml",
+  "varieties/magic/tasks/rav-infectious-host-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "resolved Infectious Host is not a 1/1"
+
+[mutation]
+find = "power: Some(1)"
+replace = "power: Some(0)"
+expected_diagnostic = "resolved Infectious Host is not a 1/1"

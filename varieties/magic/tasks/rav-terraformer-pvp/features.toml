@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 70
+definition_id = "RAV-TERRAFORMER"
+card_name = "Terraformer"
+printed_mana_cost = "{2}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+abilities = ["{1}: Each land you control becomes a basic land type of your choice until end of turn"]
+source_authority = "RAV printed identity, collector number, {2}{U} cost, 2/2 body, instant-speed activated ability, controller-only basic-land type replacement, and end-of-turn duration represented by the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-body-and-activation-cost"
+summary = "Verify Terraformer is a blue 2/2 creature costing {2}{U} and its activated ability costs exactly {1}, without tapping or sacrificing the source."
+trace_required = true
+
+[[features]]
+id = "instant-speed-chosen-type-and-controller-scope"
+summary = "Resolve one activation during the opponent's precombat main phase and a second during the pilot's precombat main phase; each chooses Forest and changes every controller land while preserving opposing land types."
+trace_required = true
+
+[[features]]
+id = "intrinsic-mana-and-end-of-turn-restoration"
+summary = "Show a former Island making Green after each type change, exact per-land type-layer creation and expiration, and restoration of the original land types at end of turn."
+trace_required = true
+
+[[features]]
+id = "followup-cast-terminal-replay-and-mutants"
+summary = "Use the second conversion to pay {3}{G} for Greater Mossdog, finish the shuffled duel at a terminal pilot win, replay deterministically, and detect six semantic gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117: instant-speed priority", "302.1 and 601.2: creature spells and casting", "602: activated abilities", "613.1 and 305.6: type-changing effects and basic land types", "605: intrinsic basic-land mana abilities", "514: cleanup and end-of-turn expiration"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

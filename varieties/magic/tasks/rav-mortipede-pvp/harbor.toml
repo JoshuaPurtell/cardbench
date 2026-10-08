@@ -1,0 +1,36 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-mortipede"
+definition_id = "RAV-MORTIPEDE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "mortipede_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mortipede.rs"
+authority_bin = "rav-mortipede-pvp"
+materializer = "varieties/magic/scripts/materialize_mortipede_task.py"
+scorer = "varieties/magic/scripts/score_mortipede_pvp.py"
+review_scope = "Mortipede RAV #96 exact {3}{B} 4/1 definition, candidate-owned {2}{G} activated MustBeBlockedIfAble effect, temporary-effect resolution before combat, actual required blocker assignment, combat damage and state-based deaths, complete deterministic full-game win, and gameplay semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/mortipede_card/README.md",
+  "adapters/harbor/bundles/mortipede_card/instruction.md",
+  "adapters/harbor/bundles/mortipede_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_mortipede_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_mortipede_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_mortipede_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mortipede.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-mortipede-pvp/README.md",
+  "varieties/magic/tasks/rav-mortipede-pvp/features.toml",
+  "varieties/magic/tasks/rav-mortipede-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Mortipede candidate definition or ability is outside its literal source contract"
+
+[mutation]
+find = "keyword: Keyword::MustBeBlockedIfAble"
+replace = "keyword: Keyword::CannotBlock"
+expected_diagnostic = "Mortipede candidate definition or ability is outside its literal source contract"

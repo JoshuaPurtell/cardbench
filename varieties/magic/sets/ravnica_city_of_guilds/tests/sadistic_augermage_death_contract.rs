@@ -1,10 +1,15 @@
-//! Stack and event-log contract for Sadistic Augermage's death trigger.
+//! Stack and private-choice contract for Sadistic Augermage's source-death trigger.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone};
+use cardbench_magic_engine::{
+    ContinuousChange, DecisionVisibility, Duration, Game, GameEvent, PlayerId, PolicyAction,
+    PolicyMoveKind, Step, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
+
+const ABILITY: &str = "source-dies-each-player-puts-card-on-library-top";
 
 fn game_with_rav_bindings() -> Game {
     Game::new_with_all_bindings_and_triggers(
@@ -20,140 +25,151 @@ fn game_with_rav_bindings() -> Game {
 }
 
 #[test]
-#[allow(clippy::too_many_lines)] // One trace proves may acceptance and both private discard choices.
-fn another_creature_dying_stacks_then_resolves_all_player_discards() {
+#[allow(clippy::too_many_lines)] // One trace covers the full mandatory private-choice boundary.
+fn source_death_stacks_then_each_player_puts_a_hand_card_on_library_top() {
     let mut game = game_with_rav_bindings();
     let augermage = game
         .put_on_battlefield(PlayerId(0), "RAV-SADISTIC-AUGERMAGE")
         .expect("Augermage enters");
     game.set_entered_turn_for_setup(augermage, 0)
         .expect("Augermage predates measured turn");
-    let victim = game
-        .put_on_battlefield(PlayerId(1), "RAV-GOLGARI-GRAVE-TROLL")
-        .expect("zero-toughness victim enters");
-    game.set_entered_turn_for_setup(victim, 0)
-        .expect("victim predates measured turn");
-    let p0_discard = game
+    let p0_top = game
         .add_card(PlayerId(0), "RAV-SWAMP", Zone::Hand)
-        .expect("controller hand card enters");
+        .expect("controller choice enters hand");
     let p0_keep = game
         .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Hand)
-        .expect("controller second hand card enters");
-    let p1_discard = game
+        .expect("controller retains another card");
+    let p1_top = game
         .add_card(PlayerId(1), "RAV-ISLAND", Zone::Hand)
-        .expect("opponent hand card enters");
+        .expect("opponent choice enters hand");
 
-    game.begin_game().expect("fixture starts");
+    game.begin_game().expect("fixture begins game");
     assert_eq!(game.step, Step::Upkeep);
-    assert_eq!(game.stack.len(), 1, "death trigger is queued");
-    game.pass_priority(PlayerId(0)).expect("active passes");
-    game.pass_priority(PlayerId(1)).expect("opponent passes");
-    let may_choice = game
-        .view_for_player(PlayerId(0))
-        .expect("Augermage controller view")
-        .optional_triggered_ability_choice
-        .expect("controller may accept or decline the trigger");
-    assert_eq!(may_choice.source, augermage);
-    assert_eq!(
-        may_choice.ability,
-        "another-creature-dies-each-player-discards"
-    );
-    assert!(may_choice.can_pay);
+    game.add_continuous_effect(
+        augermage,
+        augermage,
+        ContinuousChange::ModifyPowerToughness {
+            power: 0,
+            toughness: -1,
+        },
+        Duration::EndOfTurn(1),
+    )
+    .expect("the setup modifier makes Augermage die to an SBA");
+    assert_eq!(game.zone_of(augermage), Some(Zone::Graveyard));
+    assert_eq!(game.stack.len(), 1, "source-death trigger is queued");
     assert!(
-        game.view_for_player(PlayerId(1))
-            .expect("opponent view")
+        game.view_for_player(PlayerId(0))
+            .expect("controller view")
             .optional_triggered_ability_choice
             .is_none(),
-        "the affected opponent cannot decide the controller's may trigger"
+        "the printed trigger is mandatory"
     );
-    game.submit_policy_move(
-        PlayerId(0),
-        "test.augermage-accept.v1",
-        PolicyAction::ResolveOptionalTriggeredAbility {
-            decision: game
-                .view_for_player(PlayerId(0))
-                .expect("controller view")
-                .optional_triggered_ability_choice
-                .expect("optional trigger choice")
-                .decision,
-            source: augermage,
-            ability: "another-creature-dies-each-player-discards",
-            pay: true,
-            target: None,
-        },
-    )
-    .expect("controller accepts the discard trigger");
-    let controller_choice = game
-        .view_for_player(PlayerId(0))
-        .expect("Augermage controller view")
+
+    game.pass_priority(PlayerId(0))
+        .expect("active player passes");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent passes to resolve trigger");
+    let controller_view = game.view_for_player(PlayerId(0)).expect("controller view");
+    assert_eq!(
+        controller_view
+            .pending_decision
+            .as_ref()
+            .expect("controller has a pending private decision")
+            .visibility,
+        DecisionVisibility::Private
+    );
+    let controller_choice = controller_view
         .triggered_ability_effect_object_choice
-        .expect("controller chooses its discard");
+        .expect("controller receives the first private choice");
     assert_eq!(controller_choice.candidates.len(), 2);
     game.submit_policy_move(
         PlayerId(0),
-        "test.augermage-discard-p0.v1",
+        "test.augermage-library-top-p0.v1",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
             decision: controller_choice.decision,
             source: augermage,
-            ability: "another-creature-dies-each-player-discards",
-            selected: Some(p0_discard),
+            ability: ABILITY,
+            selected: Some(p0_top),
         },
     )
-    .expect("controller selects its discard");
-    let opponent_choice = game
-        .view_for_player(PlayerId(1))
-        .expect("opponent view")
+    .expect("controller selects a card privately");
+
+    let opponent_view = game.view_for_player(PlayerId(1)).expect("opponent view");
+    assert_eq!(
+        opponent_view
+            .pending_decision
+            .as_ref()
+            .expect("opponent has a pending private decision")
+            .visibility,
+        DecisionVisibility::Private
+    );
+    let opponent_choice = opponent_view
         .triggered_ability_effect_object_choice
-        .expect("opponent chooses its discard");
+        .expect("opponent receives its own private choice");
     assert_eq!(opponent_choice.candidates.len(), 1);
     game.submit_policy_move(
         PlayerId(1),
-        "test.augermage-discard-p1.v1",
+        "test.augermage-library-top-p1.v1",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
             decision: opponent_choice.decision,
             source: augermage,
-            ability: "another-creature-dies-each-player-discards",
-            selected: Some(p1_discard),
+            ability: ABILITY,
+            selected: Some(p1_top),
         },
     )
-    .expect("opponent selects its discard");
+    .expect("opponent selects a card privately");
 
     println!(
         "Sadistic Augermage trace: {:#?}",
         game.canonical_event_log()
     );
-    assert_eq!(game.zone_of(victim), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(p0_discard), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(p1_discard), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(p0_top), Some(Zone::Library));
+    assert_eq!(game.zone_of(p1_top), Some(Zone::Library));
     assert_eq!(game.zone_of(p0_keep), Some(Zone::Hand));
-    assert!(game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::StateBasedAction { card, .. } if *card == victim)
-    }));
-    for (player, card) in [(PlayerId(0), p0_discard), (PlayerId(1), p1_discard)] {
+    assert_eq!(
+        game.player(PlayerId(0))
+            .expect("controller exists")
+            .library
+            .last(),
+        Some(&p0_top),
+        "the chosen card becomes the controller's library top"
+    );
+    assert_eq!(
+        game.player(PlayerId(1))
+            .expect("opponent exists")
+            .library
+            .last(),
+        Some(&p1_top),
+        "the opponent's chosen card becomes their library top"
+    );
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::CardDiscarded { .. }))
+    );
+    for card in [p0_top, p1_top] {
         assert!(game.event_log.iter().any(|event| {
-            matches!(event, GameEvent::CardDiscarded { player: event_player, card: event_card } if *event_player == player && *event_card == card)
+            matches!(event, GameEvent::CardMoved { card: moved, to: Zone::Library } if *moved == card)
         }));
     }
-    assert!(game.event_log.iter().any(|event| {
-        matches!(
-            event,
-            GameEvent::PolicyMoveSubmitted {
-                player,
-                kind: PolicyMoveKind::ResolveOptionalTriggeredAbility,
-                ..
-            } if *player == PlayerId(0)
-        )
-    }));
-    assert!(game.event_log.iter().any(|event| {
-        matches!(
-            event,
-            GameEvent::AbilityResolved {
-                source,
-                ability: "another-creature-dies-each-player-discards",
-                ..
-            } if *source == augermage
-        )
-    }));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::TriggeredAbilityStacked { source, ability, .. }
+            if *source == augermage && *ability == ABILITY
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source, ability, .. }
+            if *source == augermage && *ability == ABILITY
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::PolicyMoveSubmitted {
+            kind: PolicyMoveKind::ResolveOptionalTriggeredAbility,
+            ..
+        }
+    )));
     game.validate_invariants()
-        .expect("discard trigger preserves invariants");
+        .expect("private library-top choice trace preserves invariants");
 }

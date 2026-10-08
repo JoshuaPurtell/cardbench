@@ -1,0 +1,54 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 274
+definition_id = "RAV-VOYAGER-STAFF"
+card_name = "Voyager Staff"
+printed_mana_cost = "{1}"
+colors = []
+card_types = ["artifact"]
+card_subtypes = []
+keywords = []
+abilities = ["{2}, Sacrifice Voyager Staff: Exile target creature. Return that creature to play under its owner's control at end of turn."]
+source_authority = "RAV printed identity and linked-exile effect; current Oracle modernizes remove-from-game/play/end-of-turn terminology to exile/battlefield/next end step"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "artifact-cast-for-one-generic"
+summary = "Cast the exact colorless one-mana Voyager Staff from the normal shuffled deck and verify its artifact definition and payment."
+trace_required = true
+
+[[features]]
+id = "two-generic-sacrifice-targeted-activation"
+summary = "At instant timing, activate the exact {2} ability, pay two generic mana, sacrifice this source, and target the opposing creature."
+trace_required = true
+
+[[features]]
+id = "linked-exile-and-next-end-step-return"
+summary = "Verify the exact target object and exile incarnation are linked, scheduled for the next end step, and returned under its owner's control as a new battlefield incarnation."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutation-sensitivity"
+summary = "Finish a normal shuffled 60-card duel, replay it deterministically, and detect activation-cost, sacrifice-cost, target/effect, and delayed-return mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "302.1 Creature permanents", "400 Zones", "406 Exile", "602 Activated abilities", "608 Resolving spells and abilities", "614 Replacement effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing reference"
+card = "Voyager Staff"
+collector_number = 274
+url = "https://mtg.wtf/card/rav/274/Voyager-Staff"
+retained_data = "Public identity, cost, colorless Artifact type, activation cost, sacrifice, target creature, and temporary exile-and-return behavior"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

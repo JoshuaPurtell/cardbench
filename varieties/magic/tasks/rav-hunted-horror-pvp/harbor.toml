@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-hunted-horror"
+definition_id = "RAV-HUNTED-HORROR"
+expansion = "RAV"
+variant = "single-card"
+bundle = "hunted_horror_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_horror.rs"
+authority_bin = "rav-hunted-horror-pvp"
+materializer = "varieties/magic/scripts/materialize_hunted_horror_task.py"
+scorer = "varieties/magic/scripts/score_hunted_horror_pvp.py"
+review_scope = "Hunted Horror RAV #90 source fidelity and Oracle reconciliation; printed Creature — Horror identity with subtype documented but not asserted because CardDefinition lacks subtypes; full-game duel, 291-name/306-printing denominator, black BB 7/7 Trample body, opponent-only ETB Centaur tokens with Protection from Black, exact trample damage, deterministic replay, gameplay and compile-valid side-effect source mutations, exact normalized AST validation before candidate calls, scorer, materializer, provenance, engine event sources, session projection, RAV catalog/registry, and public task bundle"
+review_files = [
+  "adapters/harbor/bundles/hunted_horror_card/README.md",
+  "adapters/harbor/bundles/hunted_horror_card/instruction.md",
+  "adapters/harbor/bundles/hunted_horror_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_hunted_horror_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_hunted_horror_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_hunted_horror_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_horror.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/hunted_horror_centaur_protection_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/hunted_horror_etb_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-hunted-horror-pvp/README.md",
+  "varieties/magic/tasks/rav-hunted-horror-pvp/source-note.md",
+  "varieties/magic/tasks/rav-hunted-horror-pvp/features.toml",
+  "varieties/magic/tasks/rav-hunted-horror-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Hunted Horror source AST differs from task contract"
+
+[mutation]
+find = "pub(crate) fn definition() -> CardDefinition {"
+replace = "pub(crate) fn definition() -> CardDefinition {\n    std::process::exit(0);"
+expected_diagnostic = "Hunted Horror source AST differs from task contract"

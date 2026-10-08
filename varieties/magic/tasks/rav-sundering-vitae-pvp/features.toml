@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 185
+definition_id = "RAV-SUNDERING-VITAE"
+card_name = "Sundering Vitae"
+printed_mana_cost = "{2}{G}"
+colors = ["green"]
+card_types = ["instant"]
+keywords = ["convoke"]
+abilities = ["Convoke", "Destroy target artifact or enchantment"]
+source_authority = "CardBench-authored semantic summary of RAV #185 identity, mana cost, Convoke and target effect"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "rav-instant-and-convoke-cost"
+summary = "Cast the green Instant for exact {2}{G}, using a green Watchwolf to pay the colored symbol with Convoke and two white mana for generic cost."
+trace_required = true
+
+[[features]]
+id = "targeted-artifact-destruction"
+summary = "Target an opponent's Boros Signet, then verify the exact Sundering Vitae source destroys that artifact and moves it to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "resolution-and-full-game-terminal"
+summary = "Verify spell resolution and graveyard movement, preserve the tapped Convoke creature, continue the full shuffled match through combat, and reach a seat-zero win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutations"
+summary = "Replay the fixed full-game seed and detect mutations removing Convoke, changing mana cost, or removing target destruction."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Priority", "601.2 Casting spells and paying costs", "608 Resolving spells", "701.7 Destroying", "702.50 Convoke", "508.1 Attackers", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

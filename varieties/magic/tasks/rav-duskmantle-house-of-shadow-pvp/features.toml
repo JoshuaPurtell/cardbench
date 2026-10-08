@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 277
+definition_id = "RAV-DUSKMANTLE-HOUSE-OF-SHADOW"
+card_name = "Duskmantle, House of Shadow"
+printed_mana_cost = ""
+colors = []
+card_types = ["land"]
+keywords = []
+abilities = ["{T}: target player mills one card"]
+source_authority = "RAV printing identity and candidate-owned target-player mill activation; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "land-identity-and-color"
+summary = "Represent Duskmantle as a nonbasic land with no printed mana cost, no colors, and no intrinsic mana production."
+trace_required = true
+
+[[features]]
+id = "tapped-targeted-activation"
+summary = "Expose the bound zero-mana activated ability with a tap cost and exactly one player target."
+trace_required = true
+
+[[features]]
+id = "exact-targeted-mill-zone-transition"
+summary = "Resolve the ability by moving exactly one object from the chosen player's library to that player's graveyard, preserving the exact target and owner."
+trace_required = true
+
+[[features]]
+id = "stack-event-order-and-full-game"
+summary = "Verify ability activation, the one-card move, ability resolution, later combat, and a deterministic full-game terminal win in ordered events."
+trace_required = true
+
+[[features]]
+id = "compiled-semantic-mutations"
+summary = "Detect a two-card mill, missing tap cost, self-mill effect, or removed player-target requirement through the full-game authority."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117.1b and 117.3c Priority", "305.1-305.2 Playing lands", "400.7 Zone changes", "602.1-602.2 Activating abilities", "701.13 Mill"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Duskmantle, House of Shadow"
+collector_number = 277
+url = "https://scryfall.com/card/rav/277/duskmantle-house-of-shadow"
+retained_data = "Public card identity, nonbasic land type, tap cost, player target, and one-card mill operation needed by the trace"

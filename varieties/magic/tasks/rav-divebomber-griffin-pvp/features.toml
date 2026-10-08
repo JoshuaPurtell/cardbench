@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 14
+definition_id = "RAV-DIVEBOMBER-GRIFFIN"
+card_name = "Divebomber Griffin"
+printed_mana_cost = "{3}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 3
+toughness = 2
+keywords = ["flying"]
+abilities = ["sacrifice this creature: deal 3 damage to target attacking or blocking creature"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition/activated ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-flying-creature-cast"
+summary = "Cast the white 3/2 Flying creature with exact {3}{W}{W} payment and check its live characteristics."
+trace_required = true
+
+[[features]]
+id = "sacrifice-activated-cost"
+summary = "Activate the nonmana ability at combat priority and verify Divebomber Griffin is sacrificed as a cost before the stack ability resolves."
+trace_required = true
+
+[[features]]
+id = "attacker-target-and-damage"
+summary = "Target the opponent's currently attacking creature, deal exactly 3 damage on resolution, and verify lethal damage moves it to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Replay the shuffled game deterministically, reach a terminal P0 win, and detect mutations to Flying, ability presence, attacker-or-blocker targeting, and damage amount."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 Permanents", "117 Timing and priority", "202.1-202.2 Color and mana cost", "302.1 Creature characteristics", "601.2 Casting spells", "602.2 Activating abilities", "602.2b Sacrifice costs", "608.2 Resolving abilities", "509 Attacking creatures", "Damage and state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

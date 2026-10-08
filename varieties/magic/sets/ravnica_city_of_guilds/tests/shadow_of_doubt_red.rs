@@ -9,7 +9,20 @@ fn shadow_of_doubt_requires_turn_scoped_library_search_prevention_and_a_draw() {
         .expect("Shadow of Doubt definition exists");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_hybrid(0, [], [cardbench_magic_engine::HybridManaSymbol { first: Color::Blue, second: Color::Black }, cardbench_magic_engine::HybridManaSymbol { first: Color::Blue, second: Color::Black }])
+        ManaCost::with_hybrid(
+            0,
+            [],
+            [
+                cardbench_magic_engine::HybridManaSymbol {
+                    first: Color::Blue,
+                    second: Color::Black
+                },
+                cardbench_magic_engine::HybridManaSymbol {
+                    first: Color::Blue,
+                    second: Color::Black
+                }
+            ]
+        )
     );
     assert_eq!(definition.colors, [Color::Blue, Color::Black].into());
     assert_eq!(definition.card_types, [CardType::Instant].into());
@@ -19,5 +32,12 @@ fn shadow_of_doubt_requires_turn_scoped_library_search_prevention_and_a_draw() {
             .contains(&"library-search-prevention")
     );
     assert!(definition.supported_rules.contains(&"draw"));
+    assert_eq!(
+        definition.effects,
+        vec![
+            cardbench_magic_engine::Effect::PreventLibrarySearchUntilEndOfTurn,
+            cardbench_magic_engine::Effect::DrawController,
+        ]
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

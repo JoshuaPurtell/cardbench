@@ -1,0 +1,35 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-leashling"
+definition_id = "RAV-LEASHLING"
+expansion = "RAV"
+variant = "single-card"
+bundle = "leashling_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/leashling.rs"
+authority_bin = "rav-leashling-pvp"
+materializer = "varieties/magic/scripts/materialize_leashling_task.py"
+scorer = "varieties/magic/scripts/score_leashling_pvp.py"
+review_scope = "RAV Leashling printing identity and candidate-owned artifact-creature definition, six-mana casting and 3/3 body, hand-card-to-library-top activation cost, source return to owner's hand on resolution, Last Gasp response interaction with a departed source, terminal PvP replays, typed event order, semantic mutations, compile-valid stub rejection, and Harbor candidate isolation"
+review_files = [
+  "adapters/harbor/bundles/leashling_card/README.md",
+  "adapters/harbor/bundles/leashling_card/instruction.md",
+  "adapters/harbor/bundles/leashling_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_leashling_task.py",
+  "varieties/magic/scripts/score_leashling_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_leashling_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/leashling.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-leashling-pvp/README.md",
+  "varieties/magic/tasks/rav-leashling-pvp/features.toml",
+  "varieties/magic/tasks/rav-leashling-pvp/harbor.toml",
+]
+
+[mutation]
+kind = "compiled-semantic-controls"
+mutations = ["remove hand-card library-top cost", "remove source-return effect", "change 3/3 power/toughness"]
+expected_diagnostic = "Leashling definition, hand-card cost, or owner-hand return behavior differs"

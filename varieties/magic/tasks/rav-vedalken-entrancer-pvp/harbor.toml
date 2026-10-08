@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-vedalken-entrancer"
+definition_id = "RAV-VEDALKEN-ENTRANCER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "vedalken_entrancer_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vedalken_entrancer.rs"
+authority_bin = "rav-vedalken-entrancer-pvp"
+materializer = "varieties/magic/scripts/materialize_vedalken_entrancer_task.py"
+scorer = "varieties/magic/scripts/score_vedalken_entrancer_pvp.py"
+review_scope = "Vedalken Entrancer RAV #74 identity and {3}{U} cost, blue 1/4 Defender characteristics, single {U} and tap activated ability, instant-speed target player, exact two opposing top-library object identities and graveyard moves, later Watchwolf combat, terminal PvP win, deterministic replay, five semantic mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/vedalken_entrancer_card/README.md",
+  "adapters/harbor/bundles/vedalken_entrancer_card/instruction.md",
+  "adapters/harbor/bundles/vedalken_entrancer_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_vedalken_entrancer_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_vedalken_entrancer_pvp.py",
+  "varieties/magic/session/src/bin/rav_vedalken_entrancer_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vedalken_entrancer.rs",
+  "varieties/magic/tasks/rav-vedalken-entrancer-pvp/README.md",
+  "varieties/magic/tasks/rav-vedalken-entrancer-pvp/features.toml",
+  "varieties/magic/tasks/rav-vedalken-entrancer-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Vedalken Entrancer candidate definition or its single activated ability differs from the RAV source contract"
+
+[mutation]
+find = "count: 2"
+replace = "count: 1"
+expected_diagnostic = "Vedalken Entrancer candidate definition or its single activated ability differs from the RAV source contract"

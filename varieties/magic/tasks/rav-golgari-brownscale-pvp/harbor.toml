@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-golgari-brownscale"
+definition_id = "RAV-GOLGARI-BROWNSCALE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "golgari_brownscale_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_brownscale.rs"
+authority_bin = "rav-golgari-brownscale-pvp"
+materializer = "varieties/magic/scripts/materialize_golgari_brownscale_task.py"
+scorer = "varieties/magic/scripts/score_golgari_brownscale_pvp.py"
+review_scope = "RAV #166 identity and Oracle reconciliation; Creature — Lizard subtype retained but not asserted by current CardDefinition; exact green {1}{G}{G} 2/3, Dredge 2, and candidate-owned graveyard-to-hand trigger gaining 2 life; legal deterministic two-player terminal game; exact library-to-graveyard Dredge order, same-object return to hand, source incarnation and stack/resolution order, life change, recast; mutation sensitivity; normalized literal-source AST guard before candidate calls; compile-valid side-effect candidate rejection; scorer/materializer/Harbor; 291-name/306-printing catalog denominator; set source contract; engine state/events; session projection; RAV registry and DATA_PROVENANCE"
+review_files = [
+  "adapters/harbor/bundles/golgari_brownscale_card/README.md",
+  "adapters/harbor/bundles/golgari_brownscale_card/instruction.md",
+  "adapters/harbor/bundles/golgari_brownscale_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_golgari_brownscale_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_golgari_brownscale_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_golgari_brownscale_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_brownscale.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/golgari_brownscale_graveyard_trigger_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/golgari_brownscale_manifest_merge_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-golgari-brownscale-pvp/README.md",
+  "varieties/magic/tasks/rav-golgari-brownscale-pvp/source-note.md",
+  "varieties/magic/tasks/rav-golgari-brownscale-pvp/features.toml",
+  "varieties/magic/tasks/rav-golgari-brownscale-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Golgari Brownscale candidate source AST differs from RAV literal contract"
+
+[mutation]
+find = "Keyword::Dredge(2)"
+replace = "Keyword::Dredge(3)"
+expected_diagnostic = "Golgari Brownscale candidate source AST differs from RAV literal contract"

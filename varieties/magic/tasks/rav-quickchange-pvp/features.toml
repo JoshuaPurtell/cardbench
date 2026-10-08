@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 62
+definition_id = "RAV-QUICKCHANGE"
+card_name = "Quickchange"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = []
+abilities = ["Choose a color; target creature becomes that color until end of turn", "Draw a card"]
+source_authority = "RAV printed identity, {1}{U} cost, blue Instant type, policy-chosen color replacement on a target creature until end of turn, and one controller draw represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-exact-cost"
+summary = "Cast Quickchange as a blue {1}{U} Instant and capture its exact payment from the mana-pool delta."
+trace_required = true
+
+[[features]]
+id = "policy-chosen-color"
+summary = "Record the caster's Red choice and apply it only to the targeted Watchwolf, replacing its Green and White colors."
+trace_required = true
+
+[[features]]
+id = "end-of-turn-color-expiration"
+summary = "Verify the exact layer-five effect expires at end of turn and the Watchwolf returns to its original Green and White colors."
+trace_required = true
+
+[[features]]
+id = "controller-draws-one"
+summary = "Verify exactly one card moves from the library to the caster's hand during Quickchange resolution."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-replay-and-mutants"
+summary = "Use the affected creature in later combat, finish the shuffled duel, replay deterministically, and detect color, draw, and cost mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "601.2 Casting spells and choosing colors", "608.2 Resolving spells", "613.1e Color-changing effects", "514 Cleanup step", "121 Drawing a card"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

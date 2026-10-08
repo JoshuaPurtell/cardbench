@@ -1,0 +1,50 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 182
+definition_id = "RAV-SCION-OF-THE-WILD"
+card_name = "Scion of the Wild"
+printed_mana_cost = "{1}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Scion of the Wild's power and toughness are each equal to the number of creatures you control"]
+source_authority = "RAV printed card identity, green-green cost, 0/0 base characteristics, and controlled-creature-count power/toughness effect represented by the candidate-owned definition and static continuous-effect binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-green-cost-and-live-characteristics"
+summary = "Cast Scion for exactly {1}{G}{G}; verify the live 1/1 characteristics when Scion is the only creature its controller controls, then verify the live 2/2 characteristics after Watchwolf enters."
+trace_required = true
+
+[[features]]
+id = "typed-cast-and-combat-events"
+summary = "Preserve ordered mana payment, cast, resolution, battlefield entry, attack, Scion combat damage, and game-end receipts from a legal shuffled full game."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutant"
+summary = "Replay the same full game identically and detect an in-game compiled mutation that removes Scion's controlled-creature-count continuous effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 color and mana costs", "117 priority", "208.1 power and toughness", "302.1-302.2 creature casting and entry", "601.2 casting spells", "608.3a permanent spell resolution", "613 continuous effects", "508 attacking", "510 combat damage", "704 state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Scion of the Wild"
+collector_number = 182
+url = "https://scryfall.com/card/rav/182/scion-of-the-wild"
+retained_data = "Public card identity, mana cost, color, creature type, 0/0 base characteristics, and dynamic power/toughness rule"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

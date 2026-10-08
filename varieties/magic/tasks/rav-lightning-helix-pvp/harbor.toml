@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+instance = "rav-lightning-helix"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-LIGHTNING-HELIX"
+expansion = "RAV"
+variant = "single-card"
+bundle = "magic_card"
+authority_bin = "rav-lightning-helix-pvp"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/lightning_helix.rs"
+materializer = "varieties/magic/scripts/materialize_lightning_helix_task.py"
+scorer = "varieties/magic/scripts/score_lightning_helix_pvp.py"
+review_scope = "RAV Lightning Helix single-card PvP trace, source contract, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/magic_card/README.md",
+  "adapters/harbor/bundles/magic_card/instruction.md",
+  "adapters/harbor/bundles/magic_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_lightning_helix_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_lightning_helix_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_lightning_helix_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/lightning_helix.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-lightning-helix-pvp/README.md",
+  "varieties/magic/tasks/rav-lightning-helix-pvp/features.toml",
+  "varieties/magic/tasks/rav-lightning-helix-pvp/harbor.toml",
+]
+
+[mutation]
+find = "amount: 3,"
+replace = "amount: 2,"
+expected_diagnostic = "first target did not receive the required three damage"

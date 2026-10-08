@@ -25,6 +25,6 @@ fn followed_footsteps_requires_attached_creature_token_copy_substrate() {
     assert!(
         definition
             .supported_rules
-            .contains(&"controller-upkeep-attached-creature-token-copy")
+            .contains(&"aura-controller-upkeep-token-copy")
     );
 }

@@ -1,0 +1,34 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sacred-foundry"
+definition_id = "RAV-SACRED-FOUNDRY"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sacred_foundry_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sacred_foundry.rs"
+authority_bin = "rav-sacred-foundry-pvp"
+materializer = "varieties/magic/scripts/materialize_sacred_foundry_task.py"
+scorer = "varieties/magic/scripts/score_sacred_foundry_pvp.py"
+review_scope = "Sacred Foundry RAV #280 identity, pay-two-life untapped entry, decline tapped entry, White for Gate Hound ({2}{W}), Red for Boros Recruit's red/white hybrid cost, full-game replay, mutations, source isolation, and diagnostic scoring"
+review_files = [
+  "adapters/harbor/bundles/sacred_foundry_card/README.md",
+  "adapters/harbor/bundles/sacred_foundry_card/instruction.md",
+  "adapters/harbor/bundles/sacred_foundry_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_sacred_foundry_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_sacred_foundry_pvp.py",
+  "varieties/magic/session/src/bin/rav_sacred_foundry_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sacred_foundry.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-sacred-foundry-pvp/README.md",
+  "varieties/magic/tasks/rav-sacred-foundry-pvp/features.toml",
+  "varieties/magic/tasks/rav-sacred-foundry-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sacred Foundry must enter untapped if its controller pays exactly two life, otherwise tapped"
+
+[mutation]
+find = "optional_life_payment: Some(2)"
+replace = "optional_life_payment: Some(1)"
+expected_diagnostic = "Sacred Foundry must enter untapped if its controller pays exactly two life, otherwise tapped"

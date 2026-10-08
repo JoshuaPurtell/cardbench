@@ -222,7 +222,7 @@ fn stone_seeder_hierophant_landfall_uses_a_triggered_stack_object() {
 }
 
 #[test]
-fn stone_seeder_hierophant_observes_an_opponents_land_entry() {
+fn stone_seeder_hierophant_ignores_an_opponents_land_entry() {
     let mut game = game_with_rav_bindings();
     let source = game
         .put_on_battlefield(PlayerId(0), "RAV-STONE-SEEDER-HIEROPHANT")
@@ -263,14 +263,13 @@ fn stone_seeder_hierophant_observes_an_opponents_land_entry() {
     game.clear_event_log();
     game.play_land(PlayerId(1), opponents_forest)
         .expect("opponent plays a normal land");
-    assert_eq!(game.stack.len(), 1, "opponent land entry stacks landfall");
-    game.pass_priority(PlayerId(1))
-        .expect("active opponent passes the trigger");
-    game.pass_priority(PlayerId(0))
-        .expect("Stone-Seeder controller passes the trigger");
-
-    assert!(!game.object(source).expect("source remains").tapped);
-    assert!(game.event_log.iter().any(|event| {
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "opponent land entry is not controlled landfall"
+    );
+    assert!(game.object(source).expect("source remains").tapped);
+    assert!(!game.event_log.iter().any(|event| {
         matches!(
             event,
             GameEvent::TriggeredAbilityStacked {

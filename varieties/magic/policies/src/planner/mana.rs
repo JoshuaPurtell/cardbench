@@ -216,6 +216,10 @@ impl Demand {
 /// The most activations one plan will consider. A hand can hold a cost of at
 /// most a handful of symbols; this only bounds pathological board states.
 const MAX_TAPS: usize = 24;
+/// Commander manabases can present 30+ untapped sources. Unbounded generic
+/// search over that list is factorial and will miss a 900s episode budget.
+const MAX_SOURCES: usize = 12;
+const MAX_SEARCH_NODES: u32 = 4_096;
 
 /// Plans a payment for `cost` from the board's untapped sources.
 ///
@@ -223,7 +227,8 @@ const MAX_TAPS: usize = 24;
 /// caller must not attempt the cast.
 #[must_use]
 pub fn plan(board: &Board, cost: &ManaCost) -> Option<ManaPlan> {
-    let sources = available(board);
+    let mut sources = available(board);
+    sources.truncate(MAX_SOURCES);
     let mut demand = Demand::from_cost(cost);
     // Mana already floating is spent before anything is tapped.
     let leftover = demand.settle(board.floating);
@@ -235,7 +240,8 @@ pub fn plan(board: &Board, cost: &ManaCost) -> Option<ManaPlan> {
     }
     let mut taps = Vec::new();
     let mut used = vec![false; sources.len()];
-    search(&sources, &mut used, &demand, leftover, &mut taps).map(|waste| ManaPlan { taps, waste })
+    let mut nodes = 0_u32;
+    search(&sources, &mut used, &demand, leftover, &mut taps, &mut nodes).map(|waste| ManaPlan { taps, waste })
 }
 
 /// Whether `cost` is payable right now.
@@ -269,7 +275,12 @@ fn search(
     demand: &Demand,
     floating: Pool,
     taps: &mut Vec<ManaTap>,
+    nodes: &mut u32,
 ) -> Option<u8> {
+    *nodes = nodes.saturating_add(1);
+    if *nodes > MAX_SEARCH_NODES {
+        return None;
+    }
     if demand.is_empty() {
         return Some(u8::try_from(total(floating)).unwrap_or(u8::MAX));
     }
@@ -304,7 +315,7 @@ fn search(
             let leftover = next.settle(combined);
             used[index] = true;
             taps.push(tap_for(source, color));
-            if let Some(waste) = search(sources, used, &next, leftover, taps) {
+            if let Some(waste) = search(sources, used, &next, leftover, taps, nodes) {
                 return Some(waste);
             }
             taps.pop();

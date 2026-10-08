@@ -1,0 +1,82 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 44
+definition_id = "RAV-DRAKE-FAMILIAR"
+card_name = "Drake Familiar"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+subtypes = ["Drake"]
+power = 2
+toughness = 1
+keywords = ["Flying"]
+abilities = ["When Drake Familiar enters the battlefield, its controller may return any battlefield enchantment to its owner's hand; if they do not, sacrifice Drake Familiar"]
+source_authority = "RAV printing identity; the RAV FAQ and its 2005 ruling establish that any battlefield enchantment, including an opponent's or an untargetable one, may be chosen without targeting. Current Oracle wording preserves these semantics with modernized timing language."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "Retain public card identity and semantic facts used by the trace; no card text corpus, scan, art, or flavor text."
+
+[[features]]
+id = "identity-cost-and-characteristics"
+summary = "Cast RAV Drake Familiar for exactly {1}{U} as a blue 2/1 Drake creature with Flying."
+trace_required = true
+
+[[features]]
+id = "mandatory-target-free-etb"
+summary = "The mandatory enters-the-battlefield ability is stacked without targets; players receive the normal response window before it begins resolving."
+trace_required = true
+
+[[features]]
+id = "any-enchantment-choice"
+summary = "During resolution, the controller may select any live battlefield enchantment, including an opponent-controlled or untargetable enchantment. The choice does not target; the selected card moves to its owner's hand."
+trace_required = true
+
+[[features]]
+id = "sacrifice-when-not-returned"
+summary = "When the controller declines or no battlefield enchantment exists, the exact Drake Familiar source incarnation is sacrificed if it is still a permanent they control."
+trace_required = true
+
+[[features]]
+id = "complete-game-and-source-gates"
+summary = "A legal shuffled 60-card duel records an opponent-owned enchantment returned to its owner's hand and reaches a terminal result; replay, semantic mutations, exact source/AST checks, and syntactically parsed side-effect rejection are required."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.1 Creature characteristics", "603.2 Trigger events", "603.3 Trigger placement and target selection", "608.2 Resolving spells and abilities", "701.17 Sacrifice", "400.7 Zone changes", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing record"
+card = "Drake Familiar"
+collector_number = 44
+url = "https://scryfall.com/card/rav/44/drake-familiar"
+retained_data = "Public card identity, set number, mana cost, color, creature subtype, power/toughness, and Flying."
+
+[[source_references]]
+source = "RAV FAQ"
+card = "Drake Familiar"
+collector_number = 44
+url = "https://www.mtgsalvation.com/forums/magic-fundamentals/the-rumor-mill/224968-rav-official-faq"
+retained_data = "The FAQ establishes that the target-free choice includes any battlefield enchantment, including an opponent-controlled enchantment, returns it to its owner's hand, and requires sacrifice if none is available or the choice is declined."
+
+[[source_references]]
+source = "Public card record with 2005 ruling"
+card = "Drake Familiar"
+collector_number = 44
+url = "https://mtg.wtf/card/rav/44/Drake-Familiar"
+retained_data = "The 2005 ruling confirms that opponent-controlled and untargetable enchantments are eligible because the resolution choice does not target."
+
+[[source_references]]
+source = "Current Oracle reference (reconciliation)"
+card = "Drake Familiar"
+collector_number = 44
+url = "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87960"
+retained_data = "Current Oracle semantics preserve the FAQ's any-enchantment, non-targeting return-or-sacrifice behavior; only wording/timing terminology has been modernized."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The source contract follows the RAV FAQ and its 2005 ruling for any-enchantment scope; current Oracle modernizes the entry wording without changing the relevant semantics."

@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-tidewater-minion-pvp"
+definition_id = "RAV-TIDEWATER-MINION"
+expansion = "RAV"
+variant = "single-card"
+bundle = "tidewater_minion_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/tidewater_minion.rs"
+authority_bin = "rav-tidewater-minion-pvp"
+materializer = "varieties/magic/scripts/materialize_tidewater_minion_task.py"
+scorer = "varieties/magic/scripts/score_tidewater_minion_pvp.py"
+review_scope = "RAV Tidewater Minion #71 identity and {3}{U}{U} cost; 4/4 Elemental Minion metadata and runtime subtype limitation; Defender; {T} untap-target-permanent ability and exact opposing tapped nonland target; {4} source-relative Defender removal until end of turn; temporary-effect expiry; full-game PvP win, deterministic replay, semantic mutations, source AST/injection gate, scorer/materializer/public stub, provenance, RAV contract and registry integration"
+review_files = [
+  "adapters/harbor/bundles/tidewater_minion_card/README.md",
+  "adapters/harbor/bundles/tidewater_minion_card/instruction.md",
+  "adapters/harbor/bundles/tidewater_minion_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_tidewater_minion_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_tidewater_minion_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_tidewater_minion_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/tidewater_minion.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tidewater_minion_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tidewater_minion_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/README.md",
+  "varieties/magic/tasks/rav-tidewater-minion-pvp/README.md",
+  "varieties/magic/tasks/rav-tidewater-minion-pvp/source-note.md",
+  "varieties/magic/tasks/rav-tidewater-minion-pvp/features.toml",
+  "varieties/magic/tasks/rav-tidewater-minion-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Tidewater Minion must bind {T}: untap target permanent"
+
+[mutation]
+find = "mana_cost: ManaCost::new(4)"
+replace = "mana_cost: ManaCost::new(3)"
+expected_diagnostic = "Tidewater Minion must bind {4}: lose Defender until end of turn"

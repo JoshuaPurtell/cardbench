@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-golgari-thug"
+definition_id = "RAV-GOLGARI-THUG"
+expansion = "RAV"
+variant = "single-card"
+bundle = "golgari_thug_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_thug.rs"
+authority_bin = "rav-golgari-thug-pvp"
+materializer = "varieties/magic/scripts/materialize_golgari_thug_task.py"
+scorer = "varieties/magic/scripts/score_golgari_thug_pvp.py"
+review_scope = "RAV #87 identity and printed/Oracle reconciliation; Human Warrior subtype retained but not asserted by current CardDefinition; black {1}{B} 1/1, Dredge 4, and candidate-owned Dies trigger targeting a creature card in the controller's graveyard and putting it on its owner's library top; legal deterministic two-player terminal game; source/target object and incarnation, controller-seat-bound target choice, exact library-top movement before ordered four-card Dredge, same-object return/recast; mutation sensitivity; normalized literal-source AST guard before candidate calls; compile-valid side-effect candidate rejection; scorer/materializer/Harbor; 291-name/306-printing catalog denominator; set source contract; engine state/events; session projection; RAV registry and DATA_PROVENANCE"
+review_files = [
+  "adapters/harbor/bundles/golgari_thug_card/README.md",
+  "adapters/harbor/bundles/golgari_thug_card/instruction.md",
+  "adapters/harbor/bundles/golgari_thug_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_golgari_thug_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_golgari_thug_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_golgari_thug_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_thug.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/golgari_thug_death_trigger_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/golgari_thug_manifest_merge_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-golgari-thug-pvp/README.md",
+  "varieties/magic/tasks/rav-golgari-thug-pvp/source-note.md",
+  "varieties/magic/tasks/rav-golgari-thug-pvp/features.toml",
+  "varieties/magic/tasks/rav-golgari-thug-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Golgari Thug candidate source AST differs from RAV literal contract"
+
+[mutation]
+find = "Keyword::Dredge(4)"
+replace = "Keyword::Dredge(3)"
+expected_diagnostic = "Golgari Thug candidate source AST differs from RAV literal contract"

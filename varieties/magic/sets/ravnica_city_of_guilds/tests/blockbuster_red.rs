@@ -1,4 +1,4 @@
-//! Red discovery contract for Blockbuster's absent stack-backed activation.
+//! Red discovery contract for Blockbuster's source-sacrifice activation.
 
 use std::collections::BTreeSet;
 
@@ -19,21 +19,27 @@ fn blockbuster_requires_printed_enchantment_and_sacrifice_activation() {
         .find(|definition| definition.id == "RAV-BLOCKBUSTER")
         .expect("Blockbuster definition exists");
     assert_eq!(blockbuster.name, "Blockbuster");
-    assert_eq!(blockbuster.mana_cost, ManaCost::with_colors(3, [Color::Red, Color::Red]));
+    assert_eq!(
+        blockbuster.mana_cost,
+        ManaCost::with_colors(3, [Color::Red, Color::Red])
+    );
     assert_eq!(blockbuster.colors, BTreeSet::from([Color::Red]));
-    assert_eq!(blockbuster.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        blockbuster.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&blockbuster.id));
     assert!(
         blockbuster
             .supported_rules
-            .contains(&"sacrifice-tapped-creature-and-player-damage")
+            .contains(&"sacrifice-source-deal-three-to-tapped-creatures-and-players")
     );
 
     assert!(rav_activated_ability_bindings().iter().any(|binding| {
         binding.card_definition == blockbuster.id
             && binding.ability
                 == ActivatedAbility {
-                    id: "sacrifice-tapped-creature-and-player-damage",
+                    id: "sacrifice-source-deal-three-to-tapped-creatures-and-players",
                     mana_cost: ManaCost::with_colors(1, [Color::Red]),
                     tap_cost: false,
                     sorcery_speed: false,
@@ -99,7 +105,7 @@ fn blockbuster_sacrifice_hits_only_tapped_creatures_and_each_player() {
         PlayerId(0),
         AbilityActivation {
             source: blockbuster,
-            ability_id: "sacrifice-tapped-creature-and-player-damage",
+            ability_id: "sacrifice-source-deal-three-to-tapped-creatures-and-players",
             sacrifice_sources: vec![blockbuster],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
@@ -132,7 +138,8 @@ fn blockbuster_sacrifice_hits_only_tapped_creatures_and_each_player() {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::AbilityResolved { source, ability, .. }
-            if *source == blockbuster && *ability == "sacrifice-tapped-creature-and-player-damage"
+            if *source == blockbuster
+                && *ability == "sacrifice-source-deal-three-to-tapped-creatures-and-players"
     )));
     game.validate_invariants()
         .expect("global activation preserves invariant state");

@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 119
+definition_id = "RAV-COALHAULER-SWINE"
+card_name = "Coalhauler Swine"
+printed_mana_cost = "{4}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+abilities = ["Received damage is propagated as an equal damage packet to each surviving player"]
+source_authority = "RAV printing identity and characteristics; the rule summary is CardBench-authored and the definition/trigger binding is candidate-owned"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-creature-cast"
+summary = "Cast Coalhauler Swine from a shuffled 60-card deck for exactly {4}{R}{R}; confirm its 4/4 battlefield characteristics."
+trace_required = true
+
+[[features]]
+id = "received-damage-event-and-trigger-provenance"
+summary = "Viashino Fangtail deals one damage to Coalhauler Swine; verify the Swine's mandatory non-targeted trigger is stacked from that same source incarnation."
+trace_required = true
+
+[[features]]
+id = "captured-damage-to-each-surviving-player"
+summary = "Resolve the captured one-damage amount to both surviving players, record both damage receipts from Coalhauler Swine, and verify life totals change from 20 to 19."
+trace_required = true
+
+[[features]]
+id = "terminal-game-and-replay"
+summary = "Continue normal PvP turns after the trigger to a seat-zero terminal win and reproduce the full shuffled event trace on replay."
+trace_required = true
+
+[[features]]
+id = "trigger-and-characteristic-mutations"
+summary = "Full-game mutations removing the trigger, changing its condition, replacing captured damage with a fixed amount, or changing the printed cost or base power must each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "120 Damage", "302.1 Creatures", "601.2 Casting spells and paying costs", "602.2 Activating abilities", "603 Triggered abilities", "608.2 Resolving spells and abilities", "704.5 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Coalhauler Swine"
+collector_number = 119
+url = "https://scryfall.com/card/rav/119/coalhauler-swine"
+retained_data = "Public card identity, mana cost, color, type, power/toughness, and received-damage-to-each-player operation needed by the trace"

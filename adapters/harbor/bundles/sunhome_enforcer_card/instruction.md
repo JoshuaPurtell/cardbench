@@ -1,0 +1,1 @@
+Implement the RAV Sunhome Enforcer card module. Preserve the printed 2/4 red-white creature identity and bind its nonoptional DealsDamage trigger to life gain equal to the source's committed damage. Use the legal 60-card PvP trace and follow the task manifest's source contract, targeted fixed-one-life mutation, and compile-valid stub gates.

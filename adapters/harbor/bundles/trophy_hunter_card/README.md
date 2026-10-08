@@ -1,0 +1,3 @@
+# Trophy Hunter card task bundle
+
+This bundle implements and validates RAV Trophy Hunter #187 using its candidate-owned Rust module and an off-registry full-game PvP authority. Before calling candidate functions, the authority checks its pinned normalized source and literal-only AST shape and rejects a compile-valid side-effect injection. The trace checks its printed `{1}{G}, tap` activation, exact source-aware death trigger, terminal continuation, replay, and semantic mutations. Reference qualification is local and diagnostic: no cards or rewards are credited, and no Harbor/provider trial is run.

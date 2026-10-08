@@ -1,0 +1,7 @@
+# Copy Enchantment — RAV #42
+
+This isolated PvP task checks the original Ravnica printing of Copy Enchantment as a blue `{2}{U}` Enchantment. As it enters, its controller may choose an enchantment already on the battlefield; if they do, it enters as that permanent's copy. The reference game covers both a selected Aura and a declined copy choice. The selected Fists of Ironwood copy must make its own legal Aura attachment choice and retain Fists's enter-the-battlefield token trigger.
+
+The trace casts Watchwolf, attaches an original Fists of Ironwood, casts two Copy Enchantments, chooses the Aura for the first and declines for the second, then wins a normal constructed duel. It checks payment, public decision receipts, source and target incarnations, copyable characteristics, Aura attachment, the copied Aura trigger, combat, terminal game result, and deterministic replay. Gameplay mutations change the printed cost or type, remove the entry-copy binding, or change its copyable type scope. A pinned source/AST guard rejects a compile-valid side-effect injection before invoking candidate code.
+
+Only the candidate module is writable in the materialized workspace. The report is diagnostic: it grants no reward or card credit and does not claim complete RAV coverage. See [features.toml](features.toml), [source-note.md](source-note.md), and [harbor.toml](harbor.toml) for the contract and review scope.

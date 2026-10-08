@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 232
+definition_id = "RAV-SKYKNIGHT-LEGIONNAIRE"
+card_name = "Skyknight Legionnaire"
+printed_mana_cost = "{1}{R}{W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = ["flying", "haste"]
+abilities = []
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-cost-casting"
+summary = "Cast Skyknight Legionnaire through the ordinary full-game stack and priority lifecycle, paying red, white, and one generic mana."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical spell moves from the stack to the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "flying"
+summary = "The entered permanent retains Flying as a live characteristic."
+trace_required = true
+
+[[features]]
+id = "haste-and-entry-turn-attack"
+summary = "The entered permanent retains Haste and is declared as an attacker in the same turn it enters, with the attacker's object identity linked to the resolved spell."
+trace_required = true
+
+[[features]]
+id = "base-characteristics"
+summary = "The live permanent has printed 2 power and 2 toughness and no other card-specific abilities."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "117 Timing and Priority", "202.1-202.2 Mana Cost and Colors", "302.1-302.6 Creatures and Summoning Sickness", "508 Declaring Attackers", "601.2 Casting Spells", "608.3a Resolving Permanent Spells", "702.9 Flying", "702.10 Haste"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Skyknight Legionnaire"
+collector_number = 232
+url = "https://scryfall.com/card/rav/232/skyknight-legionnaire"
+retained_data = "Public card identity, cost, colors, type, base characteristics, and the Flying/Haste mechanic names only"

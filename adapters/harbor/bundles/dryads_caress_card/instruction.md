@@ -1,0 +1,1 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/dryads_caress.rs` as a declarative candidate module exposing `definition()`. Preserve Dryad's Caress's green `{4}{G}{G}` instant identity. It gains one life per creature on the battlefield, and if White mana was spent to cast it, it untaps all creatures its controller controls. Do not change other files.

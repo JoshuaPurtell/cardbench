@@ -143,12 +143,13 @@ impl ProtocolCapabilities {
             formats: [
                 (FormatCapability::Duel, SupportLevel::Supported),
                 (FormatCapability::FreeForAll, SupportLevel::Modelled),
-                // M5b/M5c: `engine/tests/formats_m5.rs` defends the command
-                // zone, commander tax, 21 commander damage, shared team life,
-                // and the shared team turn against four-seat fixtures.
+                // M5b/M5c: `engine/tests/formats_m5.rs` defends command-zone
+                // capability (tax, 21 damage) against four-seat fixtures.
+                // The admitted 100-card RAV workload is
+                // `engine/tests/rav_commander_workload.rs`, not Watchwolf.
                 (FormatCapability::Commander, SupportLevel::Supported),
                 // CommanderEdh remains omitted (format() fails closed to
-                // Absent), preserving the existing v1 wire manifest keys.
+                // Absent). RAV-pool 100-card Commander is not arbitrary-card EDH.
                 (FormatCapability::TwoHeadedGiant, SupportLevel::Supported),
                 (FormatCapability::BoosterDraft, SupportLevel::Absent),
             ]

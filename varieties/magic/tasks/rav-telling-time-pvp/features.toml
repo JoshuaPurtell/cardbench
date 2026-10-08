@@ -1,0 +1,56 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 69
+definition_id = "RAV-TELLING-TIME"
+card_name = "Telling Time"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = []
+abilities = ["look at the top three cards of your library; put one into your hand, one on top, and one on the bottom"]
+source_authority = "CardBench-authored semantic summary of RAV printed identity, characteristics, and private top-library partition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-and-exact-cast-payment"
+summary = "Cast Telling Time as a blue instant for {1}{U} during a legal priority window and record its actual two-mana payment."
+trace_required = true
+
+[[features]]
+id = "private-top-three-snapshot"
+summary = "The controller receives exactly the current top three library identities in order while the opponent receives no pending decision or candidate identity."
+trace_required = true
+
+[[features]]
+id = "exhaustive-hand-top-bottom-partition"
+summary = "Submit three distinct candidates as exactly one hand card, one new library top, and one card on the library bottom; confirm the resulting zones and library order."
+trace_required = true
+
+[[features]]
+id = "private-event-boundary"
+summary = "The trace records the private decision lifecycle and effect receipt without treating the hidden candidate list or answer as public policy information."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the shuffled 60-card duel to a seat-zero Watchwolf combat win and require event-identical replay for the selected seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-detection"
+summary = "Reject changed mana cost, spell color, or replacement of the three-card partition with a fixed one-card draw."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Priority", "401.1-401.2 Library order", "601.2 Casting spells", "608.2 Resolving spells", "701 Looking at cards", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

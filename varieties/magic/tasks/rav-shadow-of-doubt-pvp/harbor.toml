@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-shadow-of-doubt-pvp"
+definition_id = "RAV-SHADOW-OF-DOUBT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "shadow_of_doubt_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/shadow_of_doubt.rs"
+authority_bin = "rav-shadow-of-doubt-pvp"
+materializer = "varieties/magic/scripts/materialize_shadow_of_doubt_task.py"
+scorer = "varieties/magic/scripts/score_shadow_of_doubt_pvp.py"
+review_scope = "Shadow of Doubt hybrid cost and ordered prevention/draw effects, same-turn search prevention, expiration on a later turn, private Farseek search, deterministic full-game replay, gameplay mutations, source contract, scorer, materializer, and sanitized bundle"
+review_files = [
+  "adapters/harbor/bundles/shadow_of_doubt_card/README.md",
+  "adapters/harbor/bundles/shadow_of_doubt_card/instruction.md",
+  "adapters/harbor/bundles/shadow_of_doubt_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_shadow_of_doubt_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_shadow_of_doubt_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_shadow_of_doubt_pvp.rs",
+  "varieties/magic/session/src/lib.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/catalog.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/farseek.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/shadow_of_doubt.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/shadow_of_doubt_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/shadow_of_doubt_red.rs",
+  "varieties/magic/tasks/rav-shadow-of-doubt-pvp/README.md",
+  "varieties/magic/tasks/rav-shadow-of-doubt-pvp/features.toml",
+  "varieties/magic/tasks/rav-shadow-of-doubt-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Shadow of Doubt definition is outside its literal source contract"
+
+[mutation]
+find = "Effect::DrawController"
+replace = "Effect::PreventLibrarySearchUntilEndOfTurn"
+expected_diagnostic = "Shadow of Doubt definition is outside its literal source contract"

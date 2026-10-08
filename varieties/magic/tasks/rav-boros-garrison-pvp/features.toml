@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 275
+definition_id = "RAV-BOROS-GARRISON"
+card_name = "Boros Garrison"
+printed_mana_cost = ""
+colors = []
+card_types = ["land"]
+abilities = ["enters-tapped", "return-controlled-land", "tap-add-red-white"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; candidate module owns the executable definition and bindings"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "tapped-entry"
+summary = "Play Boros Garrison as a land and inspect the tapped state immediately after its battlefield-entry event."
+trace_required = true
+
+[[features]]
+id = "controlled-land-etb-return"
+summary = "Resolve its mandatory enters-the-battlefield trigger and prove that the exact target is a land controlled by the Garrison's controller and enters that owner's hand."
+trace_required = true
+
+[[features]]
+id = "fixed-red-white-mana-bundle"
+summary = "After it untaps, activate Garrison's own bound tap ability and prove it produces exactly one red and one white mana together; spend those colors plus generic mana to cast Skyknight Legionnaire."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Finish the shuffled PvP game with a terminal pilot win, reproduce the full event log on replay, and detect changes to tapped entry, target restriction, return trigger, or mana bundle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["305.1-305.2: playing lands and land characteristics", "603.2-603.3: triggered ability occurrence and stacking", "601.2 and 608: target selection and resolution", "701.17: returning a permanent", "106.4-106.5: mana abilities and produced mana", "508-510: combat damage", "704: state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the source-contract cutoff are in scope."

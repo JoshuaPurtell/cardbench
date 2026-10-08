@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-hunted-phantasm"
+definition_id = "RAV-HUNTED-PHANTASM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "hunted_phantasm_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_phantasm.rs"
+authority_bin = "rav-hunted-phantasm-pvp"
+materializer = "varieties/magic/scripts/materialize_hunted_phantasm_task.py"
+scorer = "varieties/magic/scripts/score_hunted_phantasm_pvp.py"
+review_scope = "Hunted Phantasm #55 full-game two-player 60-card diagnostic; 291-name/306-printing denominator; exact blue {1}{U}{U} cost and 4/6 unblockable body; controller-submitted opponent-only ETB target; five opponent-owned red 1/1 Goblin tokens; live token and source-incarnation checks while both players remain alive; later-turn unblockable combat and terminal win; deterministic replay; semantic mutations; exact source/AST and compile-valid side-effect rejection before candidate calls; zero credit and reward; scorer, materializer, public Harbor bundle, engine/session event provenance, set registry and source documentation"
+review_files = [
+  "adapters/harbor/bundles/hunted_phantasm_card/README.md",
+  "adapters/harbor/bundles/hunted_phantasm_card/instruction.md",
+  "adapters/harbor/bundles/hunted_phantasm_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_hunted_phantasm_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_hunted_phantasm_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_hunted_phantasm_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_phantasm.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/hunted_phantasm_etb_compatibility.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/hunted_phantasm_full_fidelity_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/README.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-hunted-phantasm-pvp/README.md",
+  "varieties/magic/tasks/rav-hunted-phantasm-pvp/features.toml",
+  "varieties/magic/tasks/rav-hunted-phantasm-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Hunted Phantasm source AST differs from task contract"
+
+[mutation]
+find = "pub(crate) fn definition() -> CardDefinition {"
+replace = "pub(crate) fn definition() -> CardDefinition {\n    let _ = std::fs::write(\"/tmp/cardbench-hunted-phantasm-candidate-executed\", b\"executed\");"
+expected_diagnostic = "Hunted Phantasm source AST differs from task contract"

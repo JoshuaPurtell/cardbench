@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 17
+definition_id = "RAV-FESTIVAL-OF-THE-GUILDPACT"
+card_name = "Festival of the Guildpact"
+printed_mana_cost = "{X}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["choose X; prevent the next X damage that would be dealt to you this turn; draw a card"]
+source_authority = "CardBench-authored semantic summary of RAV Festival of the Guildpact's identity, chosen-X payment, controller damage prevention, and draw"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-instant-and-chosen-x-payment"
+summary = "Cast the white Instant during a legal PvP main phase, choose X=4, and preserve payment of one white plus four generic mana."
+trace_required = true
+
+[[features]]
+id = "controller-damage-prevention"
+summary = "Create a controller-only shield for four damage through the turn and verify that it prevents all four damage from an opponent's resolved Char."
+trace_required = true
+
+[[features]]
+id = "draw-after-prevention-instruction"
+summary = "Resolve the draw instruction after creating the prevention shield and verify a card moves into the controller's hand."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-semantic-mutations"
+summary = "Finish a complete shuffled 60-card duel through combat, deterministically replay it, and detect chosen-X, shield, and draw mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2: casting spells and choosing X", "608.2: resolving spells and abilities", "609.8: damage prevention", "120: damage", "121: drawing cards", "514: cleanup and end of turn"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only Comprehensive Rules effective by the cutoff date are in scope."

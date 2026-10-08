@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-blockbuster"
+definition_id = "RAV-BLOCKBUSTER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "blockbuster_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/blockbuster.rs"
+authority_bin = "rav-blockbuster-pvp"
+materializer = "varieties/magic/scripts/materialize_blockbuster_task.py"
+scorer = "varieties/magic/scripts/score_blockbuster_pvp.py"
+review_scope = "Blockbuster #115 full-game diagnostic vertical: printed {3}{R}{R} enchantment, exact {1}{R} targetless source-sacrifice activation, 3 damage to every tapped creature and each player, no damage to untapped creatures, damage-batch and state-based-action ordering, deterministic replay, in-memory semantic mutations, side-effect AST rejection, public candidate materialization, and zero-credit scoring"
+review_files = [
+  "adapters/harbor/bundles/blockbuster_card/README.md",
+  "adapters/harbor/bundles/blockbuster_card/instruction.md",
+  "adapters/harbor/bundles/blockbuster_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_blockbuster_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_blockbuster_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_blockbuster_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/blockbuster.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/blockbuster_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-blockbuster-pvp/README.md",
+  "varieties/magic/tasks/rav-blockbuster-pvp/source-note.md",
+  "varieties/magic/tasks/rav-blockbuster-pvp/features.toml",
+  "varieties/magic/tasks/rav-blockbuster-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Blockbuster identity, characteristics, activated cost, sacrifice, target, or effect differ from the RAV printing"
+
+[mutation]
+find = "amount: 3 }],"
+replace = "amount: 2 }],"
+expected_diagnostic = "Blockbuster identity, characteristics, activated cost, sacrifice, target, or effect differ from the RAV printing"

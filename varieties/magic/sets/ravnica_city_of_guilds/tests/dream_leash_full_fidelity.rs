@@ -34,6 +34,8 @@ fn dream_leash_controls_an_enchanted_permanent_then_reverts_when_destroyed() {
     let target = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("opponent permanent setup");
+    game.set_tapped_for_setup(target, true)
+        .expect("Dream Leash target begins tapped");
     let leash = game
         .add_card(PlayerId(0), "RAV-DREAM-LEASH", Zone::Hand)
         .expect("Dream Leash setup");

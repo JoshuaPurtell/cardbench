@@ -43,13 +43,16 @@ fn terraformer_replaces_only_controller_land_types_and_intrinsic_mana_through_en
     let payment_island = game
         .put_on_battlefield(controller, "RAV-ISLAND")
         .expect("payment land setup");
+    let payment_forest = game
+        .put_on_battlefield(controller, "RAV-FOREST")
+        .expect("untapped Forest pays the activation cost");
     let opponent_island = game
         .put_on_battlefield(opponent, "RAV-ISLAND")
         .expect("opponent land setup");
 
     game.begin_game().expect("game begins");
     game.clear_event_log();
-    game.activate_mana_ability(controller, payment_island, Color::Blue)
+    game.activate_mana_ability(controller, payment_forest, Color::Green)
         .expect("one generic payment mana");
     game.activate_ability(
         controller,
@@ -80,14 +83,33 @@ fn terraformer_replaces_only_controller_land_types_and_intrinsic_mana_through_en
         Ok(Some(BasicLandType::Island)),
         "opponent lands are not selected by a controller-scoped effect"
     );
+    let retyped_island_view = game
+        .view_for_player(controller)
+        .expect("controller receives its public battlefield view")
+        .own_battlefield
+        .into_iter()
+        .find(|card| card.id == payment_island)
+        .expect("retyped Island remains on the controller's battlefield");
+    assert_eq!(
+        retyped_island_view.basic_land_type,
+        Some(BasicLandType::Forest),
+        "the policy view exposes the live layer-four basic land type"
+    );
+    assert_eq!(
+        retyped_island_view.mana_colors,
+        std::collections::BTreeSet::from([Color::Green]),
+        "the policy view exposes the intrinsic mana ability of the live land type"
+    );
     game.activate_mana_ability(controller, controlled_plains, Color::Green)
         .expect("the chosen basic type grants its intrinsic green mana ability");
+    game.activate_mana_ability(controller, payment_island, Color::Green)
+        .expect("a retyped Island also uses its live Forest mana ability");
     assert_eq!(
         game.player(controller)
             .expect("controller remains")
             .mana_pool
             .amount(Color::Green),
-        1
+        2
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,

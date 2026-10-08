@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-thundersong-trumpeter"
+definition_id = "RAV-THUNDERSONG-TRUMPETER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "thundersong_trumpeter_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/thundersong_trumpeter.rs"
+authority_bin = "rav-thundersong-trumpeter-pvp"
+materializer = "varieties/magic/scripts/materialize_thundersong_trumpeter_task.py"
+scorer = "varieties/magic/scripts/score_thundersong_trumpeter_pvp.py"
+review_scope = "RAV Thundersong Trumpeter identity, targeted temporary combat restriction, full-game PvP match, typed event and state assertions, replay, gameplay mutations, candidate workspace boundary, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/thundersong_trumpeter_card/README.md",
+  "adapters/harbor/bundles/thundersong_trumpeter_card/instruction.md",
+  "adapters/harbor/bundles/thundersong_trumpeter_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_thundersong_trumpeter_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_thundersong_trumpeter_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_thundersong_trumpeter_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/thundersong_trumpeter.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-thundersong-trumpeter-pvp/README.md",
+  "varieties/magic/tasks/rav-thundersong-trumpeter-pvp/features.toml",
+  "varieties/magic/tasks/rav-thundersong-trumpeter-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Thundersong Trumpeter registry must delegate its card definition and combat ability to the candidate module"
+
+[mutation]
+find = "tap_cost: true"
+replace = "tap_cost: false"
+expected_diagnostic = "Thundersong Trumpeter must tap itself, resolve the temporary combat restriction on the live opposing creature, and remove that creature's block choice"

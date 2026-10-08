@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sewerdreg"
+definition_id = "RAV-SEWERDREG"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sewerdreg_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sewerdreg.rs"
+authority_bin = "rav-sewerdreg-pvp"
+materializer = "varieties/magic/scripts/materialize_sewerdreg_task.py"
+scorer = "varieties/magic/scripts/score_sewerdreg_pvp.py"
+review_scope = "Sewerdreg single-card full-game Fear and self-regeneration task; 291-name/306-printing RAV catalog denominator; RAV source contract; engine typed event projection, exact spell and activated-ability payment, resolution, Fear block legality, damage, and regeneration replacement trust paths; task authority, candidate module, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/sewerdreg_card/README.md",
+  "adapters/harbor/bundles/sewerdreg_card/instruction.md",
+  "adapters/harbor/bundles/sewerdreg_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/INVARIANTS.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/protocol/Cargo.toml",
+  "varieties/magic/protocol/src/lib.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/lib.rs",
+  "varieties/magic/session/src/bin/rav_sewerdreg_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/scripts/materialize_sewerdreg_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_sewerdreg_pvp.py",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/catalog.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/char.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/elves_of_deep_shadow.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sewerdreg.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/sewerdreg_compatibility.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/sewerdreg_fear_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-sewerdreg-pvp/README.md",
+  "varieties/magic/tasks/rav-sewerdreg-pvp/features.toml",
+  "varieties/magic/tasks/rav-sewerdreg-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sewerdreg identity, cost, or printed characteristics differ"
+
+[mutation]
+find = "mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black])"
+replace = "mana_cost: ManaCost::new(3)"
+expected_diagnostic = "Sewerdreg identity, cost, or printed characteristics differ"

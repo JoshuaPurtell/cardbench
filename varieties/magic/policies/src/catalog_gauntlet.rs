@@ -165,8 +165,11 @@ pub(crate) fn conservative_pending_decision(view: &GameView) -> Option<PolicyAct
             .collect::<Vec<_>>()
     };
     let selection = match decision.kind {
-        DecisionKind::CommanderReturn | DecisionKind::CommanderZoneReplacement => DecisionSelection::Objects(object_ids()),
+        DecisionKind::CommanderReturn | DecisionKind::CommanderZoneReplacement => {
+            DecisionSelection::Objects(object_ids())
+        }
         DecisionKind::WarpWorldEntry
+        | DecisionKind::DredgeReplacement
         | DecisionKind::LibrarySearch
         | DecisionKind::TriggeredEffectObject
         | DecisionKind::ConditionalPrivateDiscard
@@ -179,6 +182,7 @@ pub(crate) fn conservative_pending_decision(view: &GameView) -> Option<PolicyAct
         | DecisionKind::RetargetActivatedAbility
         | DecisionKind::PermanentEntryCopySource
         | DecisionKind::PermanentEntryCopyAuraAttachment
+        | DecisionKind::PermanentEntryAttachment
         | DecisionKind::LegendRule
         | DecisionKind::CleanupDiscard => DecisionSelection::Objects(minimum_objects()),
         DecisionKind::WarpWorldBottom

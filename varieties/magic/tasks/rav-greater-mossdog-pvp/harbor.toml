@@ -1,0 +1,14 @@
+schema_version = "cardbench.magic.harbor_card_task.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 169
+card_name = "Greater Mossdog"
+authority_bin = "rav-greater-mossdog-pvp"
+scorer = "varieties/magic/scripts/score_greater_mossdog_pvp.py"
+materializer = "varieties/magic/scripts/materialize_greater_mossdog_task.py"
+bundle = "adapters/harbor/bundles/greater_mossdog_card"
+candidate_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/greater_mossdog.rs"
+credit = 0
+reward = 0.0
+provider_trials_authorized = false
+review_scope = "RAV Greater Mossdog #169 identity and {3}{G} 3/3 green creature, printed Dredge 3 only, actual graveyard draw-replacement decision, exact three-card mill and same-object return to hand, same-object recast and terminal PvP win, absence of an unprinted target trigger, mutation controls, scorer, materializer, and Harbor bundle"

@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-vinelasher-kudzu-pvp"
+definition_id = "RAV-VINELASHER-KUDZU"
+expansion = "RAV"
+variant = "single-card"
+bundle = "vinelasher_kudzu_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vinelasher_kudzu.rs"
+authority_bin = "rav-vinelasher-kudzu-pvp"
+materializer = "varieties/magic/scripts/materialize_vinelasher_kudzu_task.py"
+scorer = "varieties/magic/scripts/score_vinelasher_kudzu_pvp.py"
+review_scope = "RAV Vinelasher Kudzu #189 printed {1}{G} 1/1 Plant identity (subtype limitation disclosed), original controller-land-entry trigger, same source incarnation, one +1/+1 counter per own land, opposing land exclusion, legal full-game PvP terminal win, deterministic replay, semantic and source AST mutations, candidate materialization and trusted public-stub rejection, RAV source contract and provenance"
+review_files = [
+  "adapters/harbor/bundles/vinelasher_kudzu_card/README.md",
+  "adapters/harbor/bundles/vinelasher_kudzu_card/instruction.md",
+  "adapters/harbor/bundles/vinelasher_kudzu_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/scripts/materialize_vinelasher_kudzu_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_vinelasher_kudzu_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_vinelasher_kudzu_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vinelasher_kudzu.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/vinelasher_kudzu_full_fidelity_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/vinelasher_kudzu_landfall_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/README.md",
+  "varieties/magic/tasks/rav-vinelasher-kudzu-pvp/README.md",
+  "varieties/magic/tasks/rav-vinelasher-kudzu-pvp/source-note.md",
+  "varieties/magic/tasks/rav-vinelasher-kudzu-pvp/features.toml",
+  "varieties/magic/tasks/rav-vinelasher-kudzu-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Vinelasher Kudzu candidate or registry differs from the exact RAV #189 contract"
+
+[mutation]
+find = "condition: TriggerCondition::ControlledLandEntersBattlefield"
+replace = "condition: TriggerCondition::LandEntersBattlefield"
+expected_diagnostic = "Vinelasher Kudzu candidate or registry differs from the exact RAV #189 contract"

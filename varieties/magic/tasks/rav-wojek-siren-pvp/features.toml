@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 37
+definition_id = "RAV-WOJEK-SIREN"
+card_name = "Wojek Siren"
+printed_mana_cost = "{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["target-creature", "radiance-plus-one-plus-one-until-end-of-turn"]
+source_authority = "CardBench-authored semantic summary of RAV printed identity and effect"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-instant-casting"
+summary = "Cast RAV Wojek Siren as a white instant for {W}, announce one legal creature target, and record its exact white-mana payment."
+trace_required = true
+
+[[features]]
+id = "radiance-recipient-set"
+summary = "On resolution, modify the target and every other creature sharing a color with it; an opposing red creature that shares no color remains unchanged."
+trace_required = true
+
+[[features]]
+id = "temporary-layer-seven-modifier"
+summary = "The shared-color creatures receive +1/+1 until end of turn, with live power/toughness snapshots and continuous-effect provenance in layer 7."
+trace_required = true
+
+[[features]]
+id = "full-game-pvp"
+summary = "Continue the deterministic constructed match through the modified creatures' combat damage and a seat-zero terminal win."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Timing and Priority", "207.2c Radiance", "601.2 Casting Spells", "608 Resolving Spells and Abilities", "611.2 Continuous Effects", "613.4 Power and Toughness", "510 Combat Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

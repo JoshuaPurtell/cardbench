@@ -1,0 +1,62 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 203
+definition_id = "RAV-DIMIR-INFILTRATOR"
+card_name = "Dimir Infiltrator"
+printed_mana_cost = "{U}{B}"
+colors = ["blue", "black"]
+card_types = ["creature"]
+card_supertypes = []
+card_subtypes = ["Spirit"]
+keywords = ["unblockable", "transmute"]
+abilities = ["Transmute {1}{U}{B}"]
+source_authority = "Public RAV #203 record and RAV FAQ rules for Transmute timing, discard, reveal, same-mana-value search, and shuffle"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no artwork, scans, flavor text, or rules-text corpus"
+
+[[features]]
+id = "printed-blue-black-creature-characteristics"
+summary = "Verify {U}{B}, blue-black identity, creature type, 1/3 characteristics, and both printed keywords."
+trace_required = true
+
+[[features]]
+id = "transmute-hand-cost-and-mana-value-search"
+summary = "Verify Transmute {1}{U}{B} from hand at sorcery timing, discard of that exact source, same-mana-value search for Dimir Signet, reveal, hand destination, and library shuffle."
+trace_required = true
+
+[[features]]
+id = "private-search-and-source-lifecycle"
+summary = "Verify the chosen library card is visible only to the searching player and the discarded Transmute source is the same object incarnation through activation and resolution."
+trace_required = true
+
+[[features]]
+id = "unblockable-combat-and-terminal-replay"
+summary = "Verify a battlefield Infiltrator deals combat damage past available opposing Carven Caryatid blockers, the duel reaches a seat-zero win, replay is deterministic, and semantic mutations are detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and timing", "202.1-202.2 Characteristics and colors", "302.1-302.6 Creature characteristics", "508 Declaring attackers", "509 Declaring blockers", "702.53 Transmute", "701.19 Searching a library"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Ravnica: City of Guilds printing record"
+card = "Dimir Infiltrator"
+collector_number = 203
+url = "https://mtg.wtf/card/rav/203/Dimir-Infiltrator"
+retained_data = "Card identity, cost, color, type line, body, unblockable, and Transmute characteristics"
+
+[[source_references]]
+source = "Ravnica: City of Guilds Official FAQ archive"
+card = "Dimir Infiltrator"
+collector_number = 203
+url = "https://www.mtgsalvation.com/forums/magic-fundamentals/the-rumor-mill/224968-rav-official-faq"
+retained_data = "Original set Transmute rules covering timing, discard, reveal, mana-value matching, and library shuffle"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

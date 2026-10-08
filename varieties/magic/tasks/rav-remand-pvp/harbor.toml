@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-remand"
+definition_id = "RAV-REMAND"
+expansion = "RAV"
+variant = "single-card"
+bundle = "remand_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/remand.rs"
+authority_bin = "rav-remand-pvp"
+materializer = "varieties/magic/scripts/materialize_remand_task.py"
+scorer = "varieties/magic/scripts/score_remand_pvp.py"
+review_scope = "RAV Remand identity, exact target counter, owner-hand movement, controller draw, full-game PvP result, replay, gameplay mutations, isolated candidate workspace, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/remand_card/README.md",
+  "adapters/harbor/bundles/remand_card/instruction.md",
+  "adapters/harbor/bundles/remand_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_remand_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_remand_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_remand_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/remand.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/remand_full_fidelity.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-remand-pvp/README.md",
+  "varieties/magic/tasks/rav-remand-pvp/features.toml",
+  "varieties/magic/tasks/rav-remand-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Remand countered the target to the wrong destination"
+
+[mutation]
+find = "Effect::CounterTargetSpellToOwnersHand, Effect::DrawController"
+replace = "Effect::CounterTargetSpell, Effect::DrawController"
+expected_diagnostic = "Remand countered the target to the wrong destination"

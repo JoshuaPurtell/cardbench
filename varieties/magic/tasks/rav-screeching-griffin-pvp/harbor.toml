@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-screeching-griffin"
+definition_id = "RAV-SCREECHING-GRIFFIN"
+expansion = "RAV"
+variant = "single-card"
+bundle = "screeching_griffin_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/screeching_griffin.rs"
+authority_bin = "rav-screeching-griffin-pvp"
+materializer = "varieties/magic/scripts/materialize_screeching_griffin_task.py"
+scorer = "varieties/magic/scripts/score_screeching_griffin_pvp.py"
+review_scope = "RAV Screeching Griffin definition and candidate-owned activated binding, full-game Flying PvP trace, colored payment, source-relative blocking restriction and combat, deterministic replay, targeted semantic mutation, compile-valid stub rejection, candidate workspace, and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/screeching_griffin_card/README.md",
+  "adapters/harbor/bundles/screeching_griffin_card/instruction.md",
+  "adapters/harbor/bundles/screeching_griffin_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_screeching_griffin_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_screeching_griffin_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_screeching_griffin_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/screeching_griffin.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-screeching-griffin-pvp/README.md",
+  "varieties/magic/tasks/rav-screeching-griffin-pvp/features.toml",
+  "varieties/magic/tasks/rav-screeching-griffin-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Screeching Griffin did not prevent Skyknight Legionnaire from blocking it"
+
+[mutation]
+find = "effects: vec![Effect::PreventTargetBlockingSourceUntilEndOfTurn]"
+replace = "effects: vec![Effect::ModifyTargetPtUntilEndOfTurn { power: 1, toughness: 1 }]"
+expected_diagnostic = "Screeching Griffin did not prevent Skyknight Legionnaire from blocking it"

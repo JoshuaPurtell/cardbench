@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 276
+definition_id = "RAV-DIMIR-AQUEDUCT"
+card_name = "Dimir Aqueduct"
+printed_mana_cost = ""
+colors = []
+card_types = ["land"]
+abilities = ["enters-tapped", "return-controlled-land", "tap-add-blue-black"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition and bindings"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "tapped-entry"
+summary = "Play Dimir Aqueduct as a land and verify its exact battlefield object is tapped after entry."
+trace_required = true
+
+[[features]]
+id = "controlled-land-etb-return"
+summary = "Place the land's enters-the-battlefield trigger on the stack only after the controller selects a legal land they control; resolve it and verify that exact land returns to its owner's hand before the ability resolves."
+trace_required = true
+
+[[features]]
+id = "fixed-blue-black-mana-bundle"
+summary = "After the Aqueduct untaps, activate its own bound tap ability and prove that it adds one blue and one black mana together. Use the bundle to cast a creature."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Continue the complete shuffled duel to a terminal pilot win and deterministic replay; detect changes to tapped entry, controlled-land target restriction, return trigger, or exact two-color bundle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["305.1-305.2: playing lands and land characteristics", "603.2-603.3: triggered ability occurrence and stacking", "601.2 and 608: target selection and resolution", "701.17: returning a permanent", "106.4-106.5: mana abilities and produced mana", "508-510: combat damage", "704: state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

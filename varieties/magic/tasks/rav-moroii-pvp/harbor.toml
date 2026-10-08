@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-moroii"
+definition_id = "RAV-MOROII"
+expansion = "RAV"
+variant = "single-card"
+bundle = "moroii_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/moroii.rs"
+authority_bin = "rav-moroii-pvp"
+materializer = "varieties/magic/scripts/materialize_moroii_task.py"
+scorer = "varieties/magic/scripts/score_moroii_pvp.py"
+review_scope = "RAV Moroii identity and candidate-owned definition/trigger binding; shuffled 60-card PvP; exact {2}{U}{B} payment; 4/4 Flying characteristics and ground-blocker exclusion; opponent-upkeep exclusion; controller-upkeep trigger source/incarnation and one life lost; deterministic replay; terminal pilot win; cost, stats, Flying, and trigger mutations; source-contract stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/moroii_card/README.md",
+  "adapters/harbor/bundles/moroii_card/instruction.md",
+  "adapters/harbor/bundles/moroii_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_moroii_task.py",
+  "varieties/magic/scripts/score_moroii_pvp.py",
+  "varieties/magic/session/src/bin/rav_moroii_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/moroii.rs",
+  "varieties/magic/tasks/rav-moroii-pvp/README.md",
+  "varieties/magic/tasks/rav-moroii-pvp/features.toml",
+  "varieties/magic/tasks/rav-moroii-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Moroii candidate or registry differs from its RAV #216 feature contract"
+
+[mutation]
+find = "LoseLifeController { amount: 1 }"
+replace = "LoseLifeController { amount: 2 }"
+expected_diagnostic = "Moroii candidate or registry differs from its RAV #216 feature contract"

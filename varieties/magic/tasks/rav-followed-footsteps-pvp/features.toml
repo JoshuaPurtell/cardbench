@@ -1,0 +1,66 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 51
+definition_id = "RAV-FOLLOWED-FOOTSTEPS"
+card_name = "Followed Footsteps"
+printed_mana_cost = "{3}{U}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+card_subtypes = ["aura"]
+keywords = []
+abilities = ["Enchant creature.", "At the beginning of your upkeep, put a creature token into play that's a copy of enchanted creature."]
+source_authority = "Original RAV #51 printed wording; current Oracle modernizes token wording while preserving Aura-controller upkeep scope"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no image, scan, flavor, or rules-text corpus"
+
+[[features]]
+id = "aura-enchant-creature"
+summary = "Verify Followed Footsteps enters as an Aura and legally attaches to the chosen creature, recording the attached object's incarnation."
+trace_required = true
+
+[[features]]
+id = "aura-controller-upkeep-scope"
+summary = "Verify the ability triggers on the Aura controller's upkeep, including when a different player controls the enchanted creature; the enchanted creature controller's upkeep does not trigger it."
+trace_required = true
+
+[[features]]
+id = "trigger-and-token-control"
+summary = "Verify the Aura controller controls the triggered ability and receives each created token, independently of the enchanted creature's controller."
+trace_required = true
+
+[[features]]
+id = "layer-one-token-copy-provenance"
+summary = "Verify each token is a copy of the exact attached Watchwolf object incarnation and retains its copied 3/3 characteristics."
+trace_required = true
+
+[[features]]
+id = "repeated-upkeep-full-game"
+summary = "Verify multiple upkeep/trigger/token/copy/resolution sequences are ordered before a deterministic terminal full-game PvP result and that source, attachment, scope, and effect mutations fail."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Aura attachment", "508-511 turn structure and upkeep", "603.2-603.3 triggered abilities", "608.2 resolving abilities", "110.5 copyable values", "111.10 token copies", "400.7 zone changes and new objects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV official FAQ preserving the original card text"
+card = "Followed Footsteps"
+collector_number = 51
+url = "https://www.mtgsalvation.com/forums/magic-fundamentals/the-rumor-mill/224968-rav-official-faq"
+retained_data = "Public identity, mana cost, color, Aura subtype, enchant-creature restriction, Aura-controller upkeep trigger, and token-copy behavior"
+
+[[source_references]]
+source = "Current card record and Oracle wording"
+card = "Followed Footsteps"
+collector_number = 51
+url = "https://mtg.wtf/card/rav/51/Followed-Footsteps"
+retained_data = "Public identity and modern token creation wording; upkeep scope matches RAV printing"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

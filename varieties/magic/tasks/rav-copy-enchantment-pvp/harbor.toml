@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-copy-enchantment-pvp"
+definition_id = "RAV-COPY-ENCHANTMENT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "copy_enchantment_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/copy_enchantment.rs"
+authority_bin = "rav-copy-enchantment-pvp"
+materializer = "varieties/magic/scripts/materialize_copy_enchantment_task.py"
+scorer = "varieties/magic/scripts/score_copy_enchantment_pvp.py"
+review_scope = "RAV #42 printed blue {2}{U} Enchantment and optional as-enters copy choice; source choice selection and decline; copied Aura attachment decision and exact Watchwolf target; copied Fists of Ironwood ETB trigger and Saproling token events; PermanentCopied source/target incarnation receipts; exact object/event ordering and terminal PvP result; deterministic replay and semantic mutations; normalized literal source and AST guard before candidate invocation, including side-effect injection rejection; source reconciliation, provenance, materializer and expected trusted-stub rejection"
+review_files = [
+  "adapters/harbor/bundles/copy_enchantment_card/README.md",
+  "adapters/harbor/bundles/copy_enchantment_card/instruction.md",
+  "adapters/harbor/bundles/copy_enchantment_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_copy_enchantment_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_copy_enchantment_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_copy_enchantment_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/copy_enchantment.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/fists_of_ironwood.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/copy_enchantment_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/copy_enchantment_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/fists_of_ironwood_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-copy-enchantment-pvp/README.md",
+  "varieties/magic/tasks/rav-copy-enchantment-pvp/source-note.md",
+  "varieties/magic/tasks/rav-copy-enchantment-pvp/features.toml",
+  "varieties/magic/tasks/rav-copy-enchantment-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Copy Enchantment source differs from the pinned literal RAV module"
+
+[mutation]
+find = "may-enter-as-copy-of-enchantment"
+replace = "may-enter-as-copy-of-permanent"
+expected_diagnostic = "Copy Enchantment source differs from the pinned literal RAV module"

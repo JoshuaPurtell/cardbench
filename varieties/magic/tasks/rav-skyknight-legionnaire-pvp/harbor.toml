@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-skyknight-legionnaire"
+definition_id = "RAV-SKYKNIGHT-LEGIONNAIRE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "skyknight_legionnaire_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/skyknight_legionnaire.rs"
+authority_bin = "rav-skyknight-legionnaire-pvp"
+materializer = "varieties/magic/scripts/materialize_skyknight_legionnaire_task.py"
+scorer = "varieties/magic/scripts/score_skyknight_legionnaire_pvp.py"
+review_scope = "RAV Skyknight Legionnaire single-card PvP trace, source contract, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/skyknight_legionnaire_card/README.md",
+  "adapters/harbor/bundles/skyknight_legionnaire_card/instruction.md",
+  "adapters/harbor/bundles/skyknight_legionnaire_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_skyknight_legionnaire_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_skyknight_legionnaire_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_skyknight_legionnaire_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/skyknight_legionnaire.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-skyknight-legionnaire-pvp/README.md",
+  "varieties/magic/tasks/rav-skyknight-legionnaire-pvp/features.toml",
+  "varieties/magic/tasks/rav-skyknight-legionnaire-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Skyknight Legionnaire did not attack on its entry turn (Haste interaction failed)"
+
+[mutation]
+find = "keywords: vec![Keyword::Flying, Keyword::Haste]"
+replace = "keywords: vec![Keyword::Flying]"
+expected_diagnostic = "Skyknight Legionnaire did not attack on its entry turn (Haste interaction failed)"

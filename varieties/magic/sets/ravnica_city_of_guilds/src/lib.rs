@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+mod cards;
 mod catalog;
 mod scenarios;
 
@@ -23,18 +24,17 @@ use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostBinding,
-    ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedCounterCost,
-    ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
-    AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
-    BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
-    ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind, CreatureSubtype,
-    DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
-    Effect, EntryCharacteristicOverride, EntryCoinFlipBinding, EntryCopyBinding, Game,
-    GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
-    LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding,
-    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding,
-    RulesError, SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    ActivatedAbilityCostModifierBinding, ActivatedCounterCost, ActivatedCounterCostTarget,
+    ActivatedManaAbility, AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind,
+    BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color,
+    ContinuousChange, ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind,
+    CreatureSubtype, DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList,
+    DeckRules, Effect, EntryAttachmentBinding, EntryCharacteristicOverride, EntryCoinFlipBinding,
+    EntryCopyBinding, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword,
+    LandEntryBinding, LegendaryPermanentBinding, LibrarySearchCardinality,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
+    ManaAbilityCostBinding, ManaAbilityOutput, ManaCost, PlayerId, ReplacementEffect,
+    ReplacementEffectBinding, RulesError, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
     StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
@@ -480,77 +480,12 @@ pub fn load_catalog_coverage_decks() -> Result<Vec<DeckFixture>, ManifestValidat
 #[allow(clippy::too_many_lines)] // Declarative card fixture catalog is intentionally kept together.
 pub fn card_definitions() -> Vec<CardDefinition> {
     vec![
-        CardDefinition {
-            id: "RAV-CHAR",
-            name: "Char",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-damage", "self-damage"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::DealDamage {
-                    amount: 4,
-                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-                },
-                Effect::DealDamageController { amount: 2 },
-            ],
-        },
-        // Full fidelity: the ordinary attack trigger reaches the stack before
-        // it snapshots only declared attackers. Each current color receives
-        // its independent temporary layer-seven modifier, so a red/white
-        // attacker gets both while a same-colored nonattacker gets neither.
-        CardDefinition {
-            id: "RAV-AGRUS-KOS-WOJEK-VETERAN",
-            name: "Agrus Kos, Wojek Veteran",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "attack-triggered-color-specific-combat-modifiers",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the Aura itself has no persistent characteristic
-        // change, but its live attachment grants the enchanted creature a
-        // stack-backed tap ability. The attachment binding retains that
-        // provenance and revokes the grant when either endpoint changes.
-        CardDefinition {
-            id: "RAV-GALVANIC-ARC",
-            name: "Galvanic Arc",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-creature",
-                "aura-grants-tap-three-damage-to-player-or-creature",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![],
-            }],
-        },
+        cards::char::definition(),
+        cards::lightning_helix::definition(),
+        // Full fidelity: its attack trigger snapshots declared attackers and
+        // applies independent color-specific temporary modifiers.
+        cards::agrus_kos_wojek_veteran::definition(),
+        cards::galvanic_arc::definition(),
         // Full fidelity: an Aura-relative combat trigger captures the exact
         // creature that dealt combat damage, sacrifices it, then suspends for
         // its controller's required reattachment choice. A successful
@@ -696,85 +631,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // Full fidelity: the complete target-free global-damage resolution.
         // Every creature and every player receives the fixed damage in one
         // batch before state-based actions run.
-        CardDefinition {
-            id: "RAV-RAIN-OF-EMBERS",
-            name: "Rain of Embers",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "global-creature-and-player-damage"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 1 }],
-        },
-        // Full card behavior is represented by the shared radiance damage
-        // substrate: legal creature target, resolution-time color selection,
-        // one damage batch, and the resulting state-based actions.
-        CardDefinition {
-            id: "RAV-CLEANSING-BEAM",
-            name: "Cleansing Beam",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "radiance",
-                "targeted-creature-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceDealDamageToCreatures { amount: 2 }],
-        },
-        CardDefinition {
-            id: "RAV-LIGHTNING-HELIX",
-            name: "Lightning Helix",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White, Color::Red]),
-            colors: colors([Color::White, Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-damage", "life-gain"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::DealDamage {
-                    amount: 3,
-                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-                },
-                Effect::GainLifeController { amount: 3 },
-            ],
-        },
-        // Full fidelity: Convoke payment and the created token's count, color,
-        // type, typed Saproling subtype, and base power/toughness are all
-        // represented by shared engine substrates.
-        CardDefinition {
-            id: "RAV-SCATTER-THE-SEEDS",
-            name: "Scatter the Seeds",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "convoke", "token-creation"],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::CreateToken {
-                token: TokenSpec::saproling(),
-                count: 3,
-            }],
-        },
+        cards::rain_of_embers::definition(),
+        // Full card behavior uses the shared Radiance damage substrate:
+        // target-color selection, one damage batch, then state-based actions.
+        cards::cleansing_beam::definition(),
+        cards::scatter_the_seeds::definition(),
         // Full fidelity: this permanent delegates its live, controller-scoped
         // quantity replacement behavior to the expansion-neutral replacement
         // registry. The same binding covers every currently represented token
@@ -798,109 +659,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this static characteristic-defining effect is
-        // evaluated from the current controller's battlefield rather than
-        // from a stale enter-the-battlefield snapshot.
-        CardDefinition {
-            id: "RAV-SCION-OF-THE-WILD",
-            name: "Scion of the Wild",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "dynamic-controlled-creature-count",
-            ],
-            power: Some(0),
-            toughness: Some(0),
-            keywords: vec![],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-GATHER-COURAGE",
-            name: "Gather Courage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "targeted-layer-7-modifier",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                power: 2,
-                toughness: 2,
-            }],
-        },
-        // This is the complete fixed three-modifier resolution: each modifier
-        // is recorded separately so the shared continuous-effect layer owns
-        // their normal lifetime and target legality.
-        CardDefinition {
-            id: "RAV-SEEDS-OF-STRENGTH",
-            name: "Seeds of Strength",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "three-targeted-layer-7-modifiers",
-                "partial-target-resolution",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::ModifyTargetPtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                },
-                Effect::ModifyTargetPtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                },
-                Effect::ModifyTargetPtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                },
-            ],
-        },
-        // Full fidelity: this creature Aura grants Trample through the
-        // attachment lifecycle, then creates its Saprolings through its own
-        // ordinary enter-the-battlefield stack trigger.
-        CardDefinition {
-            id: "RAV-FISTS-OF-IRONWOOD",
-            name: "Fists of Ironwood",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-creature-trample-etb-two-saprolings",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![ContinuousChange::AddKeyword(Keyword::Trample)],
-            }],
-        },
+        cards::scion_of_the_wild::definition(),
+        cards::gather_courage::definition(),
+        cards::fiery_conclusion::definition(),
+        cards::seeds_of_strength::definition(),
+        cards::fists_of_ironwood::definition(),
         // Full fidelity: Glare's two activated abilities share the same
         // explicit one-creature tap cost while retaining their distinct
         // target-free/global-prevention versus targeted-tap resolutions.
@@ -924,81 +687,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: both instructions sample the resolving controller's
-        // graveyard. The first counts creature cards for life, then the
-        // targeted creature card returns through the ordinary stack path.
-        CardDefinition {
-            id: "RAV-DRYADS-CARESS",
-            name: "Dryad's Caress",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "battlefield-creature-life-gain-and-white-spend-untap",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::GainLifeForEachCreature,
-                Effect::UntapControllerCreaturesIfManaColorSpent { color: Color::White },
-            ],
-        },
-        // Complete public slice: the expansion binds its required controlled
-        // creature sacrifice as an explicit cast cost; the shared engine then
-        // moves that creature before placing this targeted damage spell on the
-        // stack.
-        CardDefinition {
-            id: "RAV-FIERY-CONCLUSION",
-            name: "Fiery Conclusion",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "additional-sacrifice-controlled-creature-cost",
-                "targeted-creature-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DealDamage {
-                amount: 5,
-                target: cardbench_magic_engine::TargetRequirement::Creature,
-            }],
-        },
-        // Full fidelity: colored casting, Trample, and the targeted-opponent
-        // ETB token creation (including protection-bearing Centaurs) are typed
-        // through the expansion-neutral trigger and token substrates.
-        CardDefinition {
-            id: "RAV-HUNTED-HORROR",
-            name: "Hunted Horror",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "trample",
-                "enter-battlefield-targeted-opponent-token-creation",
-                "centaur-protection-from-black",
-            ],
-            power: Some(7),
-            toughness: Some(7),
-            keywords: vec![Keyword::Trample],
-            effects: vec![],
-        },
+        // Full fidelity: life gain counts battlefield creatures, and spending
+        // White on the instant also untaps creatures its controller controls.
+        cards::dryads_caress::definition(),
+        cards::hunted_horror::definition(),
         // Full fidelity: the black tap activation destroys one target land
         // and then conditionally untaps Helldozer based on the target's
         // nonbasic identity observed at resolution.
@@ -1026,51 +718,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // Full fidelity: the opponent-first ETB trigger creates four typed
         // blue 1/1 Flying Faeries, and the shared source-regeneration ability
         // represents the printed green activation through a one-shot shield.
-        CardDefinition {
-            id: "RAV-HUNTED-TROLL",
-            name: "Hunted Troll",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-targeted-opponent-flying-faerie-tokens",
-                "regeneration",
-            ],
-            power: Some(8),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::hunted_troll::definition(),
         // Full fidelity: Flying is a static characteristic, then the normal
         // targeted-opponent ETB trigger creates exactly one typed black 4/4
         // Horror through its own stack and priority window.
-        CardDefinition {
-            id: "RAV-HUNTED-LAMMASU",
-            name: "Hunted Lammasu",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "etb-targeted-opponent-horror-token",
-            ],
-            power: Some(5),
-            toughness: Some(5),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
+        cards::hunted_lammasu::definition(),
         // Full fidelity: target a controller-owned instant or sorcery in the
         // graveyard, then cast it this turn without paying its mana cost. A
         // permission cast is exiled whether it resolves or is countered.
@@ -1094,203 +746,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::GrantGraveyardCastPermissionUntilEndOfTurn],
         },
-        // Full fidelity: normal colored-cost casting, base characteristics,
-        // Flying, and the targeted ETB -2/-2 modifier all use the normal
-        // stack, target legality, and continuous-effect substrate.
-        CardDefinition {
-            id: "RAV-KEENING-BANSHEE",
-            name: "Keening Banshee",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "enter-battlefield-targeted-minus-two-minus-two",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full printed behavior: normal colored-cost casting, base
-        // characteristics, and its stack-backed dies trigger. The controller
-        // submits the target player through the public target-bearing trigger
-        // decision before the ability is put onto the stack.
-        CardDefinition {
-            id: "RAV-INFECTIOUS-HOST",
-            name: "Infectious Host",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "dies-target-player-life-loss",
-                "policy-selected-trigger-target",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the typed artifact target is destroyed during
-        // resolution and the spell controller draws one card afterward.
-        // The expansion-neutral engine owns target legality, zone movement,
-        // and the draw receipt; this definition contains only semantic data.
-        CardDefinition {
-            id: "RAV-SMASH",
-            name: "Smash",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "artifact-destruction", "draw"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DestroyTargetArtifact, Effect::DrawController],
-        },
-        // Full fidelity: the colorless artifact has one ordinary generic
-        // tap activation. Existing global-damage resolution snapshots all
-        // creatures, damages both players, then lets normal SBAs handle
-        // lethal creatures after the complete batch.
-        CardDefinition {
-            id: "RAV-BLOCKBUSTER",
-            name: "Blockbuster",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-enchantment-casting",
-                "sacrifice-tapped-creature-and-player-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-PEREGRINE-MASK",
-            name: "Peregrine Mask",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(1),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-equipment-casting",
-                "equipment-defender-flying-first-strike",
-                "sorcery-speed-equip-two",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this low-cost artifact uses a source-independent
-        // targeted linked-exile activation. Sacrificing the source is an
-        // ordinary cost; the target's exact exile incarnation returns under
-        // its owner at the next end step through the shared delayed action.
-        CardDefinition {
-            id: "RAV-VOYAGER-STAFF",
-            name: "Voyager Staff",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(1),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-artifact-casting",
-                "sacrifice-linked-exile-target-creature-until-end-step",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        // Full fidelity: normal casting and Flying coexist with the
+        // candidate-owned targeted ETB -2/-2 trigger.
+        cards::keening_banshee::definition(),
+        cards::infectious_host::definition(),
+        cards::smash::definition(),
+        cards::blockbuster::definition(),
+        cards::peregrine_mask::definition(),
+        cards::voyager_staff::definition(),
         // Full fidelity: the target-bearing activation is deliberately a
         // stack ability rather than a mana ability. The exact targeted player
         // supplies one of the five colored outputs at resolution through the
         // shared public decision boundary.
-        CardDefinition {
-            id: "RAV-SPECTRAL-SEARCHLIGHT",
-            name: "Spectral Searchlight",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(3),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-artifact-casting",
-                "tap-target-player-chooses-one-color-mana",
-                "target-player-chooses-one-color-mana",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::spectral_searchlight::definition(),
         // Full fidelity: target legality is artifact-or-creature at cast and
         // resolution, while this destruction instruction deliberately
         // bypasses any live regeneration replacement shield.
-        CardDefinition {
-            id: "RAV-PUTREFY",
-            name: "Putrefy",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "artifact-or-creature-destruction-no-regeneration",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DestroyTargetArtifactOrCreatureNoRegeneration],
-        },
-        // Full fidelity: the existing player-target and mill instruction
-        // handles both cast/resolution legality and one ordinary zone move
-        // receipt per card. No card-specific library path is required.
-        CardDefinition {
-            id: "RAV-GLIMPSE-THE-UNTHINKABLE",
-            name: "Glimpse the Unthinkable",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
-            colors: colors([Color::Blue, Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-mill-ten"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::MillTargetPlayer { count: 10 }],
-        },
+        cards::putrefy::definition(),
+        cards::glimpse_the_unthinkable::definition(),
         // Full fidelity: casting retains the controller's explicit draw or
         // discard mode and materializes its ordinary player target before the
         // card leaves the hand. The target-discard branch pauses at an exact
@@ -1347,128 +820,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: the expansion-neutral delayed-action substrate
-        // records exact block-incarnation history, waits until the current
-        // turn's end-of-combat boundary, then creates an ordinary stack
-        // instruction with its own priority window.
-        CardDefinition {
-            id: "RAV-GAZE-OF-THE-GORGON",
-            name: "Gaze of the Gorgon",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(
-                3,
-                [],
-                [HybridManaSymbol {
-                    first: Color::Black,
-                    second: Color::Green,
-                }],
-            ),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "targeted-regeneration-shield",
-                "delayed-end-of-combat-block-history-destruction",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction],
-        },
-        // Full fidelity: the shared Dredge replacement makes an exact
-        // graveyard-to-hand transition, then stacks this source-bound life
-        // gain trigger with the departed graveyard incarnation as provenance.
-        CardDefinition {
-            id: "RAV-GOLGARI-BROWNSCALE",
-            name: "Golgari Brownscale",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-                "graveyard-to-hand-gain-life",
-            ],
-            power: Some(2),
-            toughness: Some(3),
-            keywords: vec![Keyword::Dredge(2)],
-            effects: vec![],
-        },
-        // Full fidelity: the shared Dredge replacement and a stack-backed
-        // death trigger whose selected controller-graveyard creature card is
-        // placed on the top of its owner's library.
-        CardDefinition {
-            id: "RAV-GOLGARI-THUG",
-            name: "Golgari Thug",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-                "dies-target-creature-card-owner-library-top",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::Dredge(4)],
-            effects: vec![],
-        },
-        // Full fidelity: the shared Dredge replacement and static Flying are
-        // accompanied by a source-bound combat-damage trigger.  The trigger's
-        // recipient is captured as exact-incarnation provenance rather than
-        // selected as a later target.
-        CardDefinition {
-            id: "RAV-STINKWEED-IMP",
-            name: "Stinkweed Imp",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-                "flying",
-                "combat-damage-destroy-recipient",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying, Keyword::Dredge(5)],
-            effects: vec![],
-        },
-        // Public RAV #169 audit: Dredge plus its optional graveyard return
-        // trigger when a creature becomes the target of a spell or ability.
-        CardDefinition {
-            id: "RAV-GREATER-MOSSDOG",
-            name: "Greater Mossdog",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![Keyword::Dredge(3)],
-            effects: vec![],
-        },
+        cards::gaze_of_the_gorgon::definition(),
+        cards::golgari_brownscale::definition(),
+        cards::golgari_thug::definition(),
+        cards::stinkweed_imp::definition(),
+        // Public RAV #169 audit: Dredge and characteristics are candidate-owned.
+        cards::greater_mossdog::definition(),
         // Full fidelity: its Dredge replacement and controller-submitted
         // public selection return exactly zero through three graveyard land
         // cards through the ordinary suspended spell lifecycle.
@@ -1579,40 +936,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 reveal_selected: true,
             }],
         },
-        // Full fidelity: exact casting cost and controller-private selection
-        // of one typed non-Forest land into a tapped battlefield entry.
-        CardDefinition {
-            id: "RAV-FARSEEK",
-            name: "Farseek",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "library-nonforest-land-type-search",
-                "battlefield-tapped-land-entry",
-                "private-library-selection",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::SearchControllerLibrary {
-                requirement: LibrarySearchRequirement::BasicLandTypes(BTreeSet::from([
-                    BasicLandType::Plains,
-                    BasicLandType::Island,
-                    BasicLandType::Swamp,
-                    BasicLandType::Mountain,
-                ])),
-                destination: LibrarySearchDestination::BattlefieldTapped,
-                selection: LibrarySearchSelection::PolicySubmitted {
-                    may_fail_to_find: true,
-                },
-                reveal_selected: false,
-            }],
-        },
+        cards::farseek::definition(),
         // Full fidelity: the controller pays the typed `{1}` and selected
         // creature-sacrifice cost, then privately selects or declines an
         // eligible basic land through the ordinary suspended stack ability.
@@ -1657,50 +981,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 3,
             }],
         },
-        // Full fidelity: the generic Aura substrate keeps the exact -3/-1
-        // modifier linked to the enchantment and its attached creature until
-        // either battlefield endpoint leaves.
-        CardDefinition {
-            id: "RAV-CLINGING-DARKNESS",
-            name: "Clinging Darkness",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "aura-attach-and-static-pt"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceAndModifyTargetPt {
-                power: -3,
-                toughness: -1,
-            }],
-        },
-        // Full fidelity: an optional public no-priority entry-copy choice
-        // snapshots a live enchantment's copiable values before this card
-        // enters, including the typed Aura attachment sub-boundary.
-        CardDefinition {
-            id: "RAV-COPY-ENCHANTMENT",
-            name: "Copy Enchantment",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "may-enter-as-copy-of-enchantment",
-                "public-entry-copy-decision",
-                "copied-aura-entry-attachment",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::clinging_darkness::definition(),
+        cards::copy_enchantment::definition(),
         // Full fidelity: the Aura keeps its ordinary attachment endpoint,
         // then uses the shared attached-combat trigger and public graveyard
         // target choice to return the selected creature card to its owner.
@@ -1808,119 +1090,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DrawControllerIfManaColorSpent { color: Color::Blue },
             ],
         },
-        // Full fidelity: the shared Dredge replacement and stack-backed
-        // sacrifice-to-draw activation represent each printed rule.
-        CardDefinition {
-            id: "RAV-GRAVE-SHELL-SCARAB",
-            name: "Grave-Shell Scarab",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-                "sacrifice-source-draw",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![Keyword::Dredge(1)],
-            effects: vec![],
-        },
-        // Full fidelity: the shared Dredge replacement and source-sacrifice
-        // activation place the represented permanent +1/+1 counter on one
-        // creature target through the ordinary stack lifecycle.
-        CardDefinition {
-            id: "RAV-SHAMBLING-SHELL",
-            name: "Shambling Shell",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "dredge",
-                "base-characteristics",
-                "sacrifice-source-target-counter",
-            ],
-            power: Some(3),
-            toughness: Some(1),
-            keywords: vec![Keyword::Dredge(3)],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-MUDDLE-THE-MIXTURE",
-            name: "Muddle the Mixture",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "counter-target-instant-or-sorcery-spell",
-                "transmute",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
-                1,
-                [Color::Blue, Color::Blue],
-            ))],
-            effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
-        },
-        // Full fidelity: the target spell's controller receives an explicit,
-        // stale-safe no-priority payment/decline decision while Convolute
-        // remains on top of the stack.  The decision accepts only a complete
-        // selected `{4}` spend, with explicitly listed mana abilities.
-        CardDefinition {
-            id: "RAV-CONVOLUTE",
-            name: "Convolute",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "counter-target-spell-unless-controller-pays-4",
-                "policy-submitted-resolution-payment",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::CounterTargetSpellUnlessControllerPays {
-                mana_cost: ManaCost::new(4),
-            }],
-        },
-        // Full fidelity: each owner's graveyard moves into that owner's
-        // library, and each library is shuffled at resolution.
-        CardDefinition {
-            id: "RAV-MNEMONIC-NEXUS",
-            name: "Mnemonic Nexus",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "graveyard-to-library",
-                "per-player-library-shuffle",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::ShuffleGraveyardsIntoLibraries],
-        },
+        // The shared Dredge replacement and candidate-owned activation
+        // represent the Scarab's complete RAV #211 gameplay slice.
+        cards::grave_shell_scarab::definition(),
+        cards::shambling_shell::definition(),
+        cards::muddle_the_mixture::definition(),
+        cards::convolute::definition(),
+        cards::mnemonic_nexus::definition(),
         // Full fidelity: owner-relative permanent exchange, per-player
         // shuffle/reveal, and simultaneous return of revealed permanent cards.
         CardDefinition {
@@ -1949,54 +1125,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: the two target positions remain controller-relative,
         // and both creatures return to their owners' hands on resolution.
-        CardDefinition {
-            id: "RAV-PEEL-FROM-REALITY",
-            name: "Peel from Reality",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "controlled-creature-target",
-                "opponent-creature-target",
-                "owner-preserving-bounce",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::ReturnControlledCreatureToHand,
-                Effect::ReturnOpponentCreatureToHand,
-            ],
-        },
-        // Full fidelity: a policy-selected five-color card color is retained
-        // on the spell stack, replaces the creature target's colors in layer
-        // five until end of turn, and then the controller draws one card.
-        CardDefinition {
-            id: "RAV-QUICKCHANGE",
-            name: "Quickchange",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "policy-chosen-target-color-replacement-until-end-of-turn",
-                "controller-draw",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn,
-                Effect::DrawController,
-            ],
-        },
+        cards::peel_from_reality::definition(),
+        cards::quickchange::definition(),
         // Full fidelity: each activated ability receives its own public stack
         // identity, so the policy can select exactly one live one-target
         // ability at resolution and replace its target with a different legal
@@ -2081,27 +1211,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![Effect::ExileUpToTargetGraveyardCards { maximum: 4 }],
         },
-        // Full fidelity within the represented library-search substrate: the
-        // spell installs one public marker for the current turn, then draws
-        // exactly one controller card as it resolves.
-        CardDefinition {
-            id: "RAV-SHADOW-OF-DOUBT",
-            name: "Shadow of Doubt",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(0, [], [HybridManaSymbol { first: Color::Blue, second: Color::Black }, HybridManaSymbol { first: Color::Blue, second: Color::Black }]),
-            colors: colors([Color::Blue, Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "library-search-prevention", "draw"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::PreventLibrarySearchUntilEndOfTurn,
-                Effect::DrawController,
-            ],
-        },
+        cards::shadow_of_doubt::definition(),
         // Full fidelity: the targeted bounce front face snapshots the last
         // battlefield controller for the life loss, and the generic Transmute
         // activation resolves through its private, stack-backed search flow.
@@ -2157,34 +1267,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![Effect::CounterTargetSpellUnlessControllerDiscardsHand],
         },
-        // This compatibility definition is deliberately limited to the target
-        // creature's temporary layer-7 modifier and transmute; it does not
-        // assert full-card or full-rules fidelity.
-        CardDefinition {
-            id: "RAV-DIZZY-SPELL",
-            name: "Dizzy Spell",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "targeted-layer-7-modifier",
-                "transmute",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
-                1,
-                [Color::Blue, Color::Blue],
-            ))],
-            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                power: -3,
-                toughness: 0,
-            }],
-        },
+        // Full fidelity: this task-owned module defines the layer-7 modifier
+        // and the hand-zone Transmute cost.
+        cards::dizzy_spell::definition(),
         // Full fidelity: the front face uses a typed nonblack-creature target
         // and ordinary regenerable destruction. Its hand-zone Transmute is
         // a stack-backed, controller-private library search after ordinary
@@ -2241,50 +1326,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
-        // Full fidelity: this card's complete functional behavior is the
-        // creature-targeted temporary layer-7 modifier plus its fixed Dredge
-        // replacement. Both are represented by the shared engine substrates.
-        CardDefinition {
-            id: "RAV-DARKBLAST",
-            name: "Darkblast",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier", "dredge"],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Dredge(3)],
-            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                power: -1,
-                toughness: -1,
-            }],
-        },
-        // Full fidelity: a policy submits one explicit X and its ordered
-        // generic-color spend through the normal cast action. The engine
-        // retains that X on the stack and validates the target's mana value at
-        // both cast and resolution before ordinary destruction.
-        CardDefinition {
-            id: "RAV-DISEMBOWEL",
-            name: "Disembowel",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "chosen-x-targeted-creature-destruction",
-                "policy-submitted-chosen-x-mana-spend",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DestroyTargetCreatureWithManaValueEqualToChosenX],
-        },
+        // Full fidelity: targeted temporary -1/-1 modifier and Dredge 3.
+        cards::darkblast::definition(),
+        cards::disembowel::definition(),
         // Full fidelity: the policy-declared X is paid as additional generic
         // mana, remains on the stack through the normal target/priority
         // lifecycle, then supplies the same ordered mill and life-gain
@@ -2492,58 +1536,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this target-free sorcery retains its normal stack
-        // object while every affected player submits one public creature-card
-        // choice from their own graveyard. All selected identities are
-        // revalidated before their owner-hand moves commit together.
-        CardDefinition {
-            id: "RAV-EMPTY-THE-CATACOMBS",
-            name: "Empty the Catacombs",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "each-player-returns-creature-card-from-graveyard-to-hand",
-                "policy-submitted-public-graveyard-creature-choices",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::ReturnOneCreatureCardFromEachGraveyardToHand],
-        },
-        // Full printed behavior: the target remains in the casting player's
-        // graveyard until the normal resolution-time legality check. The
-        // immutable explicit mana-spend receipt controls the one persistent
-        // +1/+1 counter placed after its battlefield move.
-        CardDefinition {
-            id: "RAV-VIGOR-MORTIS",
-            name: "Vigor Mortis",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "return-target-creature-card-from-graveyard-to-battlefield",
-                "spent-green-plus-one-plus-one-counter",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
-                    color: Color::Green,
-                },
-            ],
-        },
+        cards::empty_the_catacombs::definition(),
+        cards::vigor_mortis::definition(),
         // The controller submits the graveyard-card target while the trigger
         // is placed on the stack, then accepts or declines its zero-mana
         // optional resolution through the ordinary policy boundary.
@@ -2568,190 +1562,21 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        CardDefinition {
-            id: "RAV-RALLY-THE-RIGHTEOUS",
-            name: "Rally the Righteous",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "radiance",
-                "untap",
-                "layer-7-modifier",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceUntapAndModifyUntilEndOfTurn {
-                power: 2,
-                toughness: 0,
-            }],
-        },
-        // This is the distinct radiance-only temporary modifier operation;
-        // it intentionally does not reuse Rally's untap behavior.
-        CardDefinition {
-            id: "RAV-WOJEK-SIREN",
-            name: "Wojek Siren",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "radiance", "layer-7-modifier"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceModifyPtUntilEndOfTurn {
-                power: 1,
-                toughness: 1,
-            }],
-        },
-        CardDefinition {
-            id: "RAV-LAST-GASP",
-            name: "Last Gasp",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                power: -3,
-                toughness: -3,
-            }],
-        },
-        // Full fidelity: ordinary Convoke payment and the bounded
-        // attacker-submitted Trample assignment both have exact public
-        // receipt and state-machine coverage.
-        CardDefinition {
-            id: "RAV-SIEGE-WURM",
-            name: "Siege Wurm",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "base-characteristics",
-                "trample",
-            ],
-            power: Some(5),
-            toughness: Some(5),
-            keywords: vec![Keyword::Convoke, Keyword::Trample],
-            effects: vec![],
-        },
-        // Full fidelity: Convoke payment, base characteristics, and Flying
-        // blocker legality are all represented by the expansion-neutral engine.
-        CardDefinition {
-            id: "RAV-CONCLAVE-EQUENAUT",
-            name: "Conclave Equenaut",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "base-characteristics",
-                "flying",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![Keyword::Convoke, Keyword::Flying],
-            effects: vec![],
-        },
+        cards::rally_the_righteous::definition(),
+        cards::wojek_siren::definition(),
+        cards::last_gasp::definition(),
+        // Full fidelity: ordinary Convoke and Trample behavior is owned by
+        // the independently materializable card module.
+        cards::siege_wurm::definition(),
+        cards::conclave_equenaut::definition(),
         // Full fidelity: the ETB trigger reads the controller's live white
         // creature count at resolution after ordinary Convoke payment.
-        CardDefinition {
-            id: "RAV-CONCLAVE-PHALANX",
-            name: "Conclave Phalanx",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "base-characteristics",
-                "etb-life-per-controlled-creature",
-            ],
-            power: Some(2),
-            toughness: Some(4),
-            keywords: vec![Keyword::Convoke],
-            effects: vec![],
-        },
-        // Full fidelity: Convoke payment, base characteristics, and the
-        // expansion-neutral vigilance attack-declaration exception are all
-        // represented by the engine.
-        CardDefinition {
-            id: "RAV-GUARDIAN-OF-VITU-GHAZI",
-            name: "Guardian of Vitu-Ghazi",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(6, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "base-characteristics",
-                "vigilance",
-            ],
-            power: Some(4),
-            toughness: Some(7),
-            keywords: vec![Keyword::Convoke, Keyword::Vigilance],
-            effects: vec![],
-        },
+        cards::conclave_phalanx::definition(),
+        cards::guardian_of_vitu_ghazi::definition(),
         // Full printed behavior: Convoke cost payment and the source's
         // Trample keyword use the shared multi-block damage-order decision
         // and combat-damage substrate.
-        CardDefinition {
-            id: "RAV-AUTOCHTHON-WURM",
-            name: "Autochthon Wurm",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(
-                10,
-                [
-                    Color::Green,
-                    Color::Green,
-                    Color::Green,
-                    Color::White,
-                    Color::White,
-                ],
-            ),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "base-characteristics",
-                "trample",
-                "multi-block-trample-combat-damage",
-            ],
-            power: Some(9),
-            toughness: Some(14),
-            keywords: vec![Keyword::Convoke, Keyword::Trample],
-            effects: vec![],
-        },
+        cards::autochthon_wurm::definition(),
         // Printed Convoke and a tap-two-creatures activated pump; no ETB.
         CardDefinition {
             id: "RAV-ROOT-KIN-ALLY",
@@ -2803,623 +1628,61 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
             ],
         },
-        // Full fidelity: Convoke payment, typed artifact-or-enchantment
-        // targets, and ordinary destruction are all executable.
-        CardDefinition {
-            id: "RAV-SUNDERING-VITAE",
-            name: "Sundering Vitae",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "targeted-artifact-or-enchantment-destruction",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
-        },
+        cards::sundering_vitae::definition(),
         // Full fidelity: the ordinary artifact-or-enchantment target is
         // destroyed through the normal stack lifecycle, then two typed green
         // Saproling tokens enter under the resolving controller's control.
-        CardDefinition {
-            id: "RAV-SEED-SPARK",
-            name: "Seed Spark",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "typed-artifact-or-enchantment-target",
-                "destroy",
-                "saproling-token-creation",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::DestroyTargetArtifactOrEnchantment,
-                Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 2,
-                },
-            ],
-        },
-        // Full fidelity: the narrow enchantment target is rechecked through
-        // the normal all-illegal-target boundary, then Radiance snapshots the
-        // target and every other color-sharing enchantment before destroying
-        // that complete batch.
-        CardDefinition {
-            id: "RAV-LEAVE-NO-TRACE",
-            name: "Leave No Trace",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "radiance-enchantment-destruction",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceDestroyEnchantments],
-        },
+        cards::seed_spark::definition(),
+        // Full fidelity: Radiance snapshots the target and color-sharing
+        // enchantments before destroying that complete batch.
+        cards::leave_no_trace::definition(),
         // Full fidelity: Convoke is paid as part of the ordinary cast, then
         // one target-free resolution instruction snapshots and destroys every
         // live nontoken creature through the normal destruction lifecycle.
-        CardDefinition {
-            id: "RAV-HOUR-OF-RECKONING",
-            name: "Hour of Reckoning",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "destroy-all-nontoken-creatures",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::DestroyAllNonTokenCreatures],
-        },
-        // Full fidelity: its base vigilance and static layer-six/layer-seven
-        // grants apply only to other creatures under the same controller.
-        CardDefinition {
-            id: "RAV-OATHSWORN-GIANT",
-            name: "Oathsworn Giant",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "vigilance",
-                "static-other-creatures-vigilance-plus-zero-two",
-            ],
-            power: Some(3),
-            toughness: Some(4),
-            keywords: vec![Keyword::Vigilance],
-            effects: vec![],
-        },
+        cards::hour_of_reckoning::definition(),
+        cards::oathsworn_giant::definition(),
         // Full fidelity: this controller-scoped static layer-seven modifier
         // applies to every other creature, including other anthem sources.
-        CardDefinition {
-            id: "RAV-VETERAN-ARMORER",
-            name: "Veteran Armorer",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "static-other-creatures-plus-zero-one",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: while any live Aura is attached to this source, the
-        // source and every other creature under its controller gain Vigilance.
-        CardDefinition {
-            id: "RAV-GATE-HOUND",
-            name: "Gate Hound",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "static-controller-vigilance-while-enchanted",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the immutable static attack binding is evaluated
-        // before any attacker state or combat receipt is created, then stops
-        // applying as soon as this source leaves the battlefield.
-        CardDefinition {
-            id: "RAV-BLAZING-ARCHON",
-            name: "Blazing Archon",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(6, [Color::White, Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "static-opponents-cannot-attack-controller",
-            ],
-            power: Some(5),
-            toughness: Some(6),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: the source is sacrificed as an activation cost, then
-        // creates a one-shot prevention shield for a player or creature.
-        CardDefinition {
-            id: "RAV-CAREGIVER",
-            name: "Caregiver",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "sacrifice-source-targeted-one-damage-prevention",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::veteran_armorer::definition(),
+        cards::gate_hound::definition(),
+        cards::blazing_archon::definition(),
+        cards::caregiver::definition(),
         // Full fidelity: every represented positive damage packet is reduced
         // by the live source-bound integer-halving replacement.  Concurrent
         // damage replacements use the affected player's public ordering
         // decision before either replacement commits.
-        CardDefinition {
-            id: "RAV-GHOSTS-OF-THE-INNOCENT",
-            name: "Ghosts of the Innocent",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "static-global-damage-amount-halving",
-                "affected-player-damage-replacement-ordering",
-            ],
-            power: Some(4),
-            toughness: Some(5),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this one-target combat prevention effect keeps the
-        // target creature's exact incarnation through combat and observes the
-        // explicit generic-mana color receipt at resolution.
-        CardDefinition {
-            id: "RAV-BOROS-FURY-SHIELD",
-            name: "Boros Fury-Shield",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "prevent-target-creatures-combat-damage-and-red-spend-controller-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn {
-                damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Red),
-            }],
-        },
-        // Full fidelity: casting supplies an explicit five-color choice that
-        // is retained on the stack. Resolution snapshots the caster's current
-        // creatures and grants each the corresponding temporary protection.
-        CardDefinition {
-            id: "RAV-BATHE-IN-LIGHT",
-            name: "Bathe in Light",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "chosen-color-controller-creature-protection",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn],
-        },
-        // Full fidelity: every upkeep uses a single pre-installation
-        // characteristic snapshot. For each controller-owned creature, only
-        // the exact keyword instances held by another controller creature in
-        // the printed ability families become layer-six grants this turn.
-        CardDefinition {
-            id: "RAV-CONCERTED-EFFORT",
-            name: "Concerted Effort",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "upkeep-controller-creature-keyword-sharing",
-                "exact-protection-and-landwalk-instances",
-                "other-creature-only-snapshot",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the static controller-relative prevention is bound
-        // through derived creature characteristics and is live only while
-        // this enchantment remains on the battlefield.
-        CardDefinition {
-            id: "RAV-LIGHT-OF-SANCTION",
-            name: "Light of Sanction",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "static-prevent-friendly-source-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-FAITHS-FETTERS",
-            name: "Faith's Fetters",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-permanent",
-                "etb-gain-four-life",
-                "attached-permanent-combat-and-activation-restriction",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Permanent,
-                changes: vec![
-                    ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock),
-                    ContinuousChange::SuppressNonManaActivatedAbilities,
-                ],
-            }],
-        },
-        CardDefinition {
-            id: "RAV-STASIS-CELL",
-            name: "Stasis Cell",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "aura-enchant-creature",
-                "attached-creature-combat-and-nonmana-activation-restriction",
-                "generic-three-target-creature-reattachment",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: stasis_cell_attachment_changes(),
-            }],
-        },
+        cards::ghosts_of_the_innocent::definition(),
+        cards::boros_fury_shield::definition(),
+        cards::bathe_in_light::definition(),
+        cards::concerted_effort::definition(),
+        cards::light_of_sanction::definition(),
+        cards::faiths_fetters::definition(),
+        // Full fidelity: a creature Aura that restricts combat, with its
+        // colored-cost activated reattachment ability registered separately.
+        cards::stasis_cell::definition(),
         // Full fidelity: the source-bound Aura search opens a private
         // controller choice over every currently compatible Aura and permits
         // the optional failure to find before the selected Aura attaches.
-        CardDefinition {
-            id: "RAV-AURATOUCHED-MAGE",
-            name: "Auratouched Mage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-aura-search-and-attach",
-                "policy-selected-compatible-aura-selection",
-                "optional-compatible-aura-search",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: Convoke reduces the printed cost and the resolving
-        // instruction counts every current battlefield creature, including
-        // opposing creatures and tokens, before gaining that much life.
-        CardDefinition {
-            id: "RAV-CHANT-OF-VITU-GHAZI",
-            name: "Chant of Vitu-Ghazi",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(6, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke-dynamic-battlefield-life-gain",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::GainLifeForEachCreature],
-        },
-        // Full fidelity: the spell-level chosen-X receipt pays the printed
-        // additional generic amount, then creates an independent shield for
-        // its controller before the ordinary card draw and terminal move.
-        CardDefinition {
-            id: "RAV-FESTIVAL-OF-THE-GUILDPACT",
-            name: "Festival of the Guildpact",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "chosen-x-controller-damage-prevention-and-draw",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn,
-                Effect::DrawController,
-            ],
-        },
-        // Full fidelity: this private selected batch filters Aura semantics,
-        // permits zero through three choices with distinct printed names,
-        // reveals each answer, moves it to hand, then shuffles immediately.
-        CardDefinition {
-            id: "RAV-THREE-DREAMS",
-            name: "Three Dreams",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "private-up-to-three-distinct-name-aura-search-reveal-hand-shuffle",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::SearchControllerLibraryMany {
-                requirement: LibrarySearchRequirement::Aura,
-                destination: LibrarySearchDestination::Hand,
-                cardinality:
-                    cardbench_magic_engine::LibrarySearchCardinality::ZeroOrMoreDistinctNames {
-                        maximum: 3,
-                    },
-                selection: LibrarySearchSelection::PolicySubmitted {
-                    may_fail_to_find: false,
-                },
-                reveal_selected: true,
-            }],
-        },
+        cards::auratouched_mage::definition(),
+        cards::chant_of_vitu_ghazi::definition(),
+        cards::festival_of_the_guildpact::definition(),
+        cards::three_dreams::definition(),
         // Full fidelity: Convoke remains part of ordinary casting while the
         // attached layer-seven effect recalculates from the enchanted
         // creature controller's other current creatures.
-        CardDefinition {
-            id: "RAV-CONCLAVES-BLESSING",
-            name: "Conclave's Blessing",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-convoke-dynamic-other-controller-creature-toughness",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![
-                    ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
-                        power_per_creature: 0,
-                        toughness_per_creature: 2,
-                    },
-                ],
-            }],
-        },
+        cards::conclaves_blessing::definition(),
         // Full fidelity: ordinary Aura attachment preserves the exact source
         // and target incarnations used by Flickerform's stack-backed blink.
         // The shared linked-exile substrate returns the creature and every
         // Aura attached to that exact creature at the next end step.
-        CardDefinition {
-            id: "RAV-FLICKERFORM",
-            name: "Flickerform",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "aura-enchant-creature",
-                "aura-linked-exile-and-next-end-step-return",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![],
-            }],
-        },
+        cards::flickerform::definition(),
         // Full fidelity: this immutable battlefield binding raises every
         // nonmana activated ability's generic cost while leaving mana
         // abilities outside the modifier's scope.
-        CardDefinition {
-            id: "RAV-SUPPRESSION-FIELD",
-            name: "Suppression Field",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "static-nonmana-activated-ability-tax",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this static entry replacement is checked at every
-        // ordinary opposing artifact, creature, or land battlefield entry.
-        CardDefinition {
-            id: "RAV-LOXODON-GATEKEEPER",
-            name: "Loxodon Gatekeeper",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "static-opponents-artifacts-creatures-lands-enter-tapped",
-            ],
-            power: Some(2),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this target is controller-scoped at both cast and
-        // resolution, then moves through the normal hand-zone lifecycle.
-        CardDefinition {
-            id: "RAV-RECOLLECT",
-            name: "Recollect",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-own-graveyard-return"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::ReturnTargetCardToHand],
-        },
-        // Public RAV verification establishes that this is a vanilla creature:
-        // there is no printed functional ability omitted from this definition.
-        CardDefinition {
-            id: "RAV-WATCHWOLF",
-            name: "Watchwolf",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::suppression_field::definition(),
+        cards::loxodon_gatekeeper::definition(),
+        cards::recollect::definition(),
+        cards::watchwolf::definition(),
         // Full fidelity: each live source offers one policy-declared optional
         // extra mana payment while its controller casts a creature spell. The
         // shared engine captures that exact source incarnation, pays it inside
@@ -3449,78 +1712,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Landwalk(BasicLandType::Forest)],
             effects: vec![],
         },
-        // Full fidelity: the Aura establishes one ordinary creature
-        // attachment, then its attached-creature controller's upkeep captures
-        // that exact creature incarnation and creates a token copy from
-        // immutable layer-one copiable values.
-        CardDefinition {
-            id: "RAV-FOLLOWED-FOOTSTEPS",
-            name: "Followed Footsteps",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "aura-enchant-creature",
-                "controller-upkeep-attached-creature-token-copy",
-                "layer-one-token-copy-provenance",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![],
-            }],
-        },
-        // Full printed behavior: every positive damage receipt to this
-        // permanent queues one fixed life-gain trigger for its controller.
-        CardDefinition {
-            id: "RAV-DROMAD-PUREBRED",
-            name: "Dromad Purebred",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "damage-received-life-gain",
-            ],
-            power: Some(1),
-            toughness: Some(5),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost casting, base characteristics,
-        // and Flying blocker legality are represented by the shared engine.
-        CardDefinition {
-            id: "RAV-SNAPPING-DRAKE",
-            name: "Snapping Drake",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-            ],
-            power: Some(3),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
+        cards::followed_footsteps::definition(),
+        cards::dromad_purebred::definition(),
+        cards::snapping_drake::definition(),
         // Full fidelity: the target-pair ETB keeps both creature targets on
         // the trigger stack, rechecks the dependent power restriction, and
         // installs the resulting durable control exchange without zone moves.
@@ -3545,125 +1739,14 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: the source's controller pays one life as a bound
-        // activation cost, then the ordinary stack installs its temporary
-        // source-relative power/toughness modifier.
-        CardDefinition {
-            id: "RAV-CARRION-HOWLER",
-            name: "Carrion Howler",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "life-paid-source-plus-two-minus-one",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: positive damage received creates a source-specific
-        // trigger whose captured amount is dealt to every surviving player.
-        CardDefinition {
-            id: "RAV-COALHAULER-SWINE",
-            name: "Coalhauler Swine",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "damage-received-to-each-player",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::carrion_howler::definition(),
+        cards::coalhauler_swine::definition(),
         // Full fidelity for the original RAV printing: select a player or
         // creature, then count controller-owned creatures still attacking as
         // the spell resolves to determine the damage.
-        CardDefinition {
-            id: "RAV-DOGPILE",
-            name: "Dogpile",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "player-or-creature-targeting",
-                "attacking-creature-count-damage",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DealDamageEqualToAttackingCreatures {
-                target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-            }],
-        },
-        // Full fidelity: the sorcery destroys one targeted land, then adds
-        // exactly two red mana to its controller as a stack effect.
-        CardDefinition {
-            id: "RAV-SEISMIC-SPIKE",
-            name: "Seismic Spike",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "destroy-target-land",
-                "add-two-red-mana",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::DestroyTargetLand,
-                Effect::AddManaController {
-                    color: Color::Red,
-                    amount: 2,
-                },
-            ],
-        },
-        // Full fidelity: the enter-the-battlefield trigger selects a legal
-        // player or creature and deals one damage when that trigger resolves.
-        CardDefinition {
-            id: "RAV-SPARKMAGE-APPRENTICE",
-            name: "Sparkmage Apprentice",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-targeted-damage",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::dogpile::definition(),
+        cards::seismic_spike::definition(),
+        cards::sparkmage_apprentice::definition(),
         // Full fidelity: each end step captures the active player and asks
         // that player to sacrifice one of their currently untapped lands.
         CardDefinition {
@@ -3686,31 +1769,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: haste/flying are static characteristics and the ETB
-        // trigger creates three first-striking 2/2 white Knight creature
-        // tokens for one targeted opponent.
-        CardDefinition {
-            id: "RAV-HUNTED-DRAGON",
-            name: "Hunted Dragon",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "haste",
-                "etb-targeted-opponent-knight-tokens",
-            ],
-            power: Some(6),
-            toughness: Some(6),
-            keywords: vec![Keyword::Flying, Keyword::Haste],
-            effects: vec![],
-        },
+        cards::hunted_dragon::definition(),
         // Full fidelity: the legendary Boros creature carries its three
         // printed combat keywords and its two-target damage-redirection tap
         // activation is bound through the shared replacement substrate below.
@@ -3790,27 +1849,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: the enchantment's life-gain trigger pays its
-        // optional generic cost before stacking a two-damage target effect.
-        CardDefinition {
-            id: "RAV-SEARING-MEDITATION",
-            name: "Searing Meditation",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "life-gain-trigger",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::searing_meditation::definition(),
         // Full fidelity: this creature Aura persists as an ordinary typed
         // attachment, then its enchanted creature's controller receives the
         // exact end-step attack-history sacrifice trigger.
@@ -3875,120 +1914,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: the one-mana Radiance haste grant uses the shared
         // target-color selection and layer-6 keyword effect.
-        CardDefinition {
-            id: "RAV-SURGE-OF-ZEAL",
-            name: "Surge of Zeal",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "radiance-grant-haste",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceAddKeywordUntilEndOfTurn {
-                keyword: Keyword::Haste,
-            }],
-        },
-        // Full fidelity: Radiance gives the target and each creature sharing
-        // one of its colors a temporary CannotBlock keyword.
-        CardDefinition {
-            id: "RAV-INCITE-HYSTERIA",
-            name: "Incite Hysteria",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "radiance-cannot-block",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::RadianceAddKeywordUntilEndOfTurn {
-                keyword: Keyword::CannotBlock,
-            }],
-        },
-        // Full printed behavior: a targetless controller-scoped Aura-entry
-        // may trigger that makes exactly one typed Saproling through the
-        // ordinary trigger stack and optional-policy decision boundary.
-        CardDefinition {
-            id: "RAV-BRAMBLE-ELEMENTAL",
-            name: "Bramble Elemental",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "may-create-saproling-when-controlled-aura-enters",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Complete scoped behavior: normal colored-cost creature casting,
-        // base characteristics, and the two represented combat keywords.
-        CardDefinition {
-            id: "RAV-SKYKNIGHT-LEGIONNAIRE",
-            name: "Skyknight Legionnaire",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "haste",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying, Keyword::Haste],
-            effects: vec![],
-        },
-        // Full printed behavior: normal colored-cost creature casting, base
-        // characteristics, Flying, and its controller's upkeep life-loss
-        // trigger, which is stack-backed before upkeep priority.
-        CardDefinition {
-            id: "RAV-MOROII",
-            name: "Moroii",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue, Color::Black]),
-            colors: colors([Color::Blue, Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "upkeep-controller-life-loss",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
+        cards::surge_of_zeal::definition(),
+        cards::incite_hysteria::definition(),
+        cards::bramble_elemental::definition(),
+        cards::skyknight_legionnaire::definition(),
+        cards::moroii::definition(),
         // Full fidelity: a source-bound combat replacement converts player
         // damage into immediate library movement and source counters.  The
         // affected player orders it against every other represented damage
@@ -4018,30 +1948,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Full fidelity: the entry trigger gains four life, and the
-        // source-sacrifice activation creates one regeneration shield for
-        // every creature this controller has as the ability resolves.
-        CardDefinition {
-            id: "RAV-LOXODON-HIERARCH",
-            name: "Loxodon Hierarch",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-gain-four-life",
-                "sacrifice-source-regenerate-controller-creatures",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::loxodon_hierarch::definition(),
         // Full fidelity: the source-bound replacement operates on every
         // prospective packet aimed at this exact live permanent. It prevents
         // the packet, records the prevention, then places that many +1/+1
@@ -4066,100 +1973,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: double strike is enforced by the shared two-step
-        // combat damage state machine.
-        CardDefinition {
-            id: "RAV-BOROS-SWIFTBLADE",
-            name: "Boros Swiftblade",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "double-strike",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![Keyword::DoubleStrike],
-            effects: vec![],
-        },
-        // Full fidelity: its Defender body and enter-the-battlefield draw
-        // trigger use the shared state-machine and target-free trigger path.
-        CardDefinition {
-            id: "RAV-CARVEN-CARYATID",
-            name: "Carven Caryatid",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "enter-the-battlefield-draw",
-            ],
-            power: Some(2),
-            toughness: Some(5),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
-        // Full fidelity: the source's optional dies trigger remains stack
-        // backed after its graveyard move and asks its controller whether to
-        // gain the fixed three life.
-        CardDefinition {
-            id: "RAV-CENTAUR-SAFEGUARD",
-            name: "Centaur Safeguard",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(2, [], [HybridManaSymbol { first: Color::Green, second: Color::White }]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "optional-dies-gain-three-life",
-            ],
-            power: Some(3),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this artifact preserves the source incarnation that
-        // exiles its controller's private hand during each opponent upkeep,
-        // then returns only that exact group before drawing at its own
-        // controller's upkeep. Ordinary source departure clears an
-        // unreachable group without permitting a later incarnation to claim
-        // former cards.
-        CardDefinition {
-            id: "RAV-BOTTLED-CLOISTER",
-            name: "Bottled Cloister",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(4),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-artifact-casting",
-                "opponent-upkeep-linked-hand-exile",
-                "controller-upkeep-linked-hand-return-then-draw",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::boros_swiftblade::definition(),
+        cards::carven_caryatid::definition(),
+        cards::centaur_safeguard::definition(),
+        cards::bottled_cloister::definition(),
         // Full fidelity: this colorless artifact's first activation places a
         // typed blood counter before drawing and reading the source's current
         // counter total for life loss. Its second activation uses the shared
@@ -4185,76 +2002,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Public RAV #261 verification establishes that this is a vanilla
-        // artifact creature: its published rules field is empty, so this
-        // definition does not omit a printed ability.
-        CardDefinition {
-            id: "RAV-GLASS-GOLEM",
-            name: "Glass Golem",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(5),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact, CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-cost-casting",
-                "artifact-creature-base-characteristics",
-            ],
-            power: Some(6),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the colorless Defender retains one ordinary
-        // target-bearing tap ability. The shared graveyard-card target
-        // requirement captures any public graveyard card, and resolution
-        // moves it to that card owner's library bottom.
-        CardDefinition {
-            id: "RAV-JUNKTROLLER",
-            name: "Junktroller",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(4),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact, CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-artifact-creature-casting",
-                "base-characteristics",
-                "defender",
-                "tap-target-graveyard-card-to-owners-library-bottom",
-            ],
-            power: Some(0),
-            toughness: Some(6),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
-        // Full fidelity: this artifact creature puts one policy-selected
-        // owned hand card on its owner's library top as a cost, then returns
-        // the exact source incarnation to its owner's hand at resolution.
-        CardDefinition {
-            id: "RAV-LEASHLING",
-            name: "Leashling",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(6),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact, CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-artifact-creature-casting",
-                "base-characteristics",
-                "hand-card-top-library-cost-return-source-owner-hand",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::glass_golem::definition(),
+        cards::junktroller::definition(),
+        cards::leashling::definition(),
         // Full fidelity: this colorless artifact reveals only its controller's
         // current top library card, applies a live shared-color creature
         // layer-seven modifier when that card is a creature, and has one
@@ -4328,29 +2078,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this colorless artifact costs `{2}` and carries one
-        // ordinary stack-backed `{3}, {T}` activation. At resolution it taps
-        // one creature, then returns this exact permanent incarnation to its
-        // owner's hand through the shared source-return instruction.
-        CardDefinition {
-            id: "RAV-CYCLOPEAN-SNARE",
-            name: "Cyclopean Snare",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(2),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-cost-casting",
-                "generic-three-tap-target-creature-return-source",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::cyclopean_snare::definition(),
         // Full fidelity: this artifact uses one source-relative entry
         // replacement, then a paid mana activation whose two colored units
         // are explicitly selected by the policy. Its graveyard trigger stays
@@ -4376,32 +2104,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this Equipment costs `{3}`, has Flash, attaches to
-        // one controlled creature through its ordinary target-bearing ETB
-        // trigger when possible, and retains its separate sorcery-speed
-        // `{1}` equip activation through the shared attachment lifecycle.
-        CardDefinition {
-            id: "RAV-GRIFTERS-BLADE",
-            name: "Grifter's Blade",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(3),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-cost-casting",
-                "flash",
-                "etb-attach-to-controlled-creature",
-                "equipment-plus-one-plus-one",
-                "sorcery-speed-equip-one",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Flash],
-            effects: vec![],
-        },
+        cards::grifters_blade::definition(),
         // Full fidelity: this colorless Equipment costs `{5}`, has a
         // sorcery-speed `{3}` equip activation, and installs a persistent
         // non-prevention replacement while attached.
@@ -4452,253 +2155,19 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // This definition is complete for the public RAV Birds of Paradise
-        // card: normal creature characteristics, Flying, and its one explicit
-        // chosen-color tap mana ability all use shared, directly tested rules
-        // substrates below.
-        CardDefinition {
-            id: "RAV-BIRDS-OF-PARADISE",
-            name: "Birds of Paradise",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "tap-choice-single-color-mana-ability",
-                "cast-payment-mana-activation",
-            ],
-            power: Some(0),
-            toughness: Some(1),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // This definition is complete for the public Elves of Deep Shadow
-        // card: ordinary creature characteristics plus its one source-aware,
-        // non-stack tap mana ability are both represented by the binding below.
-        CardDefinition {
-            id: "RAV-ELVES-OF-DEEP-SHADOW",
-            name: "Elves of Deep Shadow",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "bound-tap-black-mana-ability",
-                "source-aware-controller-damage",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: a selected controlled creature is sacrificed as a
-        // five-mana activation cost, then a Flying creature is destroyed.
-        CardDefinition {
-            id: "RAV-ELVISH-SKYSWEEPER",
-            name: "Elvish Skysweeper",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "sacrifice-creature-destroy-flying",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::birds_of_paradise::definition(),
+        cards::elves_of_deep_shadow::definition(),
+        cards::elvish_skysweeper::definition(),
         // Full fidelity: the attack trigger's optional red payment and
         // target choice are represented by the attack-trigger binding.
-        CardDefinition {
-            id: "RAV-FRENZIED-GOBLIN",
-            name: "Frenzied Goblin",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "attack-trigger-optional-red-cannot-block",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: its static typed landwalk is captured during attacker
-        // declaration and rechecked against the fixed defender for blockers.
-        CardDefinition {
-            id: "RAV-GRAYSCALED-GHARIAL",
-            name: "Grayscaled Gharial",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "islandwalk",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::Landwalk(BasicLandType::Island)],
-            effects: vec![],
-        },
-        // Full fidelity: the typed {1}{R} self-pump uses the shared activated
-        // ability stack and layer-7 temporary effect.
-        CardDefinition {
-            id: "RAV-GREATER-FORGELING",
-            name: "Greater Forgeling",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-plus-three-minus-three",
-            ],
-            power: Some(3),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost casting, base characteristics,
-        // and Reach's Flying-block declaration exception are represented by
-        // the shared engine.
-        CardDefinition {
-            id: "RAV-GOLIATH-SPIDER",
-            name: "Goliath Spider",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(6, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "reach",
-            ],
-            power: Some(7),
-            toughness: Some(6),
-            keywords: vec![Keyword::Reach],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-IVY-DANCER",
-            name: "Ivy Dancer",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-target-creature-grant-forestwalk",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-LORE-BROKER",
-            name: "Lore Broker",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-activated-each-player-draws-one",
-                "simultaneous-private-each-player-discard-after-draw",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: its green activation uses the ordinary stack to
-        // grant the source a temporary must-be-blocked combat keyword.
-        CardDefinition {
-            id: "RAV-MORTIPEDE",
-            name: "Mortipede",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-green-must-be-blocked",
-            ],
-            power: Some(4),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full printed behavior: this creature's explicit generic cost plus
-        // source and other-creature tap costs are paid before its stack-backed
-        // Saproling creation resolves.
-        CardDefinition {
-            id: "RAV-SELESNYA-EVANGEL",
-            name: "Selesnya Evangel",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-token-creation-with-creature-tap-cost",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::frenzied_goblin::definition(),
+        cards::grayscaled_gharial::definition(),
+        cards::greater_forgeling::definition(),
+        cards::goliath_spider::definition(),
+        cards::ivy_dancer::definition(),
+        cards::lore_broker::definition(),
+        cards::mortipede::definition(),
+        cards::selesnya_evangel::definition(),
         // Full printed behavior: four selected untapped creatures are an
         // explicit ability cost, and the artifact-or-enchantment target is
         // rechecked through the ordinary stack resolution path.
@@ -4723,148 +2192,16 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full printed behavior: every represented land entry queues a
-        // source-untap trigger, and the source's tap activation rechecks a
-        // target land through the ordinary stack-resolution path.
-        CardDefinition {
-            id: "RAV-STONE-SEEDER-HIEROPHANT",
-            name: "Stone-Seeder Hierophant",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "landfall-untap",
-                "tap-untap-target-land",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full printed behavior: Reach is static, while the tap activation
-        // uses the ordinary ability stack and rechecks its combat-only target
-        // when it resolves.
-        CardDefinition {
-            id: "RAV-SELESNYA-SAGITTARS",
-            name: "Selesnya Sagittars",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "reach",
-                "tap-damage-attacking-or-blocking-creature",
-            ],
-            power: Some(2),
-            toughness: Some(5),
-            keywords: vec![Keyword::Reach],
-            effects: vec![],
-        },
+        // Only a land entering under this creature's controller's control
+        // triggers the source untap; the source can also tap to untap a land.
+        cards::stone_seeder_hierophant::definition(),
+        cards::selesnya_sagittars::definition(),
         // Full fidelity: Flying and the source-relative blocker restriction
         // are represented by the shared combat and layer substrates.
-        CardDefinition {
-            id: "RAV-SCREECHING-GRIFFIN",
-            name: "Screeching Griffin",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "activated-prevent-target-blocking-source",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: damage received queues a non-targeting trigger whose
-        // captured amount mills the controller of the damage source.
-        CardDefinition {
-            id: "RAV-BELLTOWER-SPHINX",
-            name: "Belltower Sphinx",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "damage-received-source-controller-mill-that-many",
-            ],
-            power: Some(2),
-            toughness: Some(5),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: this battlefield-only static rule exposes precisely
-        // the current top card of each nonempty library to every policy view.
-        // It is derived from live sources and owner-indexed zone state rather
-        // than cached hidden-card identities, so ordinary library changes and
-        // source departure update visibility immediately.
-        CardDefinition {
-            id: "RAV-WIZENED-SNITCHES",
-            name: "Wizened Snitches",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "global-static-top-library-visibility",
-            ],
-            power: Some(1),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the targeted player draws before a recipient-private
-        // no-priority decision chooses either one land or two cards to
-        // discard. The stack object retains the player target throughout, so
-        // the caster never receives a hidden-hand selection shortcut.
-        CardDefinition {
-            id: "RAV-COMPULSIVE-RESEARCH",
-            name: "Compulsive Research",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "target-player-draw-three-conditional-private-discard",
-                "policy-submitted-private-discard",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DrawTargetPlayerThenConditionalPrivateDiscard],
-        },
+        cards::screeching_griffin::definition(),
+        cards::belltower_sphinx::definition(),
+        cards::wizened_snitches::definition(),
+        cards::compulsive_research::definition(),
         // Full fidelity: the one target is a player, not a creature. That
         // player selects a currently controlled creature only when this
         // sorcery resolves; its positive power is retained before sacrifice
@@ -4888,29 +2225,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower],
         },
-        // Full fidelity: this Aura attaches to a creature, grants Flying,
-        // and its ETB trigger draws two cards through the ordinary stack.
-        CardDefinition {
-            id: "RAV-FLIGHT-OF-FANCY",
-            name: "Flight of Fancy",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-creature-flying-etb-draw-two",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![ContinuousChange::AddKeyword(Keyword::Flying)],
-            }],
-        },
+        cards::flight_of_fancy::definition(),
         // Full fidelity: this Aura attaches to a creature, grants Flying,
         // and observes only that exact attached creature's committed combat
         // damage to a player. The trigger materializes its token count from
@@ -4939,120 +2254,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: Defender and the tap activation that mills a target
         // player for two cards are both typed engine rules.
-        // Full fidelity: resolution snapshots the controller's registered
-        // Island count, then makes one ordinary spell-effect draw for each
-        // snapshot member. Opponent Islands never contribute.
-        CardDefinition {
-            id: "RAV-FLOW-OF-IDEAS",
-            name: "Flow of Ideas",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Sorcery]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "draw-for-each-controlled-island"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::DrawControllerForEachControlledBasicLandType {
-                land_type: BasicLandType::Island,
-            }],
-        },
-        // Full fidelity: the control effect is derived from the live Aura
-        // source rather than the player who happened to cast it. Attachment
-        // and source departure use the shared layer-two lifecycle.
-        CardDefinition {
-            id: "RAV-DREAM-LEASH",
-            name: "Dream Leash",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-permanent-source-controller-control",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Permanent,
-                changes: vec![ContinuousChange::ChangeControllerToSourceController],
-            }],
-        },
-        // Full fidelity: the control effect is derived from the live Aura
-        // source rather than the player who happened to cast it. Attachment
-        // and source departure use the shared layer-two lifecycle.
-        CardDefinition {
-            id: "RAV-REMAND",
-            name: "Remand",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "counter-target-spell-then-draw-controller",
-                "countered-spell-to-owner-hand",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::CounterTargetSpellToOwnersHand, Effect::DrawController],
-        },
-        // Full fidelity: the shared counter/mill instruction captures the
-        // physical target spell's controller and mana value before the
-        // counter terminal move. The retained explicit payment receipt gates
-        // only the follow-up mill, rather than reading a mutable mana pool.
-        CardDefinition {
-            id: "RAV-INDUCE-PARANOIA",
-            name: "Induce Paranoia",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "counter-spell-then-mill-controller-by-mana-value-if-black-spent",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![
-                Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
-                    color: Color::Black,
-                },
-            ],
-        },
-        // Full fidelity: the controller alone receives the exact top-three
-        // snapshot once the stack spell resolves, then submits an exhaustive
-        // private hand/top/bottom partition through the shared decision
-        // continuation. No priority window or public candidate receipt opens.
-        CardDefinition {
-            id: "RAV-TELLING-TIME",
-            name: "Telling Time",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "private-top-library-hand-top-bottom-partition",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count: 3 }],
-        },
+        cards::flow_of_ideas::definition(),
+        // Full fidelity: target restriction is checked when cast, while the
+        // live Aura source determines the ongoing control effect.
+        cards::dream_leash::definition(),
+        cards::remand::definition(),
+        cards::induce_paranoia::definition(),
+        cards::telling_time::definition(),
         // Full fidelity: the name is a public resolution-time decision drawn
         // from the represented catalog, never inferred from the hidden target
         // library.  The generic traversal then reveals only the printed
@@ -5118,82 +2326,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::ChooseAllCombatDeclarationsThisTurn],
         },
-        // Full fidelity: the Aura attaches only to a creature, then its
-        // active-controller upkeep trigger reads that exact live attachment
-        // endpoint when it resolves. Returning the creature follows the
-        // normal owner-hand lifecycle, after which SBA cleans up the Aura.
-        CardDefinition {
-            id: "RAV-MARK-OF-EVICTION",
-            name: "Mark of Eviction",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "aura-enchant-creature-upkeep-return-enchanted-creature",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::AttachSourceToTarget {
-                target: TargetRequirement::Creature,
-                changes: vec![],
-            }],
-        },
+        cards::mark_of_eviction::definition(),
         // Full fidelity: the Aura attaches only to a creature, then its
         // active-controller upkeep trigger reads that exact live attachment
         // endpoint when it resolves. Returning the creature follows the
         // normal owner-hand lifecycle, after which SBA cleans up the Aura.
         // Full fidelity: Defender and the normal targeted mill activation are
         // both expansion-neutral typed engine rules.
-        CardDefinition {
-            id: "RAV-VEDALKEN-ENTRANCER",
-            name: "Vedalken Entrancer",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "tap-blue-target-player-mill-two",
-            ],
-            power: Some(1),
-            toughness: Some(4),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
-        // Full fidelity: the two independent stack abilities use the typed
-        // arbitrary-permanent untap effect and source-relative temporary
-        // Defender removal respectively.
-        CardDefinition {
-            id: "RAV-TIDEWATER-MINION",
-            name: "Tidewater Minion",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "tap-untap-target-permanent-and-blue-lose-defender",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
+        cards::vedalken_entrancer::definition(),
+        cards::tidewater_minion::definition(),
         // Full fidelity: either color pays each hybrid cast symbol; the two
         // stack-backed activations create a green 3/3 Centaur or temporarily
         // modify every creature the controller owns.
@@ -5364,7 +2505,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             id: "RAV-SISTERS-OF-STONE-DEATH",
             name: "Sisters of Stone Death",
             set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Black, Color::Black, Color::Green, Color::Green]),
+            mana_cost: ManaCost::with_colors(
+                4,
+                [Color::Black, Color::Black, Color::Green, Color::Green],
+            ),
             colors: colors([Color::Black, Color::Green]),
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
@@ -5415,7 +2559,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             id: "RAV-GLEANCRAWLER",
             name: "Gleancrawler",
             set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(3, [], [HybridManaSymbol { first: Color::Black, second: Color::Green }, HybridManaSymbol { first: Color::Black, second: Color::Green }, HybridManaSymbol { first: Color::Black, second: Color::Green }]),
+            mana_cost: ManaCost::with_hybrid(
+                3,
+                [],
+                [
+                    HybridManaSymbol {
+                        first: Color::Black,
+                        second: Color::Green,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Black,
+                        second: Color::Green,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Black,
+                        second: Color::Green,
+                    },
+                ],
+            ),
             colors: colors([Color::Black, Color::Green]),
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
@@ -5468,173 +2629,22 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // Blue activation that moves only its exact live incarnation to its
         // owner's library and shuffles that owner. The operation deliberately
         // does not follow a temporary controller.
-        CardDefinition {
-            id: "RAV-CERULEAN-SPHINX",
-            name: "Cerulean Sphinx",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "activated-source-owner-library-shuffle",
-            ],
-            power: Some(5),
-            toughness: Some(5),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost creature casting, base
-        // characteristics, unblockability, and its stack-backed targeted ETB
-        // token trigger are represented. The shared trigger substrate exposes
-        // the target choice only to the ability controller before the trigger
-        // enters the stack.
-        CardDefinition {
-            id: "RAV-HUNTED-PHANTASM",
-            name: "Hunted Phantasm",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "cannot-be-blocked",
-                "enter-battlefield-targeted-opponent-goblin-token-creation",
-                "policy-submitted-trigger-target",
-            ],
-            power: Some(4),
-            toughness: Some(6),
-            keywords: vec![Keyword::Unblockable],
-            effects: vec![],
-        },
+        cards::cerulean_sphinx::definition(),
+        // Full fidelity: ordinary colored-cost casting, the 4/6 unblockable
+        // body, and its policy-targeted Goblin ETB are card-module owned.
+        cards::hunted_phantasm::definition(),
         // Full fidelity: normal colored-cost casting, base characteristics,
         // Flying blocker legality, and the stack-backed black self-regeneration
         // activation are represented by the shared engine.
-        CardDefinition {
-            id: "RAV-TATTERED-DRAKE",
-            name: "Tattered Drake",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "self-regeneration",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: the entry trigger obtains one policy-submitted
-        // creature target, then uses the owner-indexed ordinary zone lifecycle
-        // to place that exact incarnation on its owner's library top.
-        CardDefinition {
-            id: "RAV-VEDALKEN-DISMISSER",
-            name: "Vedalken Dismisser",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-target-creature-owner-library-top",
-                "policy-submitted-trigger-target",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the source's own Blocks trigger queues only after
-        // legal blocker commitment and required damage-order choices, then
-        // returns that exact source incarnation to its owner's hand through
-        // the ordinary stack lifecycle.
-        CardDefinition {
-            id: "RAV-ZEPHYR-SPIRIT",
-            name: "Zephyr Spirit",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "blocks-return-source-owner-hand",
-            ],
-            power: Some(0),
-            toughness: Some(6),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: another creature dying stacks the source-identified
-        // controller-owned may trigger. Its accept/decline decision is public
-        // only to that controller; accepting preserves the separate private
-        // hand-card choices for each affected player.
-        CardDefinition {
-            id: "RAV-SADISTIC-AUGERMAGE",
-            name: "Sadistic Augermage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "another-creature-dies-each-player-discards",
-                "policy-submitted-may-trigger-choice",
-            ],
-            power: Some(3),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: red-source damage is prevented by a static target
-        // keyword evaluated by the expansion-neutral damage dispatcher.
-        CardDefinition {
-            id: "RAV-INDENTURED-OAF",
-            name: "Indentured Oaf",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "prevent-damage-from-red-sources",
-            ],
-            power: Some(4),
-            toughness: Some(3),
-            keywords: vec![Keyword::PreventDamageFromColor(Color::Red)],
-            effects: vec![],
-        },
+        cards::tattered_drake::definition(),
+        // Full fidelity: the candidate-owned entry trigger chooses and
+        // returns one creature to its owner's library top.
+        cards::vedalken_dismisser::definition(),
+        cards::zephyr_spirit::definition(),
+        // Full fidelity: when this exact source dies, every player privately
+        // chooses one card to put on top of their own library.
+        cards::sadistic_augermage::definition(),
+        cards::indentured_oaf::definition(),
         // Full fidelity: an entry-time deterministic coin outcome selects
         // one persistent copiable P/T and keyword shape before state-based
         // actions or ETB triggers observe this creature.
@@ -5682,300 +2692,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full-fidelity scope: colored-cost creature casting, base
         // characteristics, Defender, and the three-land activation.
-        CardDefinition {
-            id: "RAV-TORPID-MOLOCH",
-            name: "Torpid Moloch",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "sacrifice-three-lands-remove-defender",
-            ],
-            power: Some(3),
-            toughness: Some(2),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost creature casting, base
-        // characteristics, and the typed tap-to-deal-one activated ability.
-        CardDefinition {
-            id: "RAV-VIASHINO-FANGTAIL",
-            name: "Viashino Fangtail",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-deal-one-to-player-or-creature",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost creature casting, base
-        // characteristics, Defender, and the stack-backed tap activation
-        // that installs one target-side damage-prevention shield through the
-        // current turn's cleanup.
-        CardDefinition {
-            id: "RAV-BENEVOLENT-ANCESTOR",
-            name: "Benevolent Ancestor",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "tap-prevent-one-damage-to-target",
-            ],
-            power: Some(0),
-            toughness: Some(4),
-            keywords: vec![Keyword::Defender],
-            effects: vec![],
-        },
+        cards::torpid_moloch::definition(),
+        cards::viashino_fangtail::definition(),
+        cards::benevolent_ancestor::definition(),
         // Full fidelity: normal colored-cost casting, Flying combat legality,
         // and the target-free dies trigger use the shared trigger stack before
         // drawing for the source controller.
-        CardDefinition {
-            id: "RAV-SURVEILLING-SPRITE",
-            name: "Surveilling Sprite",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "dies-draw-controller",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: a controller-selected basic land type is retained
-        // through the stack and temporarily replaces every controlled land's
-        // typed intrinsic mana ability in layer four.
-        CardDefinition {
-            id: "RAV-TERRAFORMER",
-            name: "Terraformer",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "controller-lands-chosen-basic-land-type-until-end-of-turn",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::surveilling_sprite::definition(),
+        // Full fidelity: its controller-relative land-type choice is in the
+        // candidate-owned definition and activated-ability binding.
+        cards::terraformer::definition(),
         // Full fidelity: exact Black creature identity plus a target-free,
         // stack-backed `{1}{U}` self-Flying grant through end of turn.
-        CardDefinition {
-            id: "RAV-ROOFSTALKER-WIGHT",
-            name: "Roofstalker Wight",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "self-flying-until-end-of-turn",
-            ],
-            power: Some(2),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::roofstalker_wight::definition(),
         // Full fidelity: normal colored-cost creature casting, base
         // characteristics, static Fear, and the stack-backed self-regeneration
         // activation are represented by the shared engine.
-        CardDefinition {
-            id: "RAV-SEWERDREG",
-            name: "Sewerdreg",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "fear",
-                "regeneration",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![Keyword::Fear],
-            effects: vec![],
-        },
-        // Full fidelity for the printed Mountainwalk evasion restriction.
-        CardDefinition {
-            id: "RAV-GOBLIN-SPELUNKERS",
-            name: "Goblin Spelunkers",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "mountainwalk",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![Keyword::Mountainwalk],
-            effects: vec![],
-        },
-        // Full fidelity: the white activated prevention shield is represented
-        // by the expansion-neutral damage-prevention layer and stack binding.
-        CardDefinition {
-            id: "RAV-ORDRUUN-COMMANDO",
-            name: "Ordruun Commando",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-prevent-one-damage-to-self",
-            ],
-            power: Some(4),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::sewerdreg::definition(),
+        cards::goblin_spelunkers::definition(),
+        cards::ordruun_commando::definition(),
         // Full fidelity: the typed {R}, discard-a-card self-pump uses the
         // shared activated ability stack and layer-7 temporary effect.
-        CardDefinition {
-            id: "RAV-VIASHINO-SLASHER",
-            name: "Viashino Slasher",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-plus-one-minus-one",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the targetless ETB trigger opens the controller-only
-        // optional basic-land library selection on the ordinary trigger stack,
-        // publicly reveals a selected land, moves it to hand, then shuffles.
-        CardDefinition {
-            id: "RAV-CIVIC-WAYFINDER",
-            name: "Civic Wayfinder",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "enter-the-battlefield-private-basic-land-search",
-                "selected-basic-land-reveal",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        CardDefinition {
-            id: "RAV-DOWSING-SHAMAN",
-            name: "Dowsing Shaman",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "return-target-enchantment-from-graveyard",
-            ],
-            power: Some(3),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost creature casting, base
-        // characteristics, Flying, and the stack-backed beginning-of-each-
-        // upkeep active-player creature sacrifice decision.
-        CardDefinition {
-            id: "RAV-WOEBRINGER-DEMON",
-            name: "Woebringer Demon",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "each-upkeep-active-player-sacrifice-creature",
-            ],
-            power: Some(4),
-            toughness: Some(4),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
+        cards::viashino_slasher::definition(),
+        cards::civic_wayfinder::definition(),
+        cards::dowsing_shaman::definition(),
+        cards::woebringer_demon::definition(),
         // Full fidelity: normal colored-cost casting, base characteristics,
         // and the `{1}, sacrifice a creature` activation. Its target
         // opponent's top two cards are only exposed to the controller while
@@ -6002,30 +2743,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: normal colored-cost creature casting, base
-        // characteristics, static black-only evasion, and its stack-backed
-        // black-mana self-pump activation.
-        CardDefinition {
-            id: "RAV-UNDERCITY-SHADE",
-            name: "Undercity Shade",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Black]),
-            colors: colors([Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "black-only-evasion",
-                "black-mana-self-pump",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::BlackEvasion],
-            effects: vec![],
-        },
+        // Full fidelity for the printed black evasion and self-pump ability.
+        cards::undercity_shade::definition(),
         // Full fidelity for the deterministic exercised path: its mandatory
         // entry trigger sacrifices one controller-owned creature through the
         // shared stack and zone-transition substrate.
@@ -6052,277 +2771,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: the `{R}, sacrifice` land-destruction activation is
         // represented by the shared typed target and zone-change substrate.
-        CardDefinition {
-            id: "RAV-BARBARIAN-RIFTCUTTER",
-            name: "Barbarian Riftcutter",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "sacrifice-source-destroy-land",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: Excruciator's static source property is represented
-        // by the expansion-neutral damage-prevention keyword. Damage dealt by
-        // this source bypasses temporary prevention shields.
-        CardDefinition {
-            id: "RAV-EXCRUCIATOR",
-            name: "Excruciator",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(6, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "damage-cannot-be-prevented",
-            ],
-            power: Some(7),
-            toughness: Some(7),
-            keywords: vec![Keyword::DamageCannotBePrevented],
-            effects: vec![],
-        },
+        cards::barbarian_riftcutter::definition(),
+        // Its source-bound damage-prevention exception is candidate-owned.
+        cards::excruciator::definition(),
         // Full fidelity: Haste, must-block legality, and the activated power
         // boost all use the shared combat, stack, and layer-7 substrates.
-        CardDefinition {
-            id: "RAV-GOBLIN-FIRE-FIEND",
-            name: "Goblin Fire Fiend",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "haste",
-                "must-block-if-able",
-                "activated-plus-one-power",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::Haste, Keyword::MustBeBlockedIfAble],
-            effects: vec![],
-        },
+        cards::goblin_fire_fiend::definition(),
         // Full fidelity: changing from the battlefield to the graveyard
         // queues a controller-directed two-damage trigger.
-        CardDefinition {
-            id: "RAV-SELL-SWORD-BRUTE",
-            name: "Sell-Sword Brute",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "dies-deal-two-to-controller",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: `{R}, sacrifice this creature` is a typed stack
-        // ability that deals two damage to a blocking creature.
-        CardDefinition {
-            id: "RAV-WAR-TORCH-GOBLIN",
-            name: "War-Torch Goblin",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "sacrifice-source",
-                "targeted-damage",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: a creature spell cast by this source's controller
-        // creates its ordinary optional draw trigger above that spell, with
-        // the public decision occurring only after both players pass.
-        CardDefinition {
-            id: "RAV-PRIMORDIAL-SAGE",
-            name: "Primordial Sage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "controller-casts-creature-spell-may-draw",
-            ],
-            power: Some(4),
-            toughness: Some(5),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the source's dies trigger creates one typed white
-        // Spirit token with Flying through the ordinary trigger stack.
-        CardDefinition {
-            id: "RAV-TRANSLUMINANT",
-            name: "Transluminant",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "dies-create-flying-spirit",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: any other creature's battlefield departure queues a
-        // target-free optional trigger, while the stack-backed activation
-        // creates one typed white Flying Spirit token.
-        CardDefinition {
-            id: "RAV-TWILIGHT-DROVER",
-            name: "Twilight Drover",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "another-creature-leaves-battlefield-plus-one-counter",
-                "activated-create-flying-spirit",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the green activation retains its Flying-only target
-        // restriction through priority and resolution, then adds the source
-        // counter only after the target's ordinary destruction lifecycle.
-        CardDefinition {
-            id: "RAV-TROPHY-HUNTER",
-            name: "Trophy Hunter",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-flying-destruction-source-counter",
-            ],
-            power: Some(2),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: a single green mana targets a creature and gives it
-        // +1/+1 through the ordinary stack and layer-seven lifecycle.
-        CardDefinition {
-            id: "RAV-URSAPINE",
-            name: "Ursapine",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-target-pump",
-            ],
-            power: Some(3),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: a land entering under this source's controller queues
-        // a normal stack trigger, then adds one +1/+1 counter only after both
-        // players receive the ordinary response window.
-        CardDefinition {
-            id: "RAV-VINELASHER-KUDZU",
-            name: "Vinelasher Kudzu",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Green]),
-            colors: colors([Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "controlled-land-entry-plus-one-counter",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: a nontoken creature controlled by the live
-        // enchantment controller dying creates exactly one typed Saproling
-        // through the ordinary trigger stack.  Tokens and creatures under an
-        // opponent's control do not satisfy the typed trigger condition.
-        CardDefinition {
-            id: "RAV-GOLGARI-GERMINATION",
-            name: "Golgari Germination",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "controlled-nontoken-creature-dies-create-saproling",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::sell_sword_brute::definition(),
+        cards::war_torch_goblin::definition(),
+        // Full fidelity: its controller's creature spells create an optional
+        // draw trigger above the spell they cast.
+        cards::primordial_sage::definition(),
+        cards::transluminant::definition(),
+        cards::twilight_drover::definition(),
+        cards::trophy_hunter::definition(),
+        cards::ursapine::definition(),
+        cards::vinelasher_kudzu::definition(),
+        // Full fidelity: controlled nontoken deaths create one typed
+        // Saproling through the candidate-owned mandatory trigger binding.
+        cards::golgari_germination::definition(),
         // Full fidelity: the selected controlled-creature sacrifice is paid
         // atomically before a target creature receives its layer-seven
         // reduction through the ordinary stack resolution path.
@@ -6348,48 +2817,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: the enter-the-battlefield trigger places a target-free
         // team modifier on the stack and grants both +1/+1 and Haste.
-        CardDefinition {
-            id: "RAV-FLAME-KIN-ZEALOT",
-            name: "Flame-Kin Zealot",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "etb-team-pump-haste",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the selected controlled-creature sacrifice is paid
-        // atomically before the target player loses life through the stack.
-        CardDefinition {
-            id: "RAV-GOLGARI-ROTWURM",
-            name: "Golgari Rotwurm",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-sacrifice-creature-target-player-life-loss",
-            ],
-            power: Some(5),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::flame_kin_zealot::definition(),
+        cards::golgari_rotwurm::definition(),
         // Full fidelity: each creature sacrifice observes every one of its
         // colors before zone movement. The black observation is optional and
         // has an explicit life-payment policy decision; the green observation
@@ -6416,73 +2845,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: combat and noncombat damage from this permanent
-        // creates a source-specific stack trigger whose life gain is
-        // materialized from the positive damage event amount.
-        CardDefinition {
-            id: "RAV-SUNHOME-ENFORCER",
-            name: "Sunhome Enforcer",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "damage-trigger-life-gain",
-            ],
-            power: Some(2),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the tapped target ability installs a temporary
-        // combat-participation restriction through the shared ability layer.
-        CardDefinition {
-            id: "RAV-THUNDERSONG-TRUMPETER",
-            name: "Thundersong Trumpeter",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Red, Color::White]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-prevent-target-combat",
-            ],
-            power: Some(2),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: static blocker legality depends on the controller's
-        // current Mountain control, checked at declaration time.
-        CardDefinition {
-            id: "RAV-SABERTOOTH-ALLEY-CAT",
-            name: "Sabertooth Alley Cat",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "mountain-required-to-block",
-            ],
-            power: Some(2),
-            toughness: Some(1),
-            keywords: vec![Keyword::CannotBlockUnlessControlsMountain],
-            effects: vec![],
-        },
+        cards::sunhome_enforcer::definition(),
+        cards::thundersong_trumpeter::definition(),
+        // Full fidelity: the card-owned blocker restriction checks its
+        // controller's current Mountain control at declaration time.
+        cards::sabertooth_alley_cat::definition(),
         // Full fidelity: every ordinary opponent-owned card move into a
         // graveyard is observed from the battlefield and queues the source's
         // counter trigger on the ordinary stack.
@@ -6552,201 +2919,23 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: each static anthem observes a creature's current
-        // colors, excludes Tolsimir itself, and the stack ability creates
-        // the named legendary green/white Wolf token through generic token
-        // data rather than a card-specific battlefield shortcut.
-        CardDefinition {
-            id: "RAV-TOLSIMIR-WOLFBLOOD",
-            name: "Tolsimir Wolfblood",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "other-green-and-white-creatures-get-plus-one-plus-one",
-                "tap-create-named-legendary-green-white-wolf-token",
-            ],
-            power: Some(3),
-            toughness: Some(4),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: normal colored-cost casting, base characteristics,
-        // Flying blocker legality, and vigilance attack declaration are all
-        // represented by the shared engine.
-        CardDefinition {
-            id: "RAV-COURIER-HAWK",
-            name: "Courier Hawk",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "vigilance",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying, Keyword::Vigilance],
-            effects: vec![],
-        },
-        // Full fidelity: Convoke payment and resolution-time validation that
-        // the target is a creature still attacking or blocking, followed by a
-        // normal zone change to exile.
-        CardDefinition {
-            id: "RAV-DEVOURING-LIGHT",
-            name: "Devouring Light",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "convoke",
-                "attacking-or-blocking-creature-target",
-                "exile",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::ExileTargetPermanent],
-        },
+        cards::tolsimir_wolfblood::definition(),
+        cards::courier_hawk::definition(),
+        cards::devouring_light::definition(),
         // Full printed behavior: Flying plus the sacrifice activation that
         // damages an attacking or blocking creature on stack resolution.
-        CardDefinition {
-            id: "RAV-DIVEBOMBER-GRIFFIN",
-            name: "Divebomber Griffin",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "sacrifice-source",
-                "attacking-or-blocking-creature-target",
-                "damage",
-            ],
-            power: Some(3),
-            toughness: Some(2),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full printed behavior: three selected controlled creature taps pay
-        // its activation cost and the targeted creature taps on resolution.
-        CardDefinition {
-            id: "RAV-SANDSOWER",
-            name: "Sandsower",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-three-untapped-controlled-creatures",
-                "tap-target-creature",
-            ],
-            power: Some(1),
-            toughness: Some(3),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the green activated regeneration shield uses the
-        // expansion-neutral targeted replacement substrate below.
-        CardDefinition {
-            id: "RAV-VOTARY-OF-THE-CONCLAVE",
-            name: "Votary of the Conclave",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "regeneration",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: its Flying and target-bearing ETB return use the
-        // ordinary trigger stack and owner-indexed hand transition.
-        CardDefinition {
-            id: "RAV-DRAKE-FAMILIAR",
-            name: "Drake Familiar",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-                "etb-target-enchantment-owner-hand",
-            ],
-            power: Some(2),
-            toughness: Some(1),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
-        // Full fidelity: static Defender/Flying and the rules-defined
-        // hand-zone Transmute ability. The latter is an ordinary stack
-        // ability: costs discard this physical card, then a private library
-        // search decision resolves only after all players pass.
-        CardDefinition {
-            id: "RAV-DRIFT-OF-PHANTASMS",
-            name: "Drift of Phantasms",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "defender",
-                "flying",
-                "transmute",
-            ],
-            power: Some(0),
-            toughness: Some(5),
-            keywords: vec![
-                Keyword::Defender,
-                Keyword::Flying,
-                Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
-            ],
-            effects: vec![],
-        },
+        cards::divebomber_griffin::definition(),
+        // Full printed behavior: its definition and three-creature activation
+        // are candidate-owned and materialize together.
+        cards::sandsower::definition(),
+        cards::votary_of_the_conclave::definition(),
+        // Full printed behavior: its target-free ETB choice returns an
+        // enchantment its controller controls, or sacrifices this source.
+        cards::drake_familiar::definition(),
+        // Full fidelity: candidate-owned identity, Defender/Flying, and the
+        // rules-defined hand-zone Transmute ability. Its activation discards
+        // this physical card, then resolves a private library search.
+        cards::drift_of_phantasms::definition(),
         // Full fidelity: both its live-permanent and owner-graveyard upkeep
         // lifegain triggers share the normal stack lifecycle. The return
         // activation retains the source's exact graveyard incarnation.
@@ -6773,83 +2962,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::FirstStrike],
             effects: vec![],
         },
-        // Full fidelity: normal creature casting, base characteristics, static
-        // unblockability, and a stack-backed private Transmute search cover
-        // every represented functional rule.
-        CardDefinition {
-            id: "RAV-DIMIR-INFILTRATOR",
-            name: "Dimir Infiltrator",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
-            colors: colors([Color::Blue, Color::Black]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "unblockable",
-                "stack-backed-private-transmute",
-            ],
-            power: Some(1),
-            toughness: Some(3),
-            keywords: vec![
-                Keyword::Unblockable,
-                Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Black])),
-            ],
-            effects: vec![],
-        },
-        // Full fidelity: the Blue tap activation installs the existing
-        // source-relative blocker restriction, while Transmute is a normal
-        // hand-zone ability with a stack object and private library search.
-        CardDefinition {
-            id: "RAV-ETHEREAL-USHER",
-            name: "Ethereal Usher",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-target-unblockable-until-end-of-turn",
-                "transmute",
-            ],
-            power: Some(2),
-            toughness: Some(3),
-            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
-                1,
-                [Color::Blue, Color::Blue],
-            ))],
-            effects: vec![],
-        },
-        // Full fidelity: a controlled creature-spell cast triggers an
-        // ordinary, target-free stack ability. Its source-relative layered
-        // animation keeps the Enchantment type while adding a blue 4/4
-        // Flying Illusion body only through this turn's cleanup.
-        CardDefinition {
-            id: "RAV-HALCYON-GLAZE",
-            name: "Halcyon Glaze",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "creature-spell-triggered-self-animation",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        // Full fidelity: printed unblockability and stack-backed private
+        // Transmute are carried by the candidate-owned definition.
+        cards::dimir_infiltrator::definition(),
+        cards::ethereal_usher::definition(),
+        cards::halcyon_glaze::definition(),
         // Full fidelity: the optional entry trigger uses the ordinary stack
         // and a private policy-submitted multi-card library search. Transmute
         // likewise enters the stack before that private search, so opponents
@@ -6879,214 +2996,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
-        // Complete supported slice: ordinary colored-cost creature casting,
-        // first-strike combat damage, and vigilance's no-tap attack exception
-        // account for every printed functional behavior.
-        CardDefinition {
-            id: "RAV-NIGHTGUARD-PATROL",
-            name: "Nightguard Patrol",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "first-strike",
-                "vigilance",
-            ],
-            power: Some(2),
-            toughness: Some(1),
-            keywords: vec![Keyword::FirstStrike, Keyword::Vigilance],
-            effects: vec![],
-        },
-        // Complete supported slice: either color pays the one hybrid symbol,
-        // and first-strike creatures assign combat damage in the dedicated
-        // earlier damage step. There are no additional printed abilities.
-        CardDefinition {
-            id: "RAV-BOROS-RECRUIT",
-            name: "Boros Recruit",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(
-                0,
-                [],
-                [HybridManaSymbol {
-                    first: Color::Red,
-                    second: Color::White,
-                }],
-            ),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "hybrid-cost-casting", "first-strike"],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::FirstStrike],
-            effects: vec![],
-        },
-        // Full fidelity: both targeted guild abilities use the shared stack
-        // and layer-6 keyword-grant substrate for their chosen color cost.
-        CardDefinition {
-            id: "RAV-BOROS-GUILDMAGE",
-            name: "Boros Guildmage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(0, [], [HybridManaSymbol { first: Color::Red, second: Color::White }, HybridManaSymbol { first: Color::Red, second: Color::White }]),
-            colors: colors([Color::Red, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "activated-grant-haste",
-                "activated-grant-first-strike",
-            ],
-            power: Some(2),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the tap ability uses the same resolution-time
-        // radiance damage batch as Cleansing Beam, with one damage per
-        // selected creature in the shared-color set.
-        CardDefinition {
-            id: "RAV-WOJEK-EMBERMAGE",
-            name: "Wojek Embermage",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Red]),
-            colors: colors([Color::Red]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-radiance-one-damage",
-            ],
-            power: Some(1),
-            toughness: Some(2),
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the target-bearing tap ability uses the shared
-        // resolution-time Radiance shield substrate. It snapshots the target
-        // plus every current creature sharing its color and creates one
-        // independently consumable prevention shield for each recipient.
-        CardDefinition {
-            id: "RAV-WOJEK-APOTHECARY",
-            name: "Wojek Apothecary",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "tap-radiance-prevent-one-damage",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![],
-            effects: vec![],
-        },
-        signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
-        signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
-        signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
-        signet_definition("RAV-SELESNYA-SIGNET", "Selesnya Signet"),
-        guild_bounce_land("RAV-BOROS-GARRISON", "Boros Garrison"),
-        guild_bounce_land("RAV-DIMIR-AQUEDUCT", "Dimir Aqueduct"),
-        guild_bounce_land("RAV-GOLGARI-ROT-FARM", "Golgari Rot Farm"),
-        guild_bounce_land("RAV-SELESNYA-SANCTUARY", "Selesnya Sanctuary"),
+        cards::nightguard_patrol::definition(),
+        cards::boros_recruit::definition(),
+        cards::boros_guildmage::definition(),
+        cards::wojek_embermage::definition(),
+        cards::wojek_apothecary::definition(),
+        cards::boros_signet::definition(),
+        cards::dimir_signet::definition(),
+        cards::golgari_signet::definition(),
+        cards::selesnya_signet::definition(),
+        cards::boros_garrison::definition(),
+        cards::dimir_aqueduct::definition(),
+        cards::golgari_rot_farm::definition(),
+        cards::selesnya_sanctuary::definition(),
         // Full fidelity: the controller makes the required explicit
         // replacement-style choice while playing this typed Black/Green land;
         // paying two life permits an untapped entry, otherwise it enters
         // tapped. Its normal mana activation then chooses one registered
         // color without using the stack.
-        CardDefinition {
-            id: "RAV-OVERGROWN-TOMB",
-            name: "Overgrown Tomb",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(0),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::from([Color::Black, Color::Green]),
-            card_types: types([CardType::Land]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "optional-two-life-untapped-entry",
-                "black-or-green-mana-ability",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        shock_land_definition(
-            "RAV-SACRED-FOUNDRY",
-            "Sacred Foundry",
-            [Color::White, Color::Red],
-        ),
-        shock_land_definition(
-            "RAV-TEMPLE-GARDEN",
-            "Temple Garden",
-            [Color::Green, Color::White],
-        ),
-        shock_land_definition(
-            "RAV-WATERY-GRAVE",
-            "Watery Grave",
-            [Color::Blue, Color::Black],
-        ),
-        // Full fidelity: the land has its colorless mana ability and its
-        // stack-backed, targeted Double Strike grant. Both use the shared
-        // mana and continuous-effect substrates.
-        CardDefinition {
-            id: "RAV-SUNHOME-FORTRESS",
-            name: "Sunhome, Fortress of the Legion",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(0),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::from([Color::Colorless]),
-            card_types: types([CardType::Land]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-mana-ability",
-                "activated-double-strike-grant",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: the land's intrinsic colorless mana ability and
-        // stack-backed green Saproling creation both use typed shared rules.
-        CardDefinition {
-            id: "RAV-VITU-GHAZI",
-            name: "Vitu-Ghazi, the City-Tree",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(0),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::from([Color::Colorless]),
-            card_types: types([CardType::Land]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-mana-ability",
-                "activated-green-saproling-token",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::overgrown_tomb::definition(),
+        cards::sacred_foundry::definition(),
+        cards::temple_garden::definition(),
+        cards::watery_grave::definition(),
+        cards::sunhome_fortress_of_the_legion::definition(),
+        cards::vitu_ghazi::definition(),
         // Full fidelity: this land supplies colorless mana and a stack-backed
         // self-animation whose layer-7b P/T reads the resolving controller's
         // current creature-card graveyard count through cleanup.
@@ -7109,86 +3042,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this colorless land has no intrinsic mana ability;
-        // its sole typed activation taps to mill one selected player through
-        // the shared player-target stack effect.
-        CardDefinition {
-            id: "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
-            name: "Duskmantle, House of Shadow",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(0),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Land]),
-            is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "tap-target-player-mill-one"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this Green enchantment's normal stack activation
-        // pays one Green mana and sacrifices one selected controlled Forest
-        // before it resolves to gain its controller three life.
-        CardDefinition {
-            id: "RAV-DARK-HEART-OF-THE-WOOD",
-            name: "Dark Heart of the Wood",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "activated-green-sacrifice-forest-gain-three-life",
-                "typed-basic-land-sacrifice-cost",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this noncreature static source grants Shroud in
-        // layer six to every other permanent its controller currently
-        // controls. The expansion-neutral target boundary rechecks that
-        // characteristic both when a target is chosen and when it resolves.
-        CardDefinition {
-            id: "RAV-PRIVILEGED-POSITION",
-            name: "Privileged Position",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_hybrid(
-                2,
-                [],
-                [
-                    HybridManaSymbol {
-                        first: Color::Green,
-                        second: Color::White,
-                    },
-                    HybridManaSymbol {
-                        first: Color::Green,
-                        second: Color::White,
-                    },
-                    HybridManaSymbol {
-                        first: Color::Green,
-                        second: Color::White,
-                    },
-                ],
-            ),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Enchantment]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "hybrid-cost-casting",
-                "other-controlled-permanents-have-shroud",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
+        cards::duskmantle_house_of_shadow::definition(),
+        cards::dark_heart_of_the_wood::definition(),
+        // Full fidelity: the source grants Hexproof to every other permanent
+        // its controller currently controls through a shared static layer.
+        cards::privileged_position::definition(),
         // Full fidelity: the source-scoped cast trigger captures each exact
         // physical instant/sorcery exile incarnation, gives the original
         // caster serial no-priority copy/cast decisions, and treats observed
@@ -7214,11 +3072,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
-        basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
-        basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
-        basic_land("RAV-MOUNTAIN", "Mountain", BasicLandType::Mountain),
-        basic_land("RAV-FOREST", "Forest", BasicLandType::Forest),
+        cards::plains::definition(),
+        cards::island::definition(),
+        cards::swamp::definition(),
+        cards::mountain::definition(),
+        cards::forest::definition(),
     ]
 }
 
@@ -7232,49 +3090,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
 #[allow(clippy::too_many_lines)] // Set-owned mana bindings remain one auditable registry.
 pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
     vec![
-        ManaAbilityBinding {
-            card_definition: "RAV-BIRDS-OF-PARADISE",
-            ability: ActivatedManaAbility {
-                id: "produce-one-color",
-                tap_cost: true,
-                output: ManaAbilityOutput::Choice(colors(Color::ALL)),
-                amount: 1,
-                life_payment: None,
-                controller_damage: None,
-            },
-        },
-        ManaAbilityBinding {
-            card_definition: "RAV-ELVES-OF-DEEP-SHADOW",
-            ability: ActivatedManaAbility {
-                id: "produce-black-and-damage-controller",
-                tap_cost: true,
-                output: ManaAbilityOutput::Fixed(Color::Black),
-                amount: 1,
-                life_payment: None,
-                controller_damage: Some(1),
-            },
-        },
+        cards::birds_of_paradise::mana_ability(),
+        cards::elves_of_deep_shadow::mana_ability(),
         ManaAbilityBinding {
             card_definition: "RAV-SUNHOME-FORTRESS",
-            ability: ActivatedManaAbility {
-                id: "produce-colorless",
-                tap_cost: true,
-                output: ManaAbilityOutput::Fixed(Color::Colorless),
-                amount: 1,
-                life_payment: None,
-                controller_damage: None,
-            },
+            ability: cards::sunhome_fortress_of_the_legion::colorless_mana_ability(),
         },
         ManaAbilityBinding {
             card_definition: "RAV-VITU-GHAZI",
-            ability: ActivatedManaAbility {
-                id: "produce-colorless",
-                tap_cost: true,
-                output: ManaAbilityOutput::Fixed(Color::Colorless),
-                amount: 1,
-                life_payment: None,
-                controller_damage: None,
-            },
+            ability: cards::vitu_ghazi::colorless_mana_ability(),
         },
         ManaAbilityBinding {
             card_definition: "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
@@ -7302,72 +3126,18 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 controller_damage: None,
             },
         },
-        ManaAbilityBinding {
-            card_definition: "RAV-OVERGROWN-TOMB",
-            ability: ActivatedManaAbility {
-                id: "produce-black-or-green",
-                tap_cost: true,
-                output: ManaAbilityOutput::Choice(colors([Color::Black, Color::Green])),
-                amount: 1,
-                life_payment: None,
-                controller_damage: None,
-            },
-        },
-        shock_land_mana_binding(
-            "RAV-SACRED-FOUNDRY",
-            "produce-white-or-red",
-            [Color::White, Color::Red],
-        ),
-        shock_land_mana_binding(
-            "RAV-TEMPLE-GARDEN",
-            "produce-green-or-white",
-            [Color::Green, Color::White],
-        ),
-        shock_land_mana_binding(
-            "RAV-WATERY-GRAVE",
-            "produce-blue-or-black",
-            [Color::Blue, Color::Black],
-        ),
-        signet_binding(
-            "RAV-BOROS-SIGNET",
-            "boros-signet-wr",
-            [Color::White, Color::Red],
-        ),
-        signet_binding(
-            "RAV-DIMIR-SIGNET",
-            "dimir-signet-ub",
-            [Color::Blue, Color::Black],
-        ),
-        signet_binding(
-            "RAV-GOLGARI-SIGNET",
-            "golgari-signet-bg",
-            [Color::Black, Color::Green],
-        ),
-        signet_binding(
-            "RAV-SELESNYA-SIGNET",
-            "selesnya-signet-gw",
-            [Color::White, Color::Green],
-        ),
-        guild_bounce_land_binding(
-            "RAV-BOROS-GARRISON",
-            "boros-garrison-rw",
-            [Color::Red, Color::White],
-        ),
-        guild_bounce_land_binding(
-            "RAV-DIMIR-AQUEDUCT",
-            "dimir-aqueduct-ub",
-            [Color::Blue, Color::Black],
-        ),
-        guild_bounce_land_binding(
-            "RAV-GOLGARI-ROT-FARM",
-            "golgari-rot-farm-bg",
-            [Color::Black, Color::Green],
-        ),
-        guild_bounce_land_binding(
-            "RAV-SELESNYA-SANCTUARY",
-            "selesnya-sanctuary-gw",
-            [Color::Green, Color::White],
-        ),
+        cards::overgrown_tomb::mana_ability(),
+        cards::sacred_foundry::mana_ability(),
+        cards::temple_garden::mana_ability(),
+        cards::watery_grave::mana_ability(),
+        cards::boros_signet::mana_ability(),
+        cards::dimir_signet::mana_ability(),
+        cards::golgari_signet::mana_ability(),
+        cards::selesnya_signet::mana_ability(),
+        cards::boros_garrison::mana_ability(),
+        cards::dimir_aqueduct::mana_ability(),
+        cards::golgari_rot_farm::mana_ability(),
+        cards::selesnya_sanctuary::mana_ability(),
     ]
 }
 
@@ -7388,35 +3158,16 @@ pub fn rav_mana_ability_cost_bindings() -> Vec<ManaAbilityCostBinding> {
 #[must_use]
 pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
     [
-        "RAV-BOROS-GARRISON",
-        "RAV-DIMIR-AQUEDUCT",
-        "RAV-GOLGARI-ROT-FARM",
-        "RAV-SELESNYA-SANCTUARY",
+        cards::boros_garrison::land_entry_binding(),
+        cards::dimir_aqueduct::land_entry_binding(),
+        cards::golgari_rot_farm::land_entry_binding(),
+        cards::selesnya_sanctuary::land_entry_binding(),
+        cards::temple_garden::land_entry_binding(),
     ]
     .into_iter()
-    .map(|card_definition| LandEntryBinding {
-        card_definition,
-        enters_tapped: true,
-        optional_life_payment: None,
-    })
-    .chain(std::iter::once(LandEntryBinding {
-        card_definition: "RAV-OVERGROWN-TOMB",
-        enters_tapped: false,
-        optional_life_payment: Some(2),
-    }))
-    .chain(
-        [
-            "RAV-SACRED-FOUNDRY",
-            "RAV-TEMPLE-GARDEN",
-            "RAV-WATERY-GRAVE",
-        ]
-        .into_iter()
-        .map(|card_definition| LandEntryBinding {
-            card_definition,
-            enters_tapped: false,
-            optional_life_payment: Some(2),
-        }),
-    )
+    .chain(std::iter::once(cards::overgrown_tomb::land_entry_binding()))
+    .chain(std::iter::once(cards::sacred_foundry::land_entry_binding()))
+    .chain(std::iter::once(cards::watery_grave::land_entry_binding()))
     .collect()
 }
 
@@ -7430,29 +3181,23 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         ActivatedAbilityBinding {
             card_definition: "RAV-ROOT-KIN-ALLY",
             ability: ActivatedAbility {
-                id: "tap-two-creatures-pump-self", mana_cost: ManaCost::new(0),
-                tap_cost: false, sorcery_speed: false, additional_tap_creatures: 2,
-                sacrifice_source: false, sacrifice_creatures: 0, sacrifice_lands: 0,
-                discard_cards: 0, targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn { power: 2, toughness: 2 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-LORE-BROKER",
-            ability: ActivatedAbility {
-                id: "each-player-draws-then-discards",
+                id: "tap-two-creatures-pump-self",
                 mana_cost: ManaCost::new(0),
-                tap_cost: true,
+                tap_cost: false,
                 sorcery_speed: false,
-                additional_tap_creatures: 0,
+                additional_tap_creatures: 2,
                 sacrifice_source: false,
                 sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
-                effects: vec![Effect::EachPlayerDrawsThenDiscardsOneCard],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 2,
+                    toughness: 2,
+                }],
             },
         },
+        cards::lore_broker::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-FIREMANE-ANGEL",
             ability: ActivatedAbility {
@@ -7515,159 +3260,21 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 }],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
-            ability: ActivatedAbility {
-                id: "tap-create-voja",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::voja(),
-                    count: 1,
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-BLOCKBUSTER",
-            ability: ActivatedAbility {
-                id: "sacrifice-tapped-creature-and-player-damage",
-                mana_cost: ManaCost::with_colors(1, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::DealDamageToEachTappedCreatureAndPlayer { amount: 3 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-FLICKERFORM",
-            ability: ActivatedAbility {
-                id: "linked-exile-attached-creature-and-auras",
-                mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ExileAttachedCreatureAndAurasUntilEndStep],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TIDEWATER-MINION",
-            ability: ActivatedAbility {
-                id: "tap-untap-target-permanent",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Permanent],
-                effects: vec![Effect::UntapTargetPermanent],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TIDEWATER-MINION",
-            ability: ActivatedAbility {
-                id: "blue-lose-defender",
-                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
-                    keyword: Keyword::Defender,
-                }],
-            },
-        },
+        cards::tolsimir_wolfblood::activated_ability(),
+        cards::blockbuster::activated_ability(),
+        cards::flickerform::activated_ability(),
+        cards::tidewater_minion::untap_target_permanent_ability(),
+        cards::tidewater_minion::lose_defender_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-ROOFSTALKER-WIGHT",
-            ability: ActivatedAbility {
-                id: "blue-gain-flying",
-                mana_cost: ManaCost::with_colors(1, [Color::Blue]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
-                    keyword: Keyword::Flying,
-                }],
-            },
+            ability: cards::roofstalker_wight::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-VEDALKEN-ENTRANCER",
-            ability: ActivatedAbility {
-                id: "tap-blue-mill-two",
-                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Player],
-                effects: vec![Effect::MillTargetPlayer { count: 2 }],
-            },
+            ability: cards::vedalken_entrancer::activated_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-IVY-DANCER",
-            ability: ActivatedAbility {
-                id: "tap-target-creature-grant-forestwalk",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::Landwalk(BasicLandType::Forest),
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-DOWSING-SHAMAN",
-            ability: ActivatedAbility {
-                id: "return-target-enchantment-from-graveyard",
-                mana_cost: ManaCost::with_colors(2, [Color::Green]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::EnchantmentCardInControllerGraveyard],
-                effects: vec![Effect::ReturnTargetEnchantmentCardToHand],
-            },
-        },
+        cards::ivy_dancer::activated_ability(),
+        cards::dowsing_shaman::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-THOUGHTPICKER-WITCH",
             ability: ActivatedAbility {
@@ -7720,22 +3327,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::RegenerateTargetCreature],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-GOLGARI-ROTWURM",
-            ability: ActivatedAbility {
-                id: "sacrifice-creature-target-player-life-loss",
-                mana_cost: ManaCost::with_colors(0, [Color::Black]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 1,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::LoseLifeTarget { amount: 1 }],
-            },
-        },
+        cards::golgari_rotwurm::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-DROOLING-GROODION",
             ability: ActivatedAbility {
@@ -7755,231 +3347,28 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 }],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-MORTIPEDE",
-            ability: ActivatedAbility {
-                id: "green-must-be-blocked",
-                mana_cost: ManaCost::with_colors(2, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
-                    keyword: Keyword::MustBeBlockedIfAble,
-                }],
-            },
-        },
+        cards::mortipede::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-CARRION-HOWLER",
-            ability: ActivatedAbility {
-                id: "pay-life-pump-plus-two-minus-one",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 2,
-                    toughness: -1,
-                }],
-            },
+            ability: cards::carrion_howler::life_pump_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-UNDERCITY-SHADE",
-            ability: ActivatedAbility {
-                id: "pump-plus-one-plus-one",
-                mana_cost: ManaCost::with_colors(0, [Color::Black]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                }],
-            },
+            ability: cards::undercity_shade::activated_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-URSAPINE",
-            ability: ActivatedAbility {
-                id: "ursapine-target-pump",
-                mana_cost: ManaCost::with_colors(0, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TWILIGHT-DROVER",
-            ability: ActivatedAbility {
-                id: "create-flying-spirit",
-                mana_cost: ManaCost::with_colors(2, [Color::White]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::white_spirit(),
-                    count: 1,
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-ELVISH-SKYSWEEPER",
-            ability: ActivatedAbility {
-                id: "sacrifice-creature-destroy-flying",
-                mana_cost: ManaCost::with_colors(4, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 1,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
-                effects: vec![Effect::DestroyTargetFlyingCreature],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TROPHY-HUNTER",
-            ability: ActivatedAbility {
-                id: "destroy-flying-add-plus-one-counter",
-                mana_cost: ManaCost::with_colors(0, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
-                effects: vec![
-                    Effect::DestroyTargetFlyingCreature,
-                    Effect::AddPlusOneCounterToSource,
-                ],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-DARK-HEART-OF-THE-WOOD",
-            ability: ActivatedAbility {
-                id: "green-sacrifice-forest-gain-three-life",
-                mana_cost: ManaCost::with_colors(0, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 1,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 3 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-SHAMBLING-SHELL",
-            ability: ActivatedAbility {
-                id: "shambling-shell-sacrifice-counter",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::AddPlusOneCounterToTarget],
-            },
-        },
+        cards::ursapine::activated_ability(),
+        cards::twilight_drover::activated_ability(),
+        cards::elvish_skysweeper::activated_ability(),
+        cards::trophy_hunter::activated_ability_binding(),
+        cards::dark_heart_of_the_wood::activated_ability(),
+        cards::shambling_shell::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-GRAVE-SHELL-SCARAB",
-            ability: ActivatedAbility {
-                id: "sacrifice-source-draw",
-                mana_cost: ManaCost::with_colors(1, [Color::Black]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::DrawController],
-            },
+            ability: cards::grave_shell_scarab::activated_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-VOTARY-OF-THE-CONCLAVE",
-            ability: ActivatedAbility {
-                id: "regenerate-target-creature",
-                mana_cost: ManaCost::with_colors(0, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::RegenerateTargetCreature],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-LOXODON-HIERARCH",
-            ability: ActivatedAbility {
-                id: "sacrifice-source-regenerate-controller-creatures",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RegenerateControllerCreatures],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-SEWERDREG",
-            ability: ActivatedAbility {
-                id: "self-regeneration",
-                mana_cost: ManaCost::with_colors(0, [Color::Black]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RegenerateSource],
-            },
-        },
+        cards::votary_of_the_conclave::activated_ability(),
+        cards::loxodon_hierarch::activated_ability(),
+        cards::sewerdreg::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-DIMIR-HOUSE-GUARD",
             ability: ActivatedAbility {
@@ -7996,54 +3385,9 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::RegenerateSource],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TATTERED-DRAKE",
-            ability: ActivatedAbility {
-                id: "self-regeneration",
-                mana_cost: ManaCost::with_colors(0, [Color::Black]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RegenerateSource],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-CERULEAN-SPHINX",
-            ability: ActivatedAbility {
-                id: "shuffle-source-into-owner-library",
-                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::MoveSourceToOwnersLibraryAndShuffle],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-HUNTED-TROLL",
-            ability: ActivatedAbility {
-                id: "self-regeneration",
-                mana_cost: ManaCost::with_colors(0, [Color::Green]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RegenerateSource],
-            },
-        },
+        cards::tattered_drake::activated_ability(),
+        cards::cerulean_sphinx::activated_ability(),
+        cards::hunted_troll::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-GOLGARI-GRAVE-TROLL",
             ability: ActivatedAbility {
@@ -8060,22 +3404,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::RegenerateSource],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-SANDSOWER",
-            ability: ActivatedAbility {
-                id: "tap-target-creature",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 3,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::TapTargetCreature],
-            },
-        },
+        cards::sandsower::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-CROWN-OF-CONVERGENCE",
             ability: ActivatedAbility {
@@ -8092,38 +3421,8 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::PutTopCardOfControllerLibraryOnBottom],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-LEASHLING",
-            ability: ActivatedAbility {
-                id: "hand-card-library-top-return-source",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ReturnSourceToOwnersHand],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-CYCLOPEAN-SNARE",
-            ability: ActivatedAbility {
-                id: "tap-target-creature",
-                mana_cost: ManaCost::new(3),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::TapTargetCreature, Effect::ReturnSourceToOwnersHand],
-            },
-        },
+        cards::leashling::activated_ability(),
+        cards::cyclopean_snare::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-BLOODLETTER-QUILL",
             ability: ActivatedAbility {
@@ -8185,76 +3484,9 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 ],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-JUNKTROLLER",
-            ability: ActivatedAbility {
-                id: "tap-target-graveyard-card-to-owners-library-bottom",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::GraveyardCard],
-                effects: vec![Effect::PutTargetGraveyardCardOnOwnersLibraryBottom],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-VEDALKEN-ENTRANCER",
-            ability: ActivatedAbility {
-                id: "tap-blue-target-player-mill-two",
-                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Player],
-                effects: vec![Effect::MillTargetPlayer { count: 2 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-STASIS-CELL",
-            ability: ActivatedAbility {
-                id: "reattach-to-target-creature",
-                mana_cost: ManaCost::new(3),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::AttachSourceToTarget {
-                    target: TargetRequirement::Creature,
-                    changes: stasis_cell_attachment_changes(),
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-GRIFTERS-BLADE",
-            ability: ActivatedAbility {
-                id: "equip-plus-one-plus-one",
-                mana_cost: ManaCost::new(1),
-                tap_cost: false,
-                sorcery_speed: true,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::ControlledCreature],
-                effects: vec![Effect::AttachSourceToTarget {
-                    target: TargetRequirement::ControlledCreature,
-                    changes: grifters_blade_attachment_changes(),
-                }],
-            },
-        },
+        cards::junktroller::activated_ability(),
+        cards::stasis_cell::activated_ability(),
+        cards::grifters_blade::equip_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-PARIAHS-SHIELD",
             ability: ActivatedAbility {
@@ -8320,56 +3552,14 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 ],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-PEREGRINE-MASK",
-            ability: ActivatedAbility {
-                id: "equip-defender-flying-first-strike",
-                mana_cost: ManaCost::new(2),
-                tap_cost: false,
-                sorcery_speed: true,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::ControlledCreature],
-                effects: vec![Effect::AttachSourceToTarget {
-                    target: TargetRequirement::ControlledCreature,
-                    changes: peregrine_mask_attachment_changes(),
-                }],
-            },
-        },
+        cards::peregrine_mask::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-VOYAGER-STAFF",
-            ability: ActivatedAbility {
-                id: "sacrifice-linked-exile-target-creature-until-end-step",
-                mana_cost: ManaCost::new(2),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::ExileTargetCreatureUntilEndStep],
-            },
+            ability: cards::voyager_staff::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SPECTRAL-SEARCHLIGHT",
-            ability: ActivatedAbility {
-                id: "tap-target-player-chosen-color-mana",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Player],
-                effects: vec![Effect::AddOneManaOfTargetPlayersChosenColor],
-            },
+            ability: cards::spectral_searchlight::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-NULLMAGE-SHEPHERD",
@@ -8387,22 +3577,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-STONE-SEEDER-HIEROPHANT",
-            ability: ActivatedAbility {
-                id: "untap-target-land",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Land],
-                effects: vec![Effect::UntapTargetLand],
-            },
-        },
+        cards::stone_seeder_hierophant::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-PERILOUS-FORAYS",
             ability: ActivatedAbility {
@@ -8434,22 +3609,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-EVANGEL",
-            ability: ActivatedAbility {
-                id: "create-saproling",
-                mana_cost: ManaCost::new(1),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 1,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 1,
-                }],
-            },
+            ability: cards::selesnya_evangel::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-GLARE-OF-SUBDUAL",
@@ -8485,153 +3645,29 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-GOBLIN-FIRE-FIEND",
-            ability: ActivatedAbility {
-                id: "pump-plus-one-power",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 0,
-                }],
-            },
+            ability: cards::goblin_fire_fiend::pump_plus_one_power_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-GREATER-FORGELING",
-            ability: ActivatedAbility {
-                id: "pump-plus-three-minus-three",
-                mana_cost: ManaCost::with_colors(1, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 3,
-                    toughness: -3,
-                }],
-            },
+            ability: cards::greater_forgeling::pump_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-VIASHINO-SLASHER",
-            ability: ActivatedAbility {
-                id: "pump-plus-one-minus-one",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 1,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 1,
-                    toughness: -1,
-                }],
-            },
+            ability: cards::viashino_slasher::pump_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-DIVEBOMBER-GRIFFIN",
-            ability: ActivatedAbility {
-                id: "sacrifice-deal-three-to-attacker-or-blocker",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![
-                    cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
-                ],
-                effects: vec![Effect::DealDamage {
-                    amount: 3,
-                    target: cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
-                }],
-            },
-        },
+        cards::divebomber_griffin::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-SAGITTARS",
-            ability: ActivatedAbility {
-                id: "tap-damage-attacker-or-blocker",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![
-                    cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
-                ],
-                effects: vec![Effect::DealDamage {
-                    amount: 1,
-                    target: cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
-                }],
-            },
+            ability: cards::selesnya_sagittars::tap_damage_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-WAR-TORCH-GOBLIN",
-            ability: ActivatedAbility {
-                id: "sacrifice-deal-two-to-blocker",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::BlockingCreature],
-                effects: vec![Effect::DealDamage {
-                    amount: 2,
-                    target: cardbench_magic_engine::TargetRequirement::BlockingCreature,
-                }],
-            },
+            ability: cards::war_torch_goblin::sacrifice_deal_two_to_blocker_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-CAREGIVER",
-            ability: ActivatedAbility {
-                id: "prevent-one-damage",
-                mana_cost: ManaCost::with_colors(0, [Color::White]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
-                effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
-            },
-        },
+        cards::caregiver::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-BENEVOLENT-ANCESTOR",
-            ability: ActivatedAbility {
-                id: "tap-prevent-one-damage",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::PlayerOrCreature],
-                effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
-            },
+            ability: cards::benevolent_ancestor::prevention_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-GUILDMAGE",
@@ -8673,93 +3709,23 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-VIASHINO-FANGTAIL",
-            ability: ActivatedAbility {
-                id: "tap-deal-one-to-player-or-creature",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
-                effects: vec![Effect::DealDamage {
-                    amount: 1,
-                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-                }],
-            },
+            ability: cards::viashino_fangtail::tap_deal_one_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-ORDRUUN-COMMANDO",
-            ability: ActivatedAbility {
-                id: "prevent-one-damage-to-self",
-                mana_cost: ManaCost::with_colors(0, [Color::White]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::AddSourceDamageShieldUntilEndOfTurn { amount: 1 }],
-            },
+            ability: cards::ordruun_commando::prevent_one_damage_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-BOROS-GUILDMAGE",
-            ability: ActivatedAbility {
-                id: "grant-haste",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::Haste,
-                }],
-            },
+            ability: cards::boros_guildmage::grant_haste_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SUNHOME-FORTRESS",
-            ability: ActivatedAbility {
-                id: "grant-target-double-strike",
-                mana_cost: ManaCost::with_colors(3, [Color::Red, Color::White]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::DoubleStrike,
-                }],
-            },
+            ability: cards::sunhome_fortress_of_the_legion::double_strike_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-VITU-GHAZI",
-            ability: ActivatedAbility {
-                id: "create-green-saproling",
-                mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 1,
-                }],
-            },
+            ability: cards::vitu_ghazi::create_saproling_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
@@ -8785,105 +3751,17 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 ],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
-            ability: ActivatedAbility {
-                id: "tap-target-player-mill-one",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Player],
-                effects: vec![Effect::MillTargetPlayer { count: 1 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-WOJEK-EMBERMAGE",
-            ability: ActivatedAbility {
-                id: "tap-radiance-one-damage",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::RadianceDealDamageToCreatures { amount: 1 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-WOJEK-APOTHECARY",
-            ability: ActivatedAbility {
-                id: "tap-radiance-prevent-one-damage",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-THUNDERSONG-TRUMPETER",
-            ability: ActivatedAbility {
-                id: "tap-prevent-target-combat",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::CannotAttackOrBlock,
-                }],
-            },
-        },
+        cards::duskmantle_house_of_shadow::activated_ability(),
+        cards::wojek_embermage::activated_ability(),
+        cards::wojek_apothecary::activated_ability(),
+        cards::thundersong_trumpeter::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-SCREECHING-GRIFFIN",
-            ability: ActivatedAbility {
-                id: "prevent-target-blocking-griffin",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::PreventTargetBlockingSourceUntilEndOfTurn],
-            },
+            ability: cards::screeching_griffin::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-ETHEREAL-USHER",
-            ability: ActivatedAbility {
-                id: "tap-target-unblockable",
-                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::Unblockable,
-                }],
-            },
+            ability: cards::ethereal_usher::activated_ability(),
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-RAZIA-BOROS-ARCHANGEL",
@@ -8925,56 +3803,10 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-BOROS-GUILDMAGE",
-            ability: ActivatedAbility {
-                id: "grant-first-strike",
-                mana_cost: ManaCost::with_colors(0, [Color::White]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::FirstStrike,
-                }],
-            },
+            ability: cards::boros_guildmage::grant_first_strike_ability(),
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TORPID-MOLOCH",
-            ability: ActivatedAbility {
-                id: "sacrifice-three-lands-remove-defender",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 3,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
-                    keyword: Keyword::Defender,
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-TERRAFORMER",
-            ability: ActivatedAbility {
-                id: "choose-controller-land-basic-type",
-                mana_cost: ManaCost::with_colors(1, []),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn],
-            },
-        },
+        cards::torpid_moloch::activated_ability(),
+        cards::terraformer::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-HELLDOZER",
             ability: ActivatedAbility {
@@ -8991,22 +3823,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::DestroyTargetLandAndUntapSourceIfNonbasic],
             },
         },
-        ActivatedAbilityBinding {
-            card_definition: "RAV-BARBARIAN-RIFTCUTTER",
-            ability: ActivatedAbility {
-                id: "sacrifice-destroy-target-land",
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: true,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Land],
-                effects: vec![Effect::DestroyTargetLand],
-            },
-        },
+        cards::barbarian_riftcutter::activated_ability(),
         ActivatedAbilityBinding {
             card_definition: "RAV-DIMIR-GUILDMAGE",
             ability: ActivatedAbility {
@@ -9128,13 +3945,6 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     ]
 }
 
-fn grifters_blade_attachment_changes() -> Vec<ContinuousChange> {
-    vec![ContinuousChange::ModifyPowerToughness {
-        power: 1,
-        toughness: 1,
-    }]
-}
-
 fn pariahs_shield_attachment_changes() -> Vec<ContinuousChange> {
     vec![ContinuousChange::RedirectDamageToAttachmentController]
 }
@@ -9146,19 +3956,10 @@ fn sunforger_attachment_changes() -> Vec<ContinuousChange> {
     }]
 }
 
-fn peregrine_mask_attachment_changes() -> Vec<ContinuousChange> {
-    vec![
-        ContinuousChange::AddKeyword(Keyword::Defender),
-        ContinuousChange::AddKeyword(Keyword::Flying),
-        ContinuousChange::AddKeyword(Keyword::FirstStrike),
-    ]
-}
-
-fn stasis_cell_attachment_changes() -> Vec<ContinuousChange> {
-    vec![
-        ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock),
-        ContinuousChange::SuppressNonManaActivatedAbilities,
-    ]
+/// Equipment whose controller may choose a non-targeting attachment as it enters.
+#[must_use]
+pub fn rav_entry_attachment_bindings() -> Vec<EntryAttachmentBinding> {
+    vec![cards::grifters_blade::entry_attachment_binding()]
 }
 
 /// Explicit persistent-attachment metadata for the RAV Equipment slice.
@@ -9170,13 +3971,7 @@ fn stasis_cell_attachment_changes() -> Vec<ContinuousChange> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
     vec![
-        AttachmentBinding {
-            card_definition: "RAV-GRIFTERS-BLADE",
-            kind: AttachmentKind::Equipment,
-            target: TargetRequirement::ControlledCreature,
-            changes: grifters_blade_attachment_changes(),
-            granted_activated_abilities: vec![],
-        },
+        cards::grifters_blade::attachment_binding(),
         AttachmentBinding {
             card_definition: "RAV-PARIAHS-SHIELD",
             kind: AttachmentKind::Equipment,
@@ -9191,27 +3986,9 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             changes: sunforger_attachment_changes(),
             granted_activated_abilities: vec![],
         },
-        AttachmentBinding {
-            card_definition: "RAV-PEREGRINE-MASK",
-            kind: AttachmentKind::Equipment,
-            target: TargetRequirement::ControlledCreature,
-            changes: peregrine_mask_attachment_changes(),
-            granted_activated_abilities: vec![],
-        },
-        AttachmentBinding {
-            card_definition: "RAV-STASIS-CELL",
-            kind: AttachmentKind::Aura,
-            target: TargetRequirement::Creature,
-            changes: stasis_cell_attachment_changes(),
-            granted_activated_abilities: vec![],
-        },
-        AttachmentBinding {
-            card_definition: "RAV-FOLLOWED-FOOTSTEPS",
-            kind: AttachmentKind::Aura,
-            target: TargetRequirement::Creature,
-            changes: vec![],
-            granted_activated_abilities: vec![],
-        },
+        cards::peregrine_mask::attachment_binding(),
+        cards::stasis_cell::attachment_binding(),
+        cards::followed_footsteps::attachment_binding(),
         AttachmentBinding {
             card_definition: "RAV-NECROMANTIC-THIRST",
             kind: AttachmentKind::Aura,
@@ -9244,28 +4021,7 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
                 effects: vec![Effect::RegenerateSource],
             }],
         },
-        AttachmentBinding {
-            card_definition: "RAV-GALVANIC-ARC",
-            kind: AttachmentKind::Aura,
-            target: TargetRequirement::Creature,
-            changes: vec![],
-            granted_activated_abilities: vec![ActivatedAbility {
-                id: "attached-tap-deal-three-to-player-or-creature",
-                mana_cost: ManaCost::new(0),
-                tap_cost: true,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![TargetRequirement::PlayerOrCreature],
-                effects: vec![Effect::DealDamage {
-                    amount: 3,
-                    target: TargetRequirement::PlayerOrCreature,
-                }],
-            }],
-        },
+        cards::galvanic_arc::attachment_binding(),
         AttachmentBinding {
             card_definition: "RAV-BREATH-OF-FURY",
             kind: AttachmentKind::Aura,
@@ -9355,62 +4111,15 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
                 toughness: 1,
             },
         },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-SCION-OF-THE-WILD",
-            change: cardbench_magic_engine::ContinuousChange::ControlledCreatureCountPowerToughness,
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-OATHSWORN-GIANT",
-            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesModifyPowerToughness {
-                power: 0,
-                toughness: 2,
-            },
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-OATHSWORN-GIANT",
-            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesAddKeyword(
-                Keyword::Vigilance,
-            ),
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-VETERAN-ARMORER",
-            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesModifyPowerToughness {
-                power: 0,
-                toughness: 1,
-            },
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-GATE-HOUND",
-            change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(
-                Keyword::Vigilance,
-            ),
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-LIGHT-OF-SANCTION",
-            change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeyword(
-                Keyword::PreventDamageFromControlledSources,
-            ),
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-PRIVILEGED-POSITION",
-            change: ContinuousChange::OtherControlledPermanentsAddKeyword(Keyword::Shroud),
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
-            change: ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
-                color: Color::Green,
-                power: 1,
-                toughness: 1,
-            },
-        },
-        StaticContinuousEffectBinding {
-            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
-            change: ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
-                color: Color::White,
-                power: 1,
-                toughness: 1,
-            },
-        },
+        cards::scion_of_the_wild::static_continuous_effect(),
+        cards::oathsworn_giant::static_continuous_effects()[0].clone(),
+        cards::oathsworn_giant::static_continuous_effects()[1].clone(),
+        cards::veteran_armorer::static_continuous_effect(),
+        cards::gate_hound::static_continuous_effect(),
+        cards::light_of_sanction::static_continuous_effect(),
+        cards::privileged_position::static_continuous_effect(),
+        cards::tolsimir_wolfblood::static_continuous_effects()[0].clone(),
+        cards::tolsimir_wolfblood::static_continuous_effects()[1].clone(),
     ]
 }
 
@@ -9420,10 +4129,7 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 #[must_use]
 pub fn rav_static_library_top_reveal_bindings() -> Vec<StaticLibraryTopRevealBinding> {
     vec![
-        StaticLibraryTopRevealBinding {
-            card_definition: "RAV-WIZENED-SNITCHES",
-            scope: cardbench_magic_engine::StaticLibraryTopRevealScope::EveryPlayer,
-        },
+        cards::wizened_snitches::static_library_top_reveal_binding(),
         StaticLibraryTopRevealBinding {
             card_definition: "RAV-CROWN-OF-CONVERGENCE",
             scope: cardbench_magic_engine::StaticLibraryTopRevealScope::SourceController,
@@ -9436,10 +4142,7 @@ pub fn rav_static_library_top_reveal_bindings() -> Vec<StaticLibraryTopRevealBin
 /// stack object or synthetic event receipt.
 #[must_use]
 pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBinding> {
-    vec![StaticAttackRestrictionBinding {
-        card_definition: "RAV-BLAZING-ARCHON",
-        restriction: StaticAttackRestriction::OpponentsCannotAttackController,
-    }]
+    vec![cards::blazing_archon::static_attack_restriction_binding()]
 }
 
 /// Battlefield-only optional creature-spell payment sources supplied by RAV.
@@ -9460,10 +4163,7 @@ pub fn rav_static_creature_spell_cost_modifier_bindings()
 #[must_use]
 pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBinding> {
     vec![
-        StaticEntryRestrictionBinding {
-            card_definition: "RAV-LOXODON-GATEKEEPER",
-            restriction: StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
-        },
+        cards::loxodon_gatekeeper::static_entry_restriction_binding(),
         StaticEntryRestrictionBinding {
             card_definition: "RAV-TERRARION",
             restriction: StaticEntryRestriction::SourceEntersTapped,
@@ -9489,17 +4189,6 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 1 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GREATER-MOSSDOG",
-            ability: TriggeredAbility {
-                id: "targeted-creature-return-from-graveyard",
-                condition: TriggerCondition::CreatureBecomesTarget,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::ReturnSourceFromOwnersGraveyardToHand],
             },
         },
         TriggeredAbilityBinding {
@@ -9598,17 +4287,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::ExileCastInstantOrSorceryThenCopyExiledCards],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FOLLOWED-FOOTSTEPS",
-            ability: TriggeredAbility {
-                id: "attached-creature-controller-upkeep-token-copy",
-                condition: TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::CreateTokenCopyOfAttachedCreature],
-            },
-        },
+        cards::followed_footsteps::triggered_ability_binding(),
         TriggeredAbilityBinding {
             card_definition: "RAV-BLOODBOND-MARCH",
             ability: TriggeredAbility {
@@ -9660,78 +4339,12 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 ],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HALCYON-GLAZE",
-            ability: TriggeredAbility {
-                id: "creature-spell-animate-source-until-end-of-turn",
-                condition: TriggerCondition::CastsCreatureSpell,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::AnimateSourceIntoCreatureUntilEndOfTurn {
-                    colors: colors([Color::Blue]),
-                    creature_subtypes: BTreeSet::from([CreatureSubtype::Illusion]),
-                    power: 4,
-                    toughness: 4,
-                    keywords: vec![Keyword::Flying],
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-CONCLAVE-PHALANX",
-            ability: TriggeredAbility {
-                id: "etb-gain-life-per-controlled-creature",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeForEachControlledCreature],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-BOTTLED-CLOISTER",
-            ability: TriggeredAbility {
-                id: "opponent-upkeep-exile-controller-hand-linked",
-                condition: TriggerCondition::BeginningOfOpponentsUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::ExileControllerHandLinkedToSource],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-STINKWEED-IMP",
-            ability: TriggeredAbility {
-                id: "destroy-combat-damaged-creature",
-                condition: TriggerCondition::DealsCombatDamageToCreature,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DestroyCombatDamagedCreature],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GOLGARI-THUG",
-            ability: TriggeredAbility {
-                id: "dies-target-creature-card-owner-library-top",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![TargetRequirement::CreatureCardInControllerGraveyard],
-                effects: vec![Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GOLGARI-BROWNSCALE",
-            ability: TriggeredAbility {
-                id: "graveyard-to-hand-gain-life",
-                condition: TriggerCondition::GraveyardToHand,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 2 }],
-            },
-        },
+        cards::halcyon_glaze::triggered_ability(),
+        cards::conclave_phalanx::triggered_ability(),
+        cards::bottled_cloister::opponent_upkeep_trigger(),
+        cards::stinkweed_imp::triggered_ability(),
+        cards::golgari_thug::triggered_ability(),
+        cards::golgari_brownscale::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-VULTUROUS-ZOMBIE",
             ability: TriggeredAbility {
@@ -9743,20 +4356,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::AddPlusOneCounterToSource],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-BOTTLED-CLOISTER",
-            ability: TriggeredAbility {
-                id: "controller-upkeep-return-linked-hand-then-draw",
-                condition: TriggerCondition::BeginningOfUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![
-                    Effect::ReturnLinkedHandExileToControllerHand,
-                    Effect::DrawController,
-                ],
-            },
-        },
+        cards::bottled_cloister::controller_upkeep_trigger(),
         TriggeredAbilityBinding {
             card_definition: "RAV-CLOUDSTONE-CURIO",
             ability: TriggeredAbility {
@@ -9822,48 +4422,9 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::DrawController],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-AURATOUCHED-MAGE",
-            ability: TriggeredAbility {
-                id: "etb-search-and-attach-aura",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![
-                    Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource {
-                        selection: LibrarySearchSelection::PolicySubmitted {
-                            may_fail_to_find: true,
-                        },
-                    },
-                ],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FISTS-OF-IRONWOOD",
-            ability: TriggeredAbility {
-                id: "etb-two-saprolings",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 2,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FLIGHT-OF-FANCY",
-            ability: TriggeredAbility {
-                id: "etb-draw-two",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DrawController, Effect::DrawController],
-            },
-        },
+        cards::auratouched_mage::triggered_ability(),
+        cards::fists_of_ironwood::triggered_ability(),
+        cards::flight_of_fancy::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-POLLENBRIGHT-WINGS",
             ability: TriggeredAbility {
@@ -9890,67 +4451,9 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 ],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-MARK-OF-EVICTION",
-            ability: TriggeredAbility {
-                id: "upkeep-return-enchanted-creature",
-                condition: TriggerCondition::BeginningOfUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::ReturnSourceAttachedPermanentToHand],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-CONCERTED-EFFORT",
-            ability: TriggeredAbility {
-                id: "upkeep-share-controller-creature-keywords",
-                condition: TriggerCondition::BeginningOfUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::ShareControllerCreatureKeywordsUntilEndOfTurn {
-                    families: vec![
-                        SharedKeywordFamily::Flying,
-                        SharedKeywordFamily::FirstStrike,
-                        SharedKeywordFamily::DoubleStrike,
-                        SharedKeywordFamily::Landwalk,
-                        SharedKeywordFamily::Protection,
-                        SharedKeywordFamily::Trample,
-                    ],
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FAITHS-FETTERS",
-            ability: TriggeredAbility {
-                id: "etb-gain-four-life",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 4 }],
-            },
-        },
-        // This ordinary target-bearing ETB trigger uses the same Equipment
-        // attachment lifecycle as an Equip activation. If no controlled
-        // creature is legal when it would be stacked, the generic trigger
-        // scheduler leaves the Blade unattached rather than inventing a
-        // target or skipping its ordinary permanent entry.
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GRIFTERS-BLADE",
-            ability: TriggeredAbility {
-                id: "etb-attach-to-controlled-creature",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![TargetRequirement::ControlledCreature],
-                effects: vec![Effect::AttachSourceToTarget {
-                    target: TargetRequirement::ControlledCreature,
-                    changes: grifters_blade_attachment_changes(),
-                }],
-            },
-        },
+        cards::mark_of_eviction::triggered_ability(),
+        cards::concerted_effort::upkeep_trigger(),
+        cards::faiths_fetters::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-BLOOD-FUNNEL",
             ability: TriggeredAbility {
@@ -9962,17 +4465,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::SacrificeCreatureOrCounterTargetSpell],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-PRIMORDIAL-SAGE",
-            ability: TriggeredAbility {
-                id: "controller-creature-spell-cast-may-draw",
-                condition: TriggerCondition::CastsCreatureSpell,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::DrawController],
-            },
-        },
+        cards::primordial_sage::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-NULLSTONE-GARGOYLE",
             ability: TriggeredAbility {
@@ -10018,68 +4511,13 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 }],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-STONE-SEEDER-HIEROPHANT",
-            ability: TriggeredAbility {
-                id: "landfall-untap-source",
-                condition: TriggerCondition::LandEntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::UntapSource],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-VINELASHER-KUDZU",
-            ability: TriggeredAbility {
-                id: "controller-landfall-plus-one-counter",
-                condition: TriggerCondition::ControlledLandEntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::AddPlusOneCounterToSource],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-CIVIC-WAYFINDER",
-            ability: TriggeredAbility {
-                id: "etb-search-basic-land-to-hand",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::SearchControllerLibrary {
-                    requirement: LibrarySearchRequirement::BasicLandTypes(BTreeSet::from([
-                        BasicLandType::Plains,
-                        BasicLandType::Island,
-                        BasicLandType::Swamp,
-                        BasicLandType::Mountain,
-                        BasicLandType::Forest,
-                    ])),
-                    destination: LibrarySearchDestination::Hand,
-                    selection: LibrarySearchSelection::PolicySubmitted {
-                        may_fail_to_find: true,
-                    },
-                    reveal_selected: true,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-BOROS-GARRISON",
-            ability: guild_bounce_land_trigger(),
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-DIMIR-AQUEDUCT",
-            ability: guild_bounce_land_trigger(),
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GOLGARI-ROT-FARM",
-            ability: guild_bounce_land_trigger(),
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SELESNYA-SANCTUARY",
-            ability: guild_bounce_land_trigger(),
-        },
+        cards::stone_seeder_hierophant::triggered_ability(),
+        cards::vinelasher_kudzu::triggered_ability(),
+        cards::civic_wayfinder::triggered_ability(),
+        cards::boros_garrison::triggered_ability(),
+        cards::dimir_aqueduct::triggered_ability(),
+        cards::golgari_rot_farm::triggered_ability(),
+        cards::selesnya_sanctuary::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-DARK-CONFIDANT",
             ability: TriggeredAbility {
@@ -10102,17 +4540,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::LoseLifeEachOpponentEqualToControlledCreatures],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-MOROII",
-            ability: TriggeredAbility {
-                id: "upkeep-lose-one-life",
-                condition: TriggerCondition::BeginningOfUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::LoseLifeController { amount: 1 }],
-            },
-        },
+        cards::moroii::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-SPAWNBROKER",
             ability: TriggeredAbility {
@@ -10127,17 +4555,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::ExchangeControlOfTargetCreatures],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-WOEBRINGER-DEMON",
-            ability: TriggeredAbility {
-                id: "each-upkeep-active-player-sacrifice-creature",
-                condition: TriggerCondition::BeginningOfAnyUpkeep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::SacrificeUpkeepPlayerCreature],
-            },
-        },
+        cards::woebringer_demon::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-STONESHAKER-SHAMAN",
             ability: TriggeredAbility {
@@ -10149,379 +4567,36 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::SacrificeEndStepPlayerUntappedLand],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SEARING-MEDITATION",
-            ability: TriggeredAbility {
-                id: "life-gain-deal-two",
-                condition: TriggerCondition::LifeGained,
-                mana_cost: ManaCost::with_colors(2, []),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::DealDamageAfterOptionalManaPayment {
-                    amount: 2,
-                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-CARVEN-CARYATID",
-            ability: TriggeredAbility {
-                id: "etb-draw-controller",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DrawController],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-DRAKE-FAMILIAR",
-            ability: TriggeredAbility {
-                id: "etb-return-target-enchantment-owner-hand",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![TargetRequirement::Enchantment],
-                effects: vec![Effect::ReturnTargetEnchantmentToOwnersHand],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-BRAMBLE-ELEMENTAL",
-            ability: TriggeredAbility {
-                id: "controlled-aura-enters-create-saproling",
-                condition: TriggerCondition::ControlledAuraEntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 1,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SPARKMAGE-APPRENTICE",
-            ability: TriggeredAbility {
-                id: "etb-deal-one",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
-                effects: vec![Effect::DealDamage {
-                    amount: 1,
-                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HUNTED-DRAGON",
-            ability: TriggeredAbility {
-                id: "etb-opponent-knights",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::CreateTokenForTargetPlayer {
-                    token: TokenSpec::knight(),
-                    count: 3,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HUNTED-LAMMASU",
-            ability: TriggeredAbility {
-                id: "etb-opponent-horror",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::CreateTokenForTargetPlayer {
-                    token: TokenSpec::horror(),
-                    count: 1,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HUNTED-HORROR",
-            ability: TriggeredAbility {
-                id: "etb-opponent-centaurs",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::CreateTokenForTargetPlayer {
-                    token: TokenSpec::hunted_centaur(),
-                    count: 2,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HUNTED-TROLL",
-            ability: TriggeredAbility {
-                id: "etb-opponent-faeries",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::CreateTokenForTargetPlayer {
-                    token: TokenSpec::blue_faerie(),
-                    count: 4,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-HUNTED-PHANTASM",
-            ability: TriggeredAbility {
-                id: "etb-opponent-goblins",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Opponent],
-                effects: vec![Effect::CreateTokenForTargetOpponent {
-                    token: TokenSpec::red_goblin(),
-                    count: 5,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-KEENING-BANSHEE",
-            ability: TriggeredAbility {
-                id: "etb-target-minus-two",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                    power: -2,
-                    toughness: -2,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-VEDALKEN-DISMISSER",
-            ability: TriggeredAbility {
-                id: "etb-target-creature-owner-library-top",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::PutTargetCreatureOnOwnersLibraryTop],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-INFECTIOUS-HOST",
-            ability: TriggeredAbility {
-                id: "dies-target-player-life-loss",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::LoseLifeTarget { amount: 2 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-TRANSLUMINANT",
-            ability: TriggeredAbility {
-                id: "dies-create-flying-spirit",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::white_spirit(),
-                    count: 1,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-TWILIGHT-DROVER",
-            ability: TriggeredAbility {
-                id: "another-creature-leaves-plus-one-counter",
-                condition: TriggerCondition::AnotherCreatureLeavesBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::AddPlusOneCounterToSource],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SURVEILLING-SPRITE",
-            ability: TriggeredAbility {
-                id: "dies-draw-controller",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DrawController],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-ZEPHYR-SPIRIT",
-            ability: TriggeredAbility {
-                id: "blocks-return-source-owner-hand",
-                condition: TriggerCondition::Blocks,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::ReturnSourceToOwnersHand],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FLAME-KIN-ZEALOT",
-            ability: TriggeredAbility {
-                id: "etb-team-pump-haste",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![
-                    Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
-                        power: 1,
-                        toughness: 1,
-                    },
-                    Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
-                        keyword: Keyword::Haste,
-                    },
-                ],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-FRENZIED-GOBLIN",
-            ability: TriggeredAbility {
-                id: "attack-cannot-block",
-                condition: TriggerCondition::Attacks,
-                mana_cost: ManaCost::with_colors(0, [Color::Red]),
-                optional: true,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
-                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::CannotBlock,
-                }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-AGRUS-KOS-WOJEK-VETERAN",
-            ability: TriggeredAbility {
-                id: "attack-color-specific-combat-modifiers",
-                condition: TriggerCondition::Attacks,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![
-                    Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
-                        color: Color::Red,
-                        power: 2,
-                        toughness: 0,
-                    },
-                    Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
-                        color: Color::White,
-                        power: 0,
-                        toughness: 2,
-                    },
-                ],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-DROMAD-PUREBRED",
-            ability: TriggeredAbility {
-                id: "damage-gain-one-life",
-                condition: TriggerCondition::ReceivesDamage,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 1 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-LOXODON-HIERARCH",
-            ability: TriggeredAbility {
-                id: "etb-gain-four-life",
-                condition: TriggerCondition::EntersBattlefield,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 4 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-CENTAUR-SAFEGUARD",
-            ability: TriggeredAbility {
-                id: "dies-may-gain-three-life",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::GainLifeController { amount: 3 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SUNHOME-ENFORCER",
-            ability: TriggeredAbility {
-                id: "damage-life-gain",
-                condition: TriggerCondition::DealsDamage,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::GainLifeControllerFromSourceDamage],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-COALHAULER-SWINE",
-            ability: TriggeredAbility {
-                id: "damage-each-player",
-                condition: TriggerCondition::ReceivesDamage,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DealDamageToEachPlayerFromReceivedDamage],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-BELLTOWER-SPHINX",
-            ability: TriggeredAbility {
-                id: "damage-source-controller-mill-that-many",
-                condition: TriggerCondition::ReceivesDamage,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::MillSourceControllerFromSourceDamage],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SELL-SWORD-BRUTE",
-            ability: TriggeredAbility {
-                id: "dies-deal-two-to-controller",
-                condition: TriggerCondition::Dies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::DealDamageController { amount: 2 }],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-SADISTIC-AUGERMAGE",
-            ability: TriggeredAbility {
-                id: "another-creature-dies-each-player-discards",
-                condition: TriggerCondition::AnotherCreatureDies,
-                mana_cost: ManaCost::new(0),
-                optional: true,
-                targets: vec![],
-                effects: vec![Effect::DiscardOneCardEachPlayer],
-            },
-        },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-GOLGARI-GERMINATION",
-            ability: TriggeredAbility {
-                id: "controlled-nontoken-creature-dies-create-saproling",
-                condition: TriggerCondition::ControlledNontokenCreatureDies,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::CreateToken {
-                    token: TokenSpec::saproling(),
-                    count: 1,
-                }],
-            },
-        },
+        cards::searing_meditation::triggered_ability(),
+        cards::carven_caryatid::triggered_ability(),
+        cards::drake_familiar::triggered_ability(),
+        cards::bramble_elemental::triggered_ability(),
+        cards::sparkmage_apprentice::triggered_ability_binding(),
+        cards::hunted_dragon::triggered_ability(),
+        cards::hunted_lammasu::triggered_ability(),
+        cards::hunted_horror::triggered_ability(),
+        cards::hunted_troll::triggered_ability(),
+        cards::hunted_phantasm::triggered_ability(),
+        cards::keening_banshee::triggered_ability(),
+        cards::vedalken_dismisser::triggered_ability(),
+        cards::infectious_host::triggered_ability(),
+        cards::transluminant::triggered_ability(),
+        cards::trophy_hunter::triggered_ability_binding(),
+        cards::twilight_drover::triggered_ability(),
+        cards::surveilling_sprite::triggered_ability(),
+        cards::zephyr_spirit::triggered_ability(),
+        cards::flame_kin_zealot::triggered_ability(),
+        cards::frenzied_goblin::triggered_ability(),
+        cards::agrus_kos_wojek_veteran::triggered_ability(),
+        cards::dromad_purebred::triggered_ability(),
+        cards::loxodon_hierarch::triggered_ability(),
+        cards::centaur_safeguard::triggered_ability(),
+        cards::sunhome_enforcer::triggered_ability(),
+        cards::coalhauler_swine::triggered_ability(),
+        cards::belltower_sphinx::triggered_ability(),
+        cards::sell_sword_brute::triggered_ability(),
+        cards::sadistic_augermage::triggered_ability(),
+        cards::golgari_germination::triggered_ability(),
         TriggeredAbilityBinding {
             card_definition: "RAV-VINDICTIVE-MOB",
             ability: TriggeredAbility {
@@ -10566,6 +4641,7 @@ pub fn rav_attachment_triggered_ability_bindings() -> Vec<TriggeredAbilityBindin
                 effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
             },
         },
+        cards::galvanic_arc::triggered_ability_binding(),
     ]
 }
 
@@ -10576,26 +4652,11 @@ pub fn rav_attachment_triggered_ability_bindings() -> Vec<TriggeredAbilityBindin
 #[must_use]
 pub fn rav_basic_land_type_bindings() -> Vec<BasicLandTypeBinding> {
     vec![
-        BasicLandTypeBinding {
-            card_definition: "RAV-PLAINS",
-            land_type: BasicLandType::Plains,
-        },
-        BasicLandTypeBinding {
-            card_definition: "RAV-ISLAND",
-            land_type: BasicLandType::Island,
-        },
-        BasicLandTypeBinding {
-            card_definition: "RAV-SWAMP",
-            land_type: BasicLandType::Swamp,
-        },
-        BasicLandTypeBinding {
-            card_definition: "RAV-MOUNTAIN",
-            land_type: BasicLandType::Mountain,
-        },
-        BasicLandTypeBinding {
-            card_definition: "RAV-FOREST",
-            land_type: BasicLandType::Forest,
-        },
+        cards::plains::basic_land_type_binding(),
+        cards::island::basic_land_type_binding(),
+        cards::swamp::basic_land_type_binding(),
+        cards::mountain::basic_land_type_binding(),
+        cards::forest::basic_land_type_binding(),
     ]
 }
 
@@ -10603,10 +4664,7 @@ pub fn rav_basic_land_type_bindings() -> Vec<BasicLandTypeBinding> {
 /// cost payment; RAV only declares which public definition requires it.
 #[must_use]
 pub fn rav_additional_spell_cost_bindings() -> Vec<AdditionalSpellCostBinding> {
-    vec![AdditionalSpellCostBinding {
-        card_definition: "RAV-FIERY-CONCLUSION",
-        cost: AdditionalSpellCost::SacrificeControlledCreature,
-    }]
+    vec![cards::fiery_conclusion::additional_spell_cost_binding()]
 }
 
 /// Source-bound generic reductions supplied by RAV permanents.
@@ -10624,13 +4682,7 @@ pub fn rav_cost_reduction_bindings() -> Vec<CostReductionBinding> {
 /// revokes its contribution without a card-specific cleanup path.
 #[must_use]
 pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCostModifierBinding> {
-    vec![ActivatedAbilityCostModifierBinding {
-        source_definition: "RAV-SUPPRESSION-FIELD",
-        modifier: ActivatedAbilityCostModifier::IncreaseGeneric {
-            amount: 2,
-            nonmana_only: true,
-        },
-    }]
+    vec![cards::suppression_field::cost_modifier_binding()]
 }
 
 /// Immutable generalized activation costs used by the executable RAV slice.
@@ -10646,22 +4698,8 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
                 ..GeneralizedActivatedAbilityCost::default()
             },
         },
-        ActivatedAbilityCostBinding {
-            card_definition: "RAV-CARRION-HOWLER",
-            ability_id: "pay-life-pump-plus-two-minus-one",
-            cost: GeneralizedActivatedAbilityCost {
-                life_payment: 1,
-                ..GeneralizedActivatedAbilityCost::default()
-            },
-        },
-        ActivatedAbilityCostBinding {
-            card_definition: "RAV-LEASHLING",
-            ability_id: "hand-card-library-top-return-source",
-            cost: GeneralizedActivatedAbilityCost {
-                put_hand_cards_on_library_top: 1,
-                ..GeneralizedActivatedAbilityCost::default()
-            },
-        },
+        cards::carrion_howler::life_pump_cost(),
+        cards::leashling::activated_ability_cost(),
         ActivatedAbilityCostBinding {
             card_definition: "RAV-BLOODLETTER-QUILL",
             ability_id: "blue-black-remove-blood",
@@ -10686,14 +4724,8 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
                 ..GeneralizedActivatedAbilityCost::default()
             },
         },
-        ActivatedAbilityCostBinding {
-            card_definition: "RAV-DARK-HEART-OF-THE-WOOD",
-            ability_id: "green-sacrifice-forest-gain-three-life",
-            cost: GeneralizedActivatedAbilityCost {
-                sacrifice_land_basic_type: Some(BasicLandType::Forest),
-                ..GeneralizedActivatedAbilityCost::default()
-            },
-        },
+        cards::dark_heart_of_the_wood::activated_ability_cost(),
+        cards::twilight_drover::activated_ability_cost(),
         ActivatedAbilityCostBinding {
             card_definition: "RAV-SUNFORGER",
             ability_id: "red-white-detach-search-and-cast-instant",
@@ -10728,10 +4760,7 @@ pub fn rav_replacement_effect_bindings() -> Vec<ReplacementEffectBinding> {
 #[must_use]
 pub fn rav_damage_replacement_effect_bindings() -> Vec<DamageReplacementEffectBinding> {
     vec![
-        DamageReplacementEffectBinding {
-            source_definition: "RAV-GHOSTS-OF-THE-INNOCENT",
-            effect: DamageReplacementEffect::HalveDamage,
-        },
+        cards::ghosts_of_the_innocent::damage_replacement_binding(),
         DamageReplacementEffectBinding {
             source_definition: "RAV-PHYTOHYDRA",
             effect: DamageReplacementEffect::PreventSelfDamageAndAddPlusOneCounters,
@@ -10741,76 +4770,6 @@ pub fn rav_damage_replacement_effect_bindings() -> Vec<DamageReplacementEffectBi
             effect: DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
         },
     ]
-}
-
-fn signet_binding(
-    card_definition: &'static str,
-    id: &'static str,
-    colors: [Color; 2],
-) -> ManaAbilityBinding {
-    ManaAbilityBinding {
-        card_definition,
-        ability: ActivatedManaAbility {
-            id,
-            tap_cost: true,
-            output: ManaAbilityOutput::PaidBundle {
-                mana_cost: ManaCost::new(1),
-                bundle: ManaBundle::new(colors.into_iter().map(|color| (color, 1))),
-            },
-            amount: 0,
-            life_payment: None,
-            controller_damage: None,
-        },
-    }
-}
-
-fn shock_land_mana_binding(
-    card_definition: &'static str,
-    id: &'static str,
-    mana_colors: [Color; 2],
-) -> ManaAbilityBinding {
-    ManaAbilityBinding {
-        card_definition,
-        ability: ActivatedManaAbility {
-            id,
-            tap_cost: true,
-            output: ManaAbilityOutput::Choice(colors(mana_colors)),
-            amount: 1,
-            life_payment: None,
-            controller_damage: None,
-        },
-    }
-}
-
-fn guild_bounce_land_binding(
-    card_definition: &'static str,
-    id: &'static str,
-    colors: [Color; 2],
-) -> ManaAbilityBinding {
-    ManaAbilityBinding {
-        card_definition,
-        ability: ActivatedManaAbility {
-            id,
-            tap_cost: true,
-            output: ManaAbilityOutput::Bundle(ManaBundle::new(
-                colors.into_iter().map(|color| (color, 1)),
-            )),
-            amount: 0,
-            life_payment: None,
-            controller_damage: None,
-        },
-    }
-}
-
-fn guild_bounce_land_trigger() -> TriggeredAbility {
-    TriggeredAbility {
-        id: "return-controlled-land",
-        condition: TriggerCondition::EntersBattlefield,
-        mana_cost: ManaCost::new(0),
-        optional: false,
-        targets: vec![cardbench_magic_engine::TargetRequirement::ControlledLand],
-        effects: vec![Effect::ReturnControlledLandToHand],
-    }
 }
 
 /// Ensures that complete catalog coverage cannot quietly change the executable
@@ -11435,6 +5394,7 @@ pub fn new_rav_game(player_count: usize) -> Result<Game, RulesError> {
         rav_static_creature_spell_cost_modifier_bindings(),
     )?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
+    game.register_entry_attachment_bindings(rav_entry_attachment_bindings())?;
     game.register_entry_copy_bindings(rav_entry_copy_bindings())?;
     game.register_entry_coin_flip_bindings(rav_entry_coin_flip_bindings())?;
     game.register_legendary_permanent_bindings(rav_legendary_permanent_bindings())?;
@@ -11455,113 +5415,6 @@ pub fn new_rav_game(player_count: usize) -> Result<Game, RulesError> {
 
 fn fresh_game() -> Result<Game, RulesError> {
     new_rav_game(2)
-}
-
-fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) -> CardDefinition {
-    CardDefinition {
-        id,
-        name,
-        set_code: SET_CODE,
-        mana_cost: ManaCost::new(0),
-        colors: BTreeSet::new(),
-        mana_colors: BTreeSet::from([land_type.intrinsic_mana_color()]),
-        card_types: types([CardType::Land]),
-        is_basic_land: true,
-        supported_rules: &[
-            "full-rules-fidelity",
-            "basic-land-type-line",
-            "intrinsic-single-color-mana-ability",
-            "basic-land-deck-construction",
-        ],
-        power: None,
-        toughness: None,
-        keywords: vec![],
-        effects: vec![],
-    }
-}
-
-/// CardBench-authored executable definition for the four RAV Signets.
-/// It records only public identity, artifact type, colorless casting cost, and
-/// the shared paid two-color mana-ability hook; it contains no copied card
-/// rules text, art, flavor text, or card-database payload.
-fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
-    CardDefinition {
-        id,
-        name,
-        set_code: SET_CODE,
-        mana_cost: ManaCost::new(2),
-        colors: BTreeSet::new(),
-        mana_colors: BTreeSet::new(),
-        card_types: types([CardType::Artifact]),
-        is_basic_land: false,
-        supported_rules: &[
-            "full-rules-fidelity",
-            "artifact-casting",
-            "paid-fixed-two-color-mana-ability",
-            "cast-payment-mana-activation",
-        ],
-        power: None,
-        toughness: None,
-        keywords: vec![],
-        effects: vec![],
-    }
-}
-
-/// CardBench-authored full-fidelity definition for a RAV guild bounce land.
-/// The shared bindings preserve tapped entry, the documented deterministic
-/// ordinary ETB target selector, and the fixed two-color mana bundle without
-/// a card-name execution branch.
-fn guild_bounce_land(id: &'static str, name: &'static str) -> CardDefinition {
-    CardDefinition {
-        id,
-        name,
-        set_code: SET_CODE,
-        mana_cost: ManaCost::new(0),
-        colors: BTreeSet::new(),
-        mana_colors: BTreeSet::new(),
-        card_types: types([CardType::Land]),
-        is_basic_land: false,
-        supported_rules: &[
-            "full-rules-fidelity",
-            "enters-tapped",
-            "etb-return-controlled-land",
-            "free-two-color-mana-bundle",
-            "deterministic-etb-target-selection",
-        ],
-        power: None,
-        toughness: None,
-        keywords: vec![],
-        effects: vec![],
-    }
-}
-
-/// CardBench-authored full-fidelity definition for a RAV typed dual shock
-/// land. Its explicit life-payment entry replacement and color-choice mana
-/// ability are provided by the shared, auditable bindings.
-fn shock_land_definition(
-    id: &'static str,
-    name: &'static str,
-    mana_colors: [Color; 2],
-) -> CardDefinition {
-    CardDefinition {
-        id,
-        name,
-        set_code: SET_CODE,
-        mana_cost: ManaCost::new(0),
-        colors: BTreeSet::new(),
-        mana_colors: BTreeSet::from(mana_colors),
-        card_types: types([CardType::Land]),
-        is_basic_land: false,
-        supported_rules: &[
-            "full-rules-fidelity",
-            "optional-two-life-untapped-entry",
-            "chosen-dual-color-mana-ability",
-        ],
-        power: None,
-        toughness: None,
-        keywords: vec![],
-        effects: vec![],
-    }
 }
 
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {

@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 10
+definition_id = "RAV-CONCLAVE-PHALANX"
+card_name = "Conclave Phalanx"
+printed_mana_cost = "{4}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 2
+toughness = 4
+keywords = ["convoke"]
+abilities = ["Convoke", "Enters-the-battlefield life gain equal to creatures its controller controls"]
+source_authority = "RAV printed card identity, cost, color, type line, power, toughness, Convoke, and ETB life ability represented by the candidate-owned definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-2-4-convoke-creature"
+summary = "Resolve a white 2/4 Creature with exact {4}{W} cost, live Convoke, and the supported life-gain ETB ability."
+trace_required = true
+
+[[features]]
+id = "four-generic-convoke-and-white-symbol"
+summary = "Tap four distinct creatures for four Generic Convoke contributions and pay the single White symbol with exactly one White mana."
+trace_required = true
+
+[[features]]
+id = "controller-creature-count-at-resolution"
+summary = "With five creatures controlled by the Phalanx player and one opposing creature present, resolve the ETB trigger and gain exactly five life."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-compiled-mutants"
+summary = "Complete a legal shuffled full game, replay it deterministically, and reject compiled mutations removing Convoke, increasing generic cost, or counting all battlefield creatures."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "603.2 and 603.6a Enters-the-battlefield triggers", "608.2 Triggered ability resolution", "702.50 Convoke", "119 Life totals and life gain"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

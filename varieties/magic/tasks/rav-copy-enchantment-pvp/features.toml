@@ -1,0 +1,59 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 42
+definition_id = "RAV-COPY-ENCHANTMENT"
+card_name = "Copy Enchantment"
+printed_mana_cost = "{2}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+card_subtypes = []
+keywords = []
+abilities = ["As Copy Enchantment enters the battlefield, you may choose an enchantment on the battlefield. If you do, Copy Enchantment enters as a copy of that enchantment."]
+source_authority = "RAV printed identity and rules text; current Oracle changes the zone terminology without changing the optional as-enters copy behavior"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no image, scan, flavor, or rules-text corpus"
+
+[[features]]
+id = "optional-enchantment-entry-copy"
+summary = "Verify the first Copy Enchantment resolves with a public source-choice decision and enters as the selected battlefield enchantment."
+trace_required = true
+
+[[features]]
+id = "decline-entry-copy"
+summary = "Verify a second Copy Enchantment can decline the optional source choice and enters as its unmodified enchantment definition."
+trace_required = true
+
+[[features]]
+id = "copied-aura-attachment-choice"
+summary = "Verify choosing Fists of Ironwood causes the copied Aura to make a separate legal attachment choice for the controlled Watchwolf."
+trace_required = true
+
+[[features]]
+id = "copy-receipt-and-source-incarnation"
+summary = "Verify the permanent-copy event names the live Aura source and the entering Copy Enchantment target with matching object incarnations."
+trace_required = true
+
+[[features]]
+id = "copied-aura-trigger-and-full-game"
+summary = "Verify the copied Fists Aura triggers on its own entry, creates two Saprolings, remains attached, and participates in a deterministic full-game PvP win; semantic mutations must fail."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110.5 Copyable values", "303.4 Aura attachment", "400.7 Zone changes and new objects", "601.2 Casting spells", "614 Replacement effects", "614.12 As-enters replacement effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Current card record with RAV printing identity and Oracle text"
+card = "Copy Enchantment"
+collector_number = 42
+url = "https://mtg.wtf/card/rav/42/Copy-Enchantment"
+retained_data = "Public identity, collector number, mana cost, color, card type, and as-enters copy rules behavior"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

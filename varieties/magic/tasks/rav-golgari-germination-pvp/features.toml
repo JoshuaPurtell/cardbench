@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 209
+definition_id = "RAV-GOLGARI-GERMINATION"
+card_name = "Golgari Germination"
+printed_mana_cost = "{1}{B}{G}"
+colors = ["black", "green"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Whenever a nontoken creature you control dies, create a 1/1 green Saproling creature token"]
+source_authority = "RAV printing identity and candidate-owned definition and triggered ability; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-colored-casting-cost"
+summary = "Cast Golgari Germination for the exact {1}{B}{G} cost as a black-green enchantment."
+trace_required = true
+
+[[features]]
+id = "controlled-nontoken-creature-dies"
+summary = "A nontoken creature controlled by Golgari Germination's controller dies while the enchantment is on the battlefield and stacks one mandatory trigger."
+trace_required = true
+
+[[features]]
+id = "one-green-saproling-token"
+summary = "Resolve that trigger and verify exactly one green 1/1 Saproling creature token enters under the enchantment controller's control."
+trace_required = true
+
+[[features]]
+id = "complete-legal-game-and-mutations"
+summary = "Continue the deterministic legal duel to a seat-zero win and detect gameplay mutations to the printed cost, trigger condition, and token specification."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110.5 Tokens", "117 Priority", "302.1 Creature characteristics", "603.2 Trigger events", "603.6c Leaves-the-battlefield triggers", "608.2 Resolving abilities", "704 State-based actions", "111 Token characteristics"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Golgari Germination"
+collector_number = 209
+url = "https://scryfall.com/card/rav/209/golgari-germination"
+retained_data = "Public card identity, mana cost, colors, enchantment type, and triggered ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

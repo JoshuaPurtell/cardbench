@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-ordruun-commando"
+definition_id = "RAV-ORDRUUN-COMMANDO"
+expansion = "RAV"
+variant = "single-card"
+bundle = "ordruun_commando_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ordruun_commando.rs"
+authority_bin = "rav-ordruun-commando-pvp"
+materializer = "varieties/magic/scripts/materialize_ordruun_commando_task.py"
+scorer = "varieties/magic/scripts/score_ordruun_commando_pvp.py"
+review_scope = "Ordruun Commando RAV #137 identity, exact {3}{R} cast and 4/1 battlefield state, candidate-owned {W} shield ability and binding, mana/payment and resolution ordering, opposing attack/block, one prevented combat damage, lethal reciprocal combat damage and graveyard movement, later combat win, targeted mutations, candidate materialization, source contract, and Harbor report"
+review_files = [
+  "adapters/harbor/bundles/ordruun_commando_card/README.md",
+  "adapters/harbor/bundles/ordruun_commando_card/instruction.md",
+  "adapters/harbor/bundles/ordruun_commando_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_ordruun_commando_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_ordruun_commando_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_ordruun_commando_pvp.rs",
+  "varieties/magic/engine/INVARIANTS.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ordruun_commando.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-ordruun-commando-pvp/README.md",
+  "varieties/magic/tasks/rav-ordruun-commando-pvp/features.toml",
+  "varieties/magic/tasks/rav-ordruun-commando-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Ordruun Commando definition is outside its literal source contract"
+
+[mutation]
+find = "amount: 1 }],"
+replace = "amount: 0 }],"
+expected_diagnostic = "Ordruun Commando activated ability is outside its literal source contract"

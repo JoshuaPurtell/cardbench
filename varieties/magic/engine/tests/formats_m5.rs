@@ -1,16 +1,18 @@
-//! M5 format fixtures: Two-Headed Giant and mini-Commander.
+//! M5 format *capability* fixtures: Two-Headed Giant and mini-Commander.
 //!
 //! These are the deterministic tests that back flipping
 //! `FormatCapability::TwoHeadedGiant` and `FormatCapability::Commander` from
 //! `Absent` to `Supported` in the protocol capability manifest. They mirror
-//! the Harbor-grade Python gold in `varieties/magic/formats_gold/`:
+//! the archived Python gold in `varieties/magic/formats_gold/`:
 //!
 //! - `test_engine.py::test_two_headed_giant_damage_hits_shared_team_life`
 //! - `test_engine.py::test_commander_unblocked_swing_reaches_21`
 //!
 //! Card names, power, and toughness are the public Ravnica facts the gold
-//! uses. Mana is generic and the lists are mini-lists, not 100-card EDH: deck
-//! construction is deliberately out of this slice.
+//! uses. Mana is generic and the lists are mini-lists. Deck construction is
+//! deliberately out of this slice: a Watchwolf already in play with empty
+//! libraries is **not** an admitted Commander workload. The 100-card RAV
+//! constructor lives in `rav_commander_workload.rs`. `CommanderEdh` stays Absent.
 
 use std::collections::BTreeSet;
 
@@ -189,10 +191,15 @@ fn pass_living_players(game: &mut Game) {
         if let Some(decision) = game.view_for_player(owner).unwrap().pending_decision {
             if decision.kind == cardbench_magic_engine::DecisionKind::CommanderReturn {
                 let cards = decision.candidates.iter().map(|card| card.id).collect();
-                game.submit_policy_move(owner, POLICY, PolicyAction::SubmitDecision {
-                    decision: decision.id,
-                    selection: cardbench_magic_engine::DecisionSelection::Objects(cards),
-                }).expect("fixture owner elects command-zone return");
+                game.submit_policy_move(
+                    owner,
+                    POLICY,
+                    PolicyAction::SubmitDecision {
+                        decision: decision.id,
+                        selection: cardbench_magic_engine::DecisionSelection::Objects(cards),
+                    },
+                )
+                .expect("fixture owner elects command-zone return");
                 return;
             }
         }

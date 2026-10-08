@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-cyclopean-snare"
+definition_id = "RAV-CYCLOPEAN-SNARE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "cyclopean_snare_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/cyclopean_snare.rs"
+authority_bin = "rav-cyclopean-snare-pvp"
+materializer = "varieties/magic/scripts/materialize_cyclopean_snare_task.py"
+scorer = "varieties/magic/scripts/score_cyclopean_snare_pvp.py"
+review_scope = "Cyclopean Snare RAV #259 identity, colorless artifact and {2} cast cost, candidate-owned {3}, tap, target-creature binding, exact target tap, source return to owner hand, ordered events, deterministic replay, full PvP, compiled semantic mutations, materializer/scorer, Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/cyclopean_snare_card/README.md",
+  "adapters/harbor/bundles/cyclopean_snare_card/instruction.md",
+  "adapters/harbor/bundles/cyclopean_snare_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_cyclopean_snare_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_cyclopean_snare_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_cyclopean_snare_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/cyclopean_snare.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-cyclopean-snare-pvp/README.md",
+  "varieties/magic/tasks/rav-cyclopean-snare-pvp/features.toml",
+  "varieties/magic/tasks/rav-cyclopean-snare-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Cyclopean Snare identity or activated ability differs from its feature contract"
+
+[mutation]
+find = "Effect::ReturnSourceToOwnersHand"
+replace = "Effect::TapTargetCreature, Effect::ReturnSourceToOwnersHand"
+expected_diagnostic = "Cyclopean Snare identity or activated ability differs from its feature contract"

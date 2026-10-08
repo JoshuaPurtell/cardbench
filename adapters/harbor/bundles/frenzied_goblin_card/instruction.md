@@ -1,0 +1,3 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/frenzied_goblin.rs` for RAV Frenzied Goblin (#125).
+
+The trusted authority checks the exact red 1/1 definition and candidate-owned optional `{R}` attack trigger against a full terminal PvP trace. The trigger must target the opposing Watchwolf only when it is a legal creature target; paying for and resolving the trigger must make that creature unable to block for the turn. The event log must show the legal attack, trigger stack, red payment, resolution, empty blocker assignment, combat damage, and terminal win. Do not edit any file outside the candidate-owned card module.

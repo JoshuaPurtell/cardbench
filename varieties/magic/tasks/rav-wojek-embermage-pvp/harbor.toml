@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-wojek-embermage"
+definition_id = "RAV-WOJEK-EMBERMAGE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "wojek_embermage_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wojek_embermage.rs"
+authority_bin = "rav-wojek-embermage-pvp"
+materializer = "varieties/magic/scripts/materialize_wojek_embermage_task.py"
+scorer = "varieties/magic/scripts/score_wojek_embermage_pvp.py"
+review_scope = "Wojek Embermage RAV #152 identity, {3}{R} red 1/2 creature, candidate-owned tap target-creature activation, one-damage Radiance color-sharing scope, exact recipient set, event order, deterministic full PvP, semantic mutations, materializer/scorer, Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/wojek_embermage_card/README.md",
+  "adapters/harbor/bundles/wojek_embermage_card/instruction.md",
+  "adapters/harbor/bundles/wojek_embermage_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_wojek_embermage_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_wojek_embermage_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_wojek_embermage_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wojek_embermage.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-wojek-embermage-pvp/README.md",
+  "varieties/magic/tasks/rav-wojek-embermage-pvp/features.toml",
+  "varieties/magic/tasks/rav-wojek-embermage-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Wojek Embermage identity or Radiance activation differs from its feature contract"
+
+[mutation]
+find = "Effect::DealDamage { amount: 1, target: TargetRequirement::Creature }"
+replace = "Effect::RadianceDealDamageToCreatures { amount: 1 }"
+expected_diagnostic = "Wojek Embermage identity or Radiance activation differs from its feature contract"

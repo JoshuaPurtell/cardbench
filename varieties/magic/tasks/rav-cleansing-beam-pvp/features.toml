@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 118
+definition_id = "RAV-CLEANSING-BEAM"
+card_name = "Cleansing Beam"
+printed_mana_cost = "{4}{R}"
+colors = ["red"]
+card_types = ["instant"]
+keywords = []
+abilities = ["Radiance — deal 2 damage to target creature and each other creature that shares a color with it"]
+source_authority = "RAV printed identity, {4}{R} cost, red Instant type, targeted-creature damage, Radiance color-sharing damage, lethal-damage state-based actions, and graveyard movement represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-instant-exact-cost"
+summary = "Cast Cleansing Beam as a red {4}{R} Instant with exactly five mana paid, including one red mana."
+trace_required = true
+
+[[features]]
+id = "radiance-shared-color-damage"
+summary = "Deal exactly 2 damage to the targeted white creature and another white creature, including one controlled by the pilot, while leaving a blue creature undamaged on the battlefield."
+trace_required = true
+
+[[features]]
+id = "lethal-damage-sba-and-graveyard-moves"
+summary = "Record both damage events, both lethal-damage state-based actions, each creature's graveyard move, spell resolution, and the spell's own graveyard move in order."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal-replay-and-mutants"
+summary = "Continue the shuffled duel to a terminal pilot win, replay deterministically, and detect removal of Radiance, a changed damage amount, and a changed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and choosing targets", "608.2 Resolving spells and abilities", "120.1 and 120.4 Damage dealt to creatures", "702.39 Radiance", "704.5g Lethal damage state-based action", "508.1 Declaring attackers", "510.1 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 80
+definition_id = "RAV-CLINGING-DARKNESS"
+card_name = "Clinging Darkness"
+printed_mana_cost = "{1}{B}"
+colors = ["black"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Aura enchant creature; attached creature gets -3/-1 while Clinging Darkness remains attached"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-aura-exact-casting"
+summary = "Cast the black Aura for exact {1}{B} payment in a legal PvP main phase."
+trace_required = true
+
+[[features]]
+id = "creature-attachment-and-minus-three-minus-one"
+summary = "Attach Clinging Darkness to the exact opposing creature and verify its live power/toughness becomes 0/2 from a 3/3 Watchwolf."
+trace_required = true
+
+[[features]]
+id = "full-game-combat-and-terminal"
+summary = "Continue the shuffled two-player game through legal combat to a terminal P0 win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay deterministically and reject mutations that change the modifier, remove Aura attachment, or change the mana cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Auras", "601.2 Casting spells", "608.2 Resolving spells", "613.4c Power/toughness effects", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

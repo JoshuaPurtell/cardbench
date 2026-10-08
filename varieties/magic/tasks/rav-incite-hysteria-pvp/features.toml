@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 132
+definition_id = "RAV-INCITE-HYSTERIA"
+card_name = "Incite Hysteria"
+printed_mana_cost = "{2}{R}"
+colors = ["red"]
+card_types = ["sorcery"]
+abilities = ["Radiance gives the target creature and each other creature sharing one of its colors CannotBlock until end of turn"]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "exact-red-sorcery-payment"
+summary = "Cast Incite Hysteria from a shuffled constructed deck and record a three-mana payment containing exactly one red mana."
+trace_required = true
+
+[[features]]
+id = "radiance-shared-color-scope"
+summary = "Apply the end-of-turn CannotBlock effect to the red target and another red creature sharing its color."
+trace_required = true
+
+[[features]]
+id = "unshared-color-blocker-remains-legal"
+summary = "Keep a green creature outside the Radiance recipient set and legally declare it as a blocker."
+trace_required = true
+
+[[features]]
+id = "rejected-block-preserves-state"
+summary = "Reject an otherwise legal block by the targeted red creature and preserve the blocker view and event log."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Complete the shuffled two-player game, replay it deterministically, and detect Radiance scope, keyword, and mana-cost mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting a spell and paying costs", "608.2 Resolving spells", "611.2 Continuous effects with end-of-turn duration", "613.1f Layer-six keyword effects", "702.50 Radiance", "509.1 Declaring blockers"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Incite Hysteria"
+collector_number = 132
+url = "https://scryfall.com/card/rav/132/incite-hysteria"
+retained_data = "Public card identity, mana cost, color, type, and CardBench-authored Radiance/CannotBlock operation needed by the trace"

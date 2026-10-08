@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-ursapine-pvp"
+definition_id = "RAV-URSAPINE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "ursapine_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ursapine.rs"
+authority_bin = "rav-ursapine-pvp"
+materializer = "varieties/magic/scripts/materialize_ursapine_task.py"
+scorer = "varieties/magic/scripts/score_ursapine_pvp.py"
+review_scope = "RAV Ursapine #188 identity and {3}{G}{G} 3/3 creature cost/stats; {G} activated ability; legal controlled-creature targeting; +1/+1 until-end-of-turn layer; combat damage and cleanup; shuffled 60-card full-game PvP; terminal result, deterministic replay, pump/cost/binding mutations, compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/ursapine_card/README.md",
+  "adapters/harbor/bundles/ursapine_card/instruction.md",
+  "adapters/harbor/bundles/ursapine_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/scripts/materialize_ursapine_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_ursapine_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_ursapine_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ursapine.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-ursapine-pvp/README.md",
+  "varieties/magic/tasks/rav-ursapine-pvp/features.toml",
+  "varieties/magic/tasks/rav-ursapine-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Ursapine must bind {G}: target creature gets +1/+1 until end of turn"
+
+[mutation]
+find = "power: 1,"
+replace = "power: 0,"
+expected_diagnostic = "Ursapine must bind {G}: target creature gets +1/+1 until end of turn"

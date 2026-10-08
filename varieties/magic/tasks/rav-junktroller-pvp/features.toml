@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 264
+definition_id = "RAV-JUNKTROLLER"
+card_name = "Junktroller"
+printed_mana_cost = "{4}"
+colors = []
+card_types = ["artifact", "creature"]
+power = 0
+toughness = 6
+keywords = ["defender"]
+abilities = ["tap: Put target card from a graveyard on the bottom of its owner's library"]
+source_authority = "RAV #264 original printed card scan shows a tap-only activation; the ability puts the target on the bottom of its owner's library without a shuffle instruction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "colorless-artifact-creature-defender"
+summary = "Cast the exact colorless {4} 0/6 artifact creature through ordinary PvP actions and verify defender prevents it being declared as an attacker."
+trace_required = true
+
+[[features]]
+id = "tap-only-activation-cost"
+summary = "After Junktroller is no longer summoning sick, activate using only the tap cost and verify that no mana is paid for the ability."
+trace_required = true
+
+[[features]]
+id = "public-graveyard-target-owner-bottom"
+summary = "Target an opponent-owned card in that opponent's public graveyard and move that exact card to the bottom of its owner's library."
+trace_required = true
+
+[[features]]
+id = "no-shuffle-and-library-preservation"
+summary = "Verify the remaining owner-library order is preserved and the ability creates no shuffle receipt."
+trace_required = true
+
+[[features]]
+id = "terminal-duel-replay-and-mutations"
+summary = "Continue the legal 60-card match to a terminal result, replay deterministically, and detect semantic mutations to Junktroller's definition and activated ability."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.6 Creature summoning sickness", "400.7 Zone changes", "401.2 Library order", "601.2 Casting and payment", "602.1-602.2 Activated abilities", "608.2 Ability resolution"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,11 +1,9 @@
-//! Red discovery contract for Twilight Drover's leave-the-battlefield trigger
-//! and flying Spirit activation.
+//! Red discovery contract for Twilight Drover's token-only leave trigger.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AbilityActivation, CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId,
-    PolicyAction, Target, Zone,
+    CardType, CastRequest, Color, CounterKind, Game, GameEvent, ManaCost, PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -31,18 +29,17 @@ fn twilight_drover_definition_and_rules_contract_exist() {
     assert!(
         definition
             .supported_rules
-            .contains(&"another-creature-leaves-battlefield-plus-one-counter")
+            .contains(&"creature-token-leaves-battlefield-plus-one-counter")
     );
     assert!(
         definition
             .supported_rules
-            .contains(&"activated-create-flying-spirit")
+            .contains(&"activated-remove-counter-create-two-flying-spirits")
     );
 }
 
 #[test]
-#[allow(clippy::too_many_lines)]
-fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
+fn twilight_drover_does_not_trigger_when_a_nontoken_creature_bounces() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
@@ -110,74 +107,19 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
     game.pass_priority(PlayerId(0)).expect("Clutch pass");
     game.pass_priority(PlayerId(1)).expect("Clutch resolves");
     assert_eq!(game.zone_of(exiter), Some(Zone::Hand));
-    assert!(game.event_log.iter().any(|event| matches!(
+    assert!(!game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == drover && *ability == "another-creature-leaves-plus-one-counter"
+            if *source == drover && *ability == "creature-token-leaves-plus-one-counter"
     )));
-
-    game.pass_priority(PlayerId(0))
-        .expect("Drover trigger pass");
-    game.pass_priority(PlayerId(1))
-        .expect("Drover trigger enters optional choice");
-    game.submit_policy_move(
-        PlayerId(0),
-        "twilight-drover-test.v1",
-        PolicyAction::ResolveOptionalTriggeredAbility {
-            decision: game
-                .view_for_player(PlayerId(0))
-                .expect("controller view")
-                .optional_triggered_ability_choice
-                .expect("optional trigger choice")
-                .decision,
-            source: drover,
-            ability: "another-creature-leaves-plus-one-counter",
-            pay: true,
-            target: None,
-        },
-    )
-    .expect("accept Drover trigger");
     assert_eq!(
         game.object(drover)
             .expect("Drover remains")
             .counters
-            .get(&cardbench_magic_engine::CounterKind::PlusOnePlusOne),
-        Some(&1)
-    );
-
-    game.activate_ability(
-        PlayerId(0),
-        AbilityActivation {
-            source: drover,
-            ability_id: "create-flying-spirit",
-            sacrifice_sources: vec![],
-            additional_tap_creatures: vec![],
-            discard_cards: vec![],
-            targets: vec![],
-        },
-    )
-    .expect("Spirit activation stacks");
-    game.pass_priority(PlayerId(0)).expect("activation pass");
-    game.pass_priority(PlayerId(1))
-        .expect("activation resolves");
-    assert!(game.event_log.iter().any(|event| matches!(
-        event,
-        GameEvent::TokenCreated { player, .. } if *player == PlayerId(0)
-    )));
-    assert_eq!(
-        game.players[0]
-            .battlefield
-            .iter()
-            .filter(|card| game
-                .object(**card)
-                .expect("battlefield object")
-                .token
-                .is_some())
-            .count(),
-        1
+            .get(&CounterKind::PlusOnePlusOne),
+        None
     );
     assert_eq!(game.zone_of(white), Some(Zone::Battlefield));
     game.validate_invariants()
         .expect("Twilight Drover preserves invariants");
-    eprintln!("Twilight Drover trace={:?}", game.canonical_event_log());
 }

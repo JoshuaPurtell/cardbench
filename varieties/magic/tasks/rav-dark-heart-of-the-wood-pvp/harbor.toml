@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dark-heart-of-the-wood"
+definition_id = "RAV-DARK-HEART-OF-THE-WOOD"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dark_heart_of_the_wood_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dark_heart_of_the_wood.rs"
+authority_bin = "rav-dark-heart-of-the-wood-pvp"
+materializer = "varieties/magic/scripts/materialize_dark_heart_of_the_wood_task.py"
+scorer = "varieties/magic/scripts/score_dark_heart_of_the_wood_pvp.py"
+review_scope = "Dark Heart of the Wood #200 identity, {B}{G} cast, {G} activation, exact Forest sacrifice cost, three life gain on resolution, combat/game terminal, deterministic replay, semantic mutations, task tooling, Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/dark_heart_of_the_wood_card/README.md",
+  "adapters/harbor/bundles/dark_heart_of_the_wood_card/instruction.md",
+  "adapters/harbor/bundles/dark_heart_of_the_wood_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_dark_heart_of_the_wood_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_dark_heart_of_the_wood_pvp.py",
+  "varieties/magic/session/src/bin/rav_dark_heart_of_the_wood_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dark_heart_of_the_wood.rs",
+  "varieties/magic/tasks/rav-dark-heart-of-the-wood-pvp/README.md",
+  "varieties/magic/tasks/rav-dark-heart-of-the-wood-pvp/features.toml",
+  "varieties/magic/tasks/rav-dark-heart-of-the-wood-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Dark Heart of the Wood candidate differs from the RAV #200 feature contract"
+
+[mutation]
+find = "Effect::GainLifeController { amount: 3 }"
+replace = "Effect::GainLifeController { amount: 2 }"
+expected_diagnostic = "Dark Heart of the Wood candidate differs from the RAV #200 feature contract"

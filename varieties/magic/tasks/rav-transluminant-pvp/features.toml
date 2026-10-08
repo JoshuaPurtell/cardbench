@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 186
+definition_id = "RAV-TRANSLUMINANT"
+card_name = "Transluminant"
+printed_mana_cost = "{1}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = []
+abilities = ["whenever this creature dies, you may create a 1/1 white Spirit creature token with flying"]
+source_authority = "RAV printed card identity and characteristics represented by the candidate card module and typed triggered-ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-cast-and-entry"
+summary = "Cast the green 2/2 from a legal 60-card Selesnya deck with one green and one generic mana, then resolve it through a live permanent entry."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-dies-binding"
+summary = "Transluminant's source-owned optional dies ability is stacked only after its battlefield incarnation moves to the graveyard."
+trace_required = true
+
+[[features]]
+id = "optional-white-spirit-token-choice"
+summary = "Accepting creates exactly one live white 1/1 Spirit with flying; declining creates no token from this trigger."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Both choice branches replay from the same constructed matchup; body, removed-trigger, and wrong-token semantic mutants are rejected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 Permanents", "111 Tokens", "117 Timing and Priority", "301-302 Creatures and creature spells", "601.2 Casting Spells", "603.2 and 603.6c Trigger Events and Dies Triggers", "603.5 Optional Triggered Abilities", "608.2 Resolving Spells and Abilities", "704.5f Lethal Damage State-Based Action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

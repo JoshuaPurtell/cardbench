@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 137
+definition_id = "RAV-ORDRUUN-COMMANDO"
+card_name = "Ordruun Commando"
+printed_mana_cost = "{3}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 4
+toughness = 1
+keywords = []
+abilities = ["{W} activated ability: prevent the next 1 damage that would be dealt to Ordruun Commando this turn"]
+source_authority = "RAV printing identity and characteristics, with the complete executable prevention ability in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "shuffled-game-cast-and-entry"
+summary = "In an ordinary shuffled two-player match, cast Ordruun Commando from its library with a paid {3}{R} cost and resolve the 4/1 creature onto the battlefield."
+trace_required = true
+
+[[features]]
+id = "white-activation-payment-and-resolution"
+summary = "During the opponent's attack turn, tap a Plains for white mana, pay {W}, activate the candidate-owned ability with no target or tap cost, and resolve it before the combat damage step."
+trace_required = true
+
+[[features]]
+id = "live-combat-prevention-and-state-change"
+summary = "A live opposing Elves of Deep Shadow attacks and is blocked by the Commando. The resolved shield prevents the exact 1 combat damage to Commando, its 4 combat damage kills the Elf, and the Elf moves to its graveyard while the Commando remains an undamaged 4/1."
+trace_required = true
+
+[[features]]
+id = "later-combat-and-terminal-win"
+summary = "The surviving Commando attacks in the same shuffled game, deals 4 combat damage to the opponent, and the game ends with a seat-zero win and no rejected policy moves."
+trace_required = true
+
+[[features]]
+id = "targeted-ability-and-cost-mutations"
+summary = "The trace rejects zero shield, a red instead of white activation cost, an added source tap cost, and a red-creature casting-cost mutation."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and Priority", "202 Mana Cost and Color", "302.1 Creatures", "510.1-510.2 Combat Damage", "601.2 Casting Spells", "602.1-602.2 Activated Abilities, Costs, and Stack Placement", "608.2 Resolving Spells and Abilities", "611.2a Continuous Effects Created on Resolution", "615.3-615.7 Prevention Effects and Damage Shields", "704.5g Lethal Damage State-Based Action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Ordruun Commando"
+collector_number = 137
+url = "https://scryfall.com/card/rav/137/ordruun-commando"
+retained_data = "Public card identity, cost, color, creature type, power/toughness, and self-prevention ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

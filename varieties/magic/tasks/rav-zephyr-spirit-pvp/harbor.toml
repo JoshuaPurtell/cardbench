@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-zephyr-spirit"
+definition_id = "RAV-ZEPHYR-SPIRIT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "zephyr_spirit_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/zephyr_spirit.rs"
+authority_bin = "rav-zephyr-spirit-pvp"
+materializer = "varieties/magic/scripts/materialize_zephyr_spirit_task.py"
+scorer = "varieties/magic/scripts/score_zephyr_spirit_pvp.py"
+review_scope = "RAV Zephyr Spirit printing identity and candidate-owned definition/Blocks trigger; actual six-mana blue cast payment and live 0/6; real ground attacker, legal blocker assignment, trigger stack/resolution and source-specific owner-hand move; combat damage after return; later Watchwolf damage and terminal game; deterministic replay; targeted semantic mutation; compile-valid stub failure; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/zephyr_spirit_card/README.md",
+  "adapters/harbor/bundles/zephyr_spirit_card/instruction.md",
+  "adapters/harbor/bundles/zephyr_spirit_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_zephyr_spirit_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_zephyr_spirit_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_zephyr_spirit_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/zephyr_spirit.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/watchwolf.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-zephyr-spirit-pvp/README.md",
+  "varieties/magic/tasks/rav-zephyr-spirit-pvp/features.toml",
+  "varieties/magic/tasks/rav-zephyr-spirit-pvp/harbor.toml",
+  "varieties/magic/tasks/rav-watchwolf-pvp/README.md",
+  "varieties/magic/tasks/rav-watchwolf-pvp/features.toml",
+  "varieties/magic/tasks/rav-watchwolf-pvp/harbor.toml",
+  "adapters/harbor/bundles/watchwolf_card/README.md",
+  "adapters/harbor/bundles/watchwolf_card/instruction.md",
+  "adapters/harbor/bundles/watchwolf_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_watchwolf_task.py",
+  "varieties/magic/scripts/score_watchwolf_pvp.py",
+]
+stub_expected_diagnostic = "Zephyr Spirit was not returned to its owner's hand after its Blocks trigger"
+
+[mutation]
+find = "Effect::ReturnSourceToOwnersHand"
+replace = "Effect::DrawController"
+expected_diagnostic = "Zephyr Spirit was not returned to its owner's hand after its Blocks trigger"

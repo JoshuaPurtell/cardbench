@@ -1,0 +1,7 @@
+# Concerted Effort single-card PvP task
+
+Implement Concerted Effort (RAV #8) as a white `{2}{W}{W}` enchantment. Its mandatory beginning-of-upkeep trigger shares each exact Flying, First Strike, Double Strike, Landwalk, Protection, and Trample keyword instance among the controller's other creatures until end of turn. The trigger uses only keywords held by a different creature under the same controller; Protection color and Landwalk type remain attached to each exact keyword instance.
+
+The authority plays a shuffled 60-card RAV duel. It casts Concerted Effort and RAV creatures that supply Flying, First Strike, Double Strike, Islandwalk, and Trample through Fists of Ironwood attached to a different creature. It observes Watchwolf receive the available keywords after an actual upkeep trigger resolves, then attack and damage an opponent with a terminal player-zero win. The existing focused engine regression exercises the full six-family set, including typed Protection, no-self-sharing, and cleanup expiration. A bounded seed search finds a trace, replays that seed deterministically, and detects removal of the trigger, Flying family, and Trample family.
+
+Materialize and verify the public workspace with `materialize_concerted_effort_task.py --workspace PATH --manifest PATH` and the same command with `--verify`. The scorer validates the isolated report. Rewards, Harbor credit, and RAV card credit remain zero; this local trace is unreviewed diagnostic evidence.

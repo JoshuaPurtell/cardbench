@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-loxodon-hierarch-pvp"
+definition_id = "RAV-LOXODON-HIERARCH"
+expansion = "RAV"
+variant = "single-card"
+bundle = "loxodon_hierarch_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/loxodon_hierarch.rs"
+authority_bin = "rav-loxodon-hierarch-pvp"
+materializer = "varieties/magic/scripts/materialize_loxodon_hierarch_task.py"
+scorer = "varieties/magic/scripts/score_loxodon_hierarch_pvp.py"
+review_scope = "RAV Loxodon Hierarch #214 identity, white-green {2}{G}{W} 4/4 Elephant Cleric source line (subtype-model limitation disclosed), mandatory four-life entry trigger, {G}{W} paid source-sacrifice activation, resolution-time controller creature snapshot and per-creature regeneration shields, opposing Watchwolf exclusion, Char lethal damage and shield replacement, full-game PvP terminal win, deterministic replay and semantic/source-AST mutations, materialized workspace and trusted public stub rejection, Harbor boundary and provenance"
+review_files = [
+  "adapters/harbor/bundles/loxodon_hierarch_card/README.md",
+  "adapters/harbor/bundles/loxodon_hierarch_card/instruction.md",
+  "adapters/harbor/bundles/loxodon_hierarch_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/scripts/materialize_loxodon_hierarch_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_loxodon_hierarch_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_loxodon_hierarch_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/loxodon_hierarch.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/loxodon_hierarch_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/loxodon_hierarch_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-loxodon-hierarch-pvp/README.md",
+  "varieties/magic/tasks/rav-loxodon-hierarch-pvp/source-note.md",
+  "varieties/magic/tasks/rav-loxodon-hierarch-pvp/features.toml",
+  "varieties/magic/tasks/rav-loxodon-hierarch-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Loxodon Hierarch entry trigger must be mandatory and gain exactly four life"
+
+[mutation]
+find = "amount: 4"
+replace = "amount: 3"
+expected_diagnostic = "Loxodon Hierarch entry trigger must be mandatory and gain exactly four life"

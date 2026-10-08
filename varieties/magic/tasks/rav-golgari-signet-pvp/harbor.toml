@@ -1,0 +1,59 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-golgari-signet"
+definition_id = "RAV-GOLGARI-SIGNET"
+expansion = "RAV"
+variant = "single-card"
+bundle = "golgari_signet_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_signet.rs"
+authority_bin = "rav-golgari-signet-pvp"
+materializer = "varieties/magic/scripts/materialize_golgari_signet_task.py"
+scorer = "varieties/magic/scripts/score_golgari_signet_pvp.py"
+review_scope = "RAV Golgari Signet printing identity and candidate-owned paid black-green mana binding; real two-generic artifact casting; one-generic activation payment and tap cost; exact non-stack black-green output bundle; actual green generic and black-symbol Roofstalker Wight payment; live support 2/1 and later-turn combat; terminal PvP replay; wrong-color semantic mutation and compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/golgari_signet_card/README.md",
+  "adapters/harbor/bundles/golgari_signet_card/instruction.md",
+  "adapters/harbor/bundles/golgari_signet_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_golgari_signet_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_golgari_signet_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_golgari_signet_pvp.rs",
+  "varieties/magic/session/src/bin/rav_roofstalker_wight_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_signet.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/roofstalker_wight.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-golgari-signet-pvp/README.md",
+  "varieties/magic/tasks/rav-golgari-signet-pvp/features.toml",
+  "varieties/magic/tasks/rav-golgari-signet-pvp/harbor.toml",
+  "varieties/magic/tasks/rav-roofstalker-wight-pvp/README.md",
+  "varieties/magic/tasks/rav-roofstalker-wight-pvp/features.toml",
+  "varieties/magic/tasks/rav-roofstalker-wight-pvp/harbor.toml",
+  "adapters/harbor/bundles/roofstalker_wight_card/README.md",
+  "adapters/harbor/bundles/roofstalker_wight_card/instruction.md",
+  "adapters/harbor/bundles/roofstalker_wight_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_roofstalker_wight_task.py",
+  "varieties/magic/scripts/score_roofstalker_wight_pvp.py",
+]
+stub_expected_diagnostic = "Golgari Signet did not produce exactly black and green with its tap cost paid"
+
+[mutation]
+find = "[(Color::Green, 1), (Color::Black, 1)]"
+replace = "[(Color::Red, 1), (Color::Black, 1)]"
+expected_diagnostic = "Golgari Signet did not produce exactly black and green with its tap cost paid"

@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 29
+definition_id = "RAV-SCREECHING-GRIFFIN"
+card_name = "Screeching Griffin"
+printed_mana_cost = "{3}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = ["Flying"]
+abilities = ["targeted creature blocking restriction for the current turn"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-flying-cast"
+summary = "Cast Screeching Griffin through the normal spell stack, pay one white and three generic mana, and assert its live 2/2 Flying characteristics."
+trace_required = true
+
+[[features]]
+id = "opposing-live-flyer"
+summary = "Cast a real opposing Skyknight Legionnaire with red, white, and generic mana so the challenged blocker has Flying and is live."
+trace_required = true
+
+[[features]]
+id = "activated-blocking-restriction"
+summary = "Pay red to target the Skyknight, resolve the activated ability and its source-relative continuous effect, then reject its block without changing the event log."
+trace_required = true
+
+[[features]]
+id = "combat-and-terminal-state"
+summary = "Accept empty blockers after the rejected block, record Griffin's combat damage, and finish the constructed PvP game at a terminal result."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-and-stub"
+summary = "Replacing the blocking restriction with an unrelated target +1/+1 effect, and a compile-valid stub with that effect, must both reach and fail the target-blocking combat gate."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay"
+summary = "Replaying the seeded match reproduces the same ordered events, object identities, and terminal state."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and colored costs", "106.1 and 106.4 Mana and payment", "117.1b and 117.3c Priority", "302.1-302.6 Creature permanents and summoning sickness", "508.1 Declaring attackers", "509.1 Declaring blockers", "601.2 Casting spells", "602.1-602.2 Activated abilities", "608.3a Resolving permanent spells", "611.2a and 613 Until-end-of-turn continuous effects", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Screeching Griffin"
+collector_number = 29
+url = "https://scryfall.com/card/rav/29/screeching-griffin"
+retained_data = "Public identity, mana cost, color, type, power, toughness, Flying, and the targeted blocking restriction needed by the trace"

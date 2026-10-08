@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sparkmage-apprentice"
+definition_id = "RAV-SPARKMAGE-APPRENTICE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sparkmage_apprentice_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sparkmage_apprentice.rs"
+authority_bin = "rav-sparkmage-apprentice-pvp"
+materializer = "varieties/magic/scripts/materialize_sparkmage_apprentice_task.py"
+scorer = "varieties/magic/scripts/score_sparkmage_apprentice_pvp.py"
+review_scope = "Sparkmage Apprentice exact red and generic payment, candidate-owned ETB binding and target selection, one damage, target state-based action and graveyard move, empty blocker lane, post-trigger combat damage and terminal win, RAV catalog identity, source contract, task materializer, scorer, trusted authority, targeted mutations, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/sparkmage_apprentice_card/README.md",
+  "adapters/harbor/bundles/sparkmage_apprentice_card/instruction.md",
+  "adapters/harbor/bundles/sparkmage_apprentice_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_sparkmage_apprentice_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_sparkmage_apprentice_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_sparkmage_apprentice_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sparkmage_apprentice.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-sparkmage-apprentice-pvp/README.md",
+  "varieties/magic/tasks/rav-sparkmage-apprentice-pvp/features.toml",
+  "varieties/magic/tasks/rav-sparkmage-apprentice-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sparkmage Apprentice ETB binding differs from the feature contract"
+
+[mutation]
+find = "amount: 1,"
+replace = "amount: 0,"
+expected_diagnostic = "Sparkmage Apprentice ETB binding is outside its literal source contract"

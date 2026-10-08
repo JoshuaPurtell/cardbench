@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-cleansing-beam"
+definition_id = "RAV-CLEANSING-BEAM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "cleansing_beam_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/cleansing_beam.rs"
+authority_bin = "rav-cleansing-beam-pvp"
+materializer = "varieties/magic/scripts/materialize_cleansing_beam_task.py"
+scorer = "varieties/magic/scripts/score_cleansing_beam_pvp.py"
+review_scope = "Cleansing Beam RAV #118 identity and {4}{R} cost, Radiance damage to the target and other creatures sharing its color across both players, preservation of an off-color creature, ordered damage/SBA/graveyard/spell-resolution receipts, terminal PvP win, deterministic replay, three gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/cleansing_beam_card/README.md",
+  "adapters/harbor/bundles/cleansing_beam_card/instruction.md",
+  "adapters/harbor/bundles/cleansing_beam_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_cleansing_beam_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_cleansing_beam_pvp.py",
+  "varieties/magic/session/src/bin/rav_cleansing_beam_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/cleansing_beam.rs",
+  "varieties/magic/tasks/rav-cleansing-beam-pvp/README.md",
+  "varieties/magic/tasks/rav-cleansing-beam-pvp/features.toml",
+  "varieties/magic/tasks/rav-cleansing-beam-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Cleansing Beam candidate or registry differs from the exact RAV #118 identity and Radiance damage instruction"
+
+[mutation]
+find = "Effect::RadianceDealDamageToCreatures { amount: 2 }"
+replace = "Effect::RadianceDealDamageToCreatures { amount: 1 }"
+expected_diagnostic = "Cleansing Beam candidate or registry differs from the exact RAV #118 identity and Radiance damage instruction"

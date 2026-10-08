@@ -1,0 +1,34 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-bottled-cloister"
+definition_id = "RAV-BOTTLED-CLOISTER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "bottled_cloister_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/bottled_cloister.rs"
+authority_bin = "rav-bottled-cloister-pvp"
+materializer = "varieties/magic/scripts/materialize_bottled_cloister_task.py"
+scorer = "varieties/magic/scripts/score_bottled_cloister_pvp.py"
+review_scope = "Bottled Cloister RAV #256 identity; full-hand opponent-upkeep exile privately linked to the source incarnation; controller-upkeep return of the exact group before one draw; normal-game terminal win, replay, and semantic mutations; isolated diagnostic scoring with rewards and credit fixed at zero"
+review_files = [
+  "adapters/harbor/bundles/bottled_cloister_card/README.md",
+  "adapters/harbor/bundles/bottled_cloister_card/instruction.md",
+  "adapters/harbor/bundles/bottled_cloister_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_bottled_cloister_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_bottled_cloister_pvp.py",
+  "varieties/magic/session/src/bin/rav_bottled_cloister_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/bottled_cloister.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-bottled-cloister-pvp/README.md",
+  "varieties/magic/tasks/rav-bottled-cloister-pvp/features.toml",
+  "varieties/magic/tasks/rav-bottled-cloister-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Bottled Cloister must exile the current hand on opponent upkeep and return it before its own-upkeep draw"
+
+[mutation]
+find = "condition: TriggerCondition::BeginningOfOpponentsUpkeep"
+replace = "condition: TriggerCondition::BeginningOfUpkeep"
+expected_diagnostic = "Bottled Cloister must exile the current hand on opponent upkeep and return it before its own-upkeep draw"

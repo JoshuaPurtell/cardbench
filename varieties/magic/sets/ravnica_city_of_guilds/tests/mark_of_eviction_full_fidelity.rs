@@ -21,7 +21,7 @@ fn game_with_rav_bindings() -> Game {
 }
 
 #[test]
-fn mark_returns_its_currently_enchanted_creature_then_sba_cleans_up_the_aura() {
+fn mark_returns_its_enchanted_creature_and_itself_to_their_owners_hands() {
     let mut game = game_with_rav_bindings();
     let creature = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
@@ -38,7 +38,7 @@ fn mark_returns_its_currently_enchanted_creature_then_sba_cleans_up_the_aura() {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == mark && *ability == "upkeep-return-enchanted-creature"
+            if *source == mark && *ability == "upkeep-return-enchanted-creature-and-attached-auras"
     )));
 
     game.pass_priority(PlayerId(0))
@@ -51,7 +51,7 @@ fn mark_returns_its_currently_enchanted_creature_then_sba_cleans_up_the_aura() {
     );
 
     assert_eq!(game.zone_of(creature), Some(Zone::Hand));
-    assert_eq!(game.zone_of(mark), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(mark), Some(Zone::Hand));
     let returned = game
         .event_log
         .iter()
@@ -64,22 +64,29 @@ fn mark_returns_its_currently_enchanted_creature_then_sba_cleans_up_the_aura() {
             matches!(
                 event,
                 GameEvent::AbilityResolved { source, ability, .. }
-                    if *source == mark && *ability == "upkeep-return-enchanted-creature"
+                    if *source == mark && *ability == "upkeep-return-enchanted-creature-and-attached-auras"
             )
         })
         .expect("trigger resolves after its zone instruction");
-    let cleanup = game
+    let aura_returned = game
         .event_log
         .iter()
         .position(|event| {
             matches!(
                 event,
-                GameEvent::StateBasedAction { card, reason }
-                    if *card == mark && *reason == "Aura is not attached to a battlefield creature"
+                GameEvent::CardMoved { card, to: Zone::Hand } if *card == mark
             )
         })
-        .expect("unattached Aura receives ordinary SBA cleanup");
-    assert!(returned < resolved && resolved < cleanup);
+        .expect("Mark itself has an owner-hand receipt");
+    assert!(returned < resolved && aura_returned < resolved);
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::StateBasedAction { card, reason }
+                if *card == mark && *reason == "Aura is not attached to a battlefield creature"
+        )),
+        "Mark returns with the enchanted creature before Aura cleanup can apply"
+    );
     game.validate_invariants()
         .expect("source-relative upkeep trace preserves invariants");
 }

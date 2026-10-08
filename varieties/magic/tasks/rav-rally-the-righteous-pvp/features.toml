@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 222
+definition_id = "RAV-RALLY-THE-RIGHTEOUS"
+card_name = "Rally the Righteous"
+printed_mana_cost = "{1}{R}{W}"
+colors = ["red", "white"]
+card_types = ["instant"]
+abilities = ["Radiance — Untap all creatures that share a color with target creature. They get +2/+0 until end of turn."]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-white-cost-and-targeted-cast"
+summary = "Cast Rally the Righteous from a shuffled library at instant speed after declaring two Boros Swiftblades as attackers, pay Red, White, and Red, and confirm the chosen Swiftblade is a legal target on the live stack."
+trace_required = true
+
+[[features]]
+id = "radiance-untap-and-pump"
+summary = "Resolve Radiance on the target and its same-color attacker; verify both attackers untap and each is a live 3/2 before blockers."
+trace_required = true
+
+[[features]]
+id = "first-strike-combat-outcome"
+summary = "The target Swiftblade is blocked by a mono-green 2/3. Its first-strike damage kills the blocker before normal damage, while the unblocked Swiftblade deals three damage in both combat damage steps and wins the shuffled game."
+trace_required = true
+
+[[features]]
+id = "semantic-and-cost-mutations"
+summary = "Reference mutations to the +2 power bonus, same-color/untap behavior, and exact red-white cost each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.6 Mana spent to cast a spell", "117 Priority", "207.2c Ability words", "301.5 Instants", "601.2 Casting spells and paying costs", "608.2-608.3 Resolving spells and creating effects", "613.4 Layer 7 power and toughness modifiers", "502 Untap step", "510 Combat damage", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Rally the Righteous"
+collector_number = 222
+url = "https://scryfall.com/card/rav/222/rally-the-righteous"
+retained_data = "Public card identity, mana cost, colors, type, Radiance effect, untap operation, and +2/+0 modification needed by the trace"

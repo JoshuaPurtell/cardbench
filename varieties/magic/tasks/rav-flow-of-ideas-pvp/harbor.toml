@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-flow-of-ideas"
+definition_id = "RAV-FLOW-OF-IDEAS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "flow_of_ideas_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flow_of_ideas.rs"
+authority_bin = "rav-flow-of-ideas-pvp"
+materializer = "varieties/magic/scripts/materialize_flow_of_ideas_task.py"
+scorer = "varieties/magic/scripts/score_flow_of_ideas_pvp.py"
+review_scope = "RAV Flow of Ideas #50 single-card full-game trace; 291-name/306-printing catalog denominator; printed source contract; typed cast-payment, draw, resolution, replay, authority/scorer/materializer trust paths; isolated Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/flow_of_ideas_card/README.md",
+  "adapters/harbor/bundles/flow_of_ideas_card/instruction.md",
+  "adapters/harbor/bundles/flow_of_ideas_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/protocol/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_flow_of_ideas_pvp.rs",
+  "varieties/magic/scripts/materialize_flow_of_ideas_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_flow_of_ideas_pvp.py",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flow_of_ideas.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-flow-of-ideas-pvp/README.md",
+  "varieties/magic/tasks/rav-flow-of-ideas-pvp/features.toml",
+  "varieties/magic/tasks/rav-flow-of-ideas-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Flow of Ideas identity, exact {5}{U} cost, blue sorcery characteristics, or Island draw effect differs"
+
+[mutation]
+find = "land_type: BasicLandType::Island"
+replace = "land_type: BasicLandType::Forest"
+expected_diagnostic = "Flow of Ideas identity, exact {5}{U} cost, blue sorcery characteristics, or Island draw effect differs"

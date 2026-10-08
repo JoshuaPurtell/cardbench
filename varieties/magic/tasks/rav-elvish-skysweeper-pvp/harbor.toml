@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-elvish-skysweeper"
+definition_id = "RAV-ELVISH-SKYSWEEPER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "elvish_skysweeper_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/elvish_skysweeper.rs"
+authority_bin = "rav-elvish-skysweeper-pvp"
+materializer = "varieties/magic/scripts/materialize_elvish_skysweeper_task.py"
+scorer = "varieties/magic/scripts/score_elvish_skysweeper_pvp.py"
+review_scope = "Elvish Skysweeper RAV #162 identity and green {G} 1/1 body, printed Elf Warrior subtype metadata (not runtime asserted), {4}{G} activation, exactly one different Creature sacrificed, FlyingCreature target, destroy resolution and target graveyard movement, exact objects and receipt order, shuffled terminal PvP win, deterministic replay, five semantic mutations, pinned pre-call candidate AST validation and compile-valid side-effect injection rejection, candidate-only module edits, and isolated scorer/materializer/Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/elvish_skysweeper_card/README.md",
+  "adapters/harbor/bundles/elvish_skysweeper_card/instruction.md",
+  "adapters/harbor/bundles/elvish_skysweeper_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_elvish_skysweeper_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_elvish_skysweeper_pvp.py",
+  "varieties/magic/session/src/bin/rav_elvish_skysweeper_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/elvish_skysweeper.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/elvish_skysweeper_flying_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/tasks/rav-elvish-skysweeper-pvp/README.md",
+  "varieties/magic/tasks/rav-elvish-skysweeper-pvp/features.toml",
+  "varieties/magic/tasks/rav-elvish-skysweeper-pvp/harbor.toml",
+  "varieties/magic/tasks/rav-elvish-skysweeper-pvp/source-note.md",
+]
+stub_expected_diagnostic = "Elvish Skysweeper candidate activation differs from {4}{G}, sacrifice a creature, destroy target creature with flying"
+
+[mutation]
+find = "sacrifice_creatures: 0"
+replace = "sacrifice_creatures: 1"
+expected_diagnostic = "Elvish Skysweeper candidate activation differs from {4}{G}, sacrifice a creature, destroy target creature with flying"

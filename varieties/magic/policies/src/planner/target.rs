@@ -19,8 +19,13 @@ pub struct ScoredTarget {
 }
 
 /// Whether a permanent can legally be chosen as a target at all.
-fn targetable(permanent: &Permanent) -> bool {
+pub(crate) fn targetable(board: &Board, permanent: &Permanent) -> bool {
     !permanent.has(&Keyword::Shroud)
+        && !(permanent.has(&Keyword::Hexproof)
+            && board
+                .opponents
+                .iter()
+                .any(|opponent| opponent.seat == permanent.controller))
 }
 
 /// Whether `permanent` satisfies `requirement`.
@@ -33,7 +38,7 @@ fn matches_requirement(
     requirement: TargetRequirement,
     board: &Board,
 ) -> bool {
-    if !targetable(permanent) {
+    if !targetable(board, permanent) {
         return false;
     }
     let attacking = board

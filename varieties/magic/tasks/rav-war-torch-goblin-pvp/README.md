@@ -1,0 +1,3 @@
+# War-Torch Goblin RAV card task
+
+Implement War-Torch Goblin (RAV #151), a `{R}` 1/1 creature whose `{R}, sacrifice this creature` activated ability deals 2 damage to a target blocking creature. The ordinary shuffled two-player reference game casts and pays for the Goblin, casts a hasty Goblin Fire Fiend, and has a real Terraformer block it. War-Torch Goblin then pays `{R}`, is sacrificed as the activation cost, and kills the blocker before combat damage. Fire Fiend later attacks again and the game reaches a seat-zero win. Six focused mutations cover damage, activation color, tap cost, sacrifice, target boundary, and casting cost. Diagnostic reports credit no RAV coverage or Harbor reward.

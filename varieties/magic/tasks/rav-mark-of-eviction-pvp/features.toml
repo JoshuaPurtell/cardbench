@@ -1,0 +1,56 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 58
+definition_id = "RAV-MARK-OF-EVICTION"
+card_name = "Mark of Eviction"
+printed_mana_cost = "{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["aura-enchant-creature", "controller-upkeep-return-enchanted-creature-and-all-attached-auras"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-cost"
+summary = "Cast Mark of Eviction as a blue {U} enchantment Aura in a shuffled two-player 60-card duel."
+trace_required = true
+
+[[features]]
+id = "creature-aura-attachment"
+summary = "Target and attach Mark to the opponent's War-Torch Goblin; preserve the exact Aura and creature identities."
+trace_required = true
+
+[[features]]
+id = "controller-upkeep-trigger"
+summary = "Allow the opponent's upkeep to pass without triggering Mark, then stack and resolve the return trigger during Mark's controller's later upkeep."
+trace_required = true
+
+[[features]]
+id = "owner-zones-and-state-based-action"
+summary = "At the Aura controller's upkeep, return the enchanted creature and every Aura attached to it to their respective owners' hands."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the full duel to a seat-zero win and reproduce the ordered event log for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Removing attachment or the upkeep trigger, changing its controller condition or return instruction, or changing the cost must fail the gameplay oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Auras", "400.3 Zone changes and owners", "603.2-603.3 Triggered abilities", "603.4 Active player and trigger conditions", "117 Priority", "601.2 Casting and target announcement", "608 Resolving triggered abilities", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

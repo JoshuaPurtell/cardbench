@@ -1,0 +1,5 @@
+# Guardian of Vitu-Ghazi PvP card task
+
+Implement the candidate-owned RAV Guardian of Vitu-Ghazi definition. The diagnostic authority runs a shuffled, constructed 60-card game, creates three Saproling tokens, and casts the green-white 4/7 creature by tapping six distinct creatures for all six generic mana through Convoke and paying exactly one Green and one White mana for the colored symbols.
+
+The trace checks typed ordered payment, cast, resolution, battlefield entry, attack, blocker, combat damage, and game-end events. It inspects the live 4/7 with Convoke and Vigilance on entry and attack, and confirms Guardian remains untapped when declared as an attacker. Deterministic replay and compiled gameplay mutants cover Convoke, generic cost, and Vigilance. Stub matching is separately exercised with the generic Harbor reference qualifier and a compile-valid but incomplete public module. This remains diagnostic-only: 1 of 291 unique RAV names and 306 printings, with zero card credit and zero reward.

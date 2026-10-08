@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-peel-from-reality"
+definition_id = "RAV-PEEL-FROM-REALITY"
+expansion = "RAV"
+variant = "single-card"
+bundle = "peel_from_reality_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/peel_from_reality.rs"
+authority_bin = "rav-peel-from-reality-pvp"
+materializer = "varieties/magic/scripts/materialize_peel_from_reality_task.py"
+scorer = "varieties/magic/scripts/score_peel_from_reality_pvp.py"
+review_scope = "RAV Peel from Reality identity and candidate-owned definition; legal shuffled 60-card PvP; exact {1}{U} payment; controlled-creature target followed by opponent-creature target; ordered owner-preserving returns to hand; owner hand-view checks; deterministic replay; terminal duel win; target-scope, instruction, and cost gameplay mutations; source-contract stub rejection; and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/peel_from_reality_card/README.md",
+  "adapters/harbor/bundles/peel_from_reality_card/instruction.md",
+  "adapters/harbor/bundles/peel_from_reality_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_peel_from_reality_task.py",
+  "varieties/magic/scripts/score_peel_from_reality_pvp.py",
+  "varieties/magic/session/src/bin/rav_peel_from_reality_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/peel_from_reality.rs",
+  "varieties/magic/tasks/rav-peel-from-reality-pvp/README.md",
+  "varieties/magic/tasks/rav-peel-from-reality-pvp/features.toml",
+  "varieties/magic/tasks/rav-peel-from-reality-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Peel from Reality candidate definition differs from its feature contract"
+
+[mutation]
+find = "ReturnOpponentCreatureToHand"
+replace = "ReturnControlledCreatureToHand"
+expected_diagnostic = "Peel from Reality candidate definition differs from its feature contract"

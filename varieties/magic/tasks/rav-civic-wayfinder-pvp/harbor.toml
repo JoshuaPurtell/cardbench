@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-civic-wayfinder"
+definition_id = "RAV-CIVIC-WAYFINDER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "civic_wayfinder_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/civic_wayfinder.rs"
+authority_bin = "rav-civic-wayfinder-pvp"
+materializer = "varieties/magic/scripts/materialize_civic_wayfinder_task.py"
+scorer = "varieties/magic/scripts/score_civic_wayfinder_pvp.py"
+review_scope = "Civic Wayfinder full-game diagnostic card task, 291-name/306-printing denominator, RAV source contract and catalog, typed payment/cast/trigger/search/reveal/combat event trust paths, deterministic replay, semantic controls, source-authority stubbing, authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/civic_wayfinder_card/README.md",
+  "adapters/harbor/bundles/civic_wayfinder_card/instruction.md",
+  "adapters/harbor/bundles/civic_wayfinder_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_civic_wayfinder_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_civic_wayfinder_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_civic_wayfinder_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/civic_wayfinder.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-civic-wayfinder-pvp/README.md",
+  "varieties/magic/tasks/rav-civic-wayfinder-pvp/features.toml",
+  "varieties/magic/tasks/rav-civic-wayfinder-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Civic Wayfinder literal is outside the task source contract"
+
+[mutation]
+find = "power: Some(2)"
+replace = "power: Some(1)"
+expected_diagnostic = "Civic Wayfinder literal is outside the task source contract"

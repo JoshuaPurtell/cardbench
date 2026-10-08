@@ -1,0 +1,67 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 211
+definition_id = "RAV-GRAVE-SHELL-SCARAB"
+card_name = "Grave-Shell Scarab"
+printed_mana_cost = "{2}{B}{G}{G}"
+colors = ["black", "green"]
+card_types = ["creature"]
+power = 4
+toughness = 4
+keywords = ["Dredge 1"]
+abilities = ["{1}, sacrifice this creature: draw a card", "Dredge 1"]
+source_authority = "RAV printing identity and candidate-owned definition; CardBench-authored Dredge and zone-transition summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing and archived 2005 ruling"
+
+[[features]]
+id = "printed-identity-and-activation"
+summary = "Define Grave-Shell Scarab as a black-green {2}{B}{G}{G} 4/4 creature with Dredge 1 and a generic {1}, source-sacrifice activated draw ability."
+trace_required = true
+
+[[features]]
+id = "sacrifice-cost-before-resolution"
+summary = "Cast the Scarab in a shuffled PvP duel, pay {1}, and move the exact ability source to its owner's graveyard as the activation cost before its ability resolves."
+trace_required = true
+
+[[features]]
+id = "self-dredge-activated-draw"
+summary = "Select that same Scarab for Dredge 1 in the activated ability's live draw-replacement decision; mill exactly one library card and return the same object to hand before recasting it."
+trace_required = true
+
+[[features]]
+id = "decline-dredge-and-continue-game"
+summary = "Activate the recast Scarab again, decline Dredge 1, verify the ordinary card draw, then finish the PvP game through combat with a terminal pilot win."
+trace_required = true
+
+[[features]]
+id = "replay-and-mutation-sensitivity"
+summary = "Replay the same shuffled game deterministically and detect mutations to Dredge, its number, printed cost and body, activation cost, source sacrifice, activation binding, and draw effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and stack resolution", "202.1-202.2 Mana costs and color", "302.1-302.2 Creatures", "602.1 Activated abilities", "702.52 Dredge", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Grave-Shell Scarab"
+collector_number = 211
+url = "https://scryfall.com/card/rav/211/grave-shell-scarab"
+retained_data = "Public card identity, mana cost, colors, creature type, power/toughness, Dredge number, and activated-ability cost/effect needed by the trace"
+
+[[source_references]]
+source = "Archived 2005 ruling"
+card = "Grave-Shell Scarab"
+collector_number = 211
+url = "https://www.mtgsalvation.com/cards/ravnica-city-of-guilds/12260-grave-shell-scarab"
+retained_data = "The activated ability's draw may be replaced by the Scarab's own Dredge ability after the source is sacrificed"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

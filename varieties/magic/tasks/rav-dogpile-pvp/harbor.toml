@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dogpile-pvp"
+definition_id = "RAV-DOGPILE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dogpile_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dogpile.rs"
+authority_bin = "rav-dogpile-pvp"
+materializer = "varieties/magic/scripts/materialize_dogpile_task.py"
+scorer = "varieties/magic/scripts/score_dogpile_pvp.py"
+review_scope = "RAV Dogpile #120 identity and red {3}{R} instant cost; any-target legality; controlled attacking-creature count at resolution; exactly matching damage; shuffled 60-card full-game PvP; ordered combat/cast/damage/resolution/terminal receipts; deterministic replay; missing-effect, target-restriction, and mana-cost mutations; compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/dogpile_card/README.md",
+  "adapters/harbor/bundles/dogpile_card/instruction.md",
+  "adapters/harbor/bundles/dogpile_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/scripts/materialize_dogpile_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_dogpile_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_dogpile_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dogpile.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-dogpile-pvp/README.md",
+  "varieties/magic/tasks/rav-dogpile-pvp/features.toml",
+  "varieties/magic/tasks/rav-dogpile-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Dogpile must be a red {3}{R} instant targeting a player or creature for attacking-creature-count damage"
+
+[mutation]
+find = "target: TargetRequirement::PlayerOrCreature,"
+replace = "target: TargetRequirement::Creature,"
+expected_diagnostic = "Dogpile must be a red {3}{R} instant targeting a player or creature for attacking-creature-count damage"

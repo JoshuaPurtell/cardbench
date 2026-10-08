@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 243
+definition_id = "RAV-BOROS-RECRUIT"
+card_name = "Boros Recruit"
+printed_mana_cost = "{R/W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = ["first strike"]
+abilities = []
+source_authority = "RAV printed card identity and characteristics already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "hybrid-identity-and-casting"
+summary = "In two deterministic shuffled PvP games, cast Boros Recruit through a normal spell and priority lifecycle, with one trace paying the exact red/white hybrid {R/W} symbol using Red and the other using White."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical creature spell moves from the stack onto the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "live-creature-characteristics"
+summary = "The entered permanent has 1 power, 1 toughness, and First Strike in live characteristics."
+trace_required = true
+
+[[features]]
+id = "first-strike-blocker-combat"
+summary = "On a later turn, Boros Recruit attacks and Elves of Deep Shadow legally blocks; Recruit deals 1 damage in the First Strike damage step, the 1/1 blocker dies before normal combat damage, and Recruit remains tapped but undamaged."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and hybrid mana payment", "117 Timing and Priority", "208.1 and 302.4c Power and Toughness", "302.1-302.2 Creatures and creature spells", "508 Declaring Attackers", "510.4 and 702.7 First Strike", "601.2 Casting Spells", "608.3a Permanent Spell Resolution", "613 Continuous Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

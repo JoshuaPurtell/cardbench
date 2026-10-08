@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 5
+definition_id = "RAV-BOROS-FURY-SHIELD"
+card_name = "Boros Fury-Shield"
+printed_mana_cost = "{2}{W}"
+colors = ["white"]
+card_types = ["instant"]
+abilities = ["Prevent all combat damage that target creature would deal this turn", "If {R} was spent to cast this spell, it deals damage to that creature's controller equal to its power"]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "instant-cast-and-resolution"
+summary = "Cast Boros Fury-Shield at a real attacking Watchwolf during combat, record the exact white and generic mana receipts, resolve it through the stack, and move it to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "red-spend-conditional-damage"
+summary = "Pay {W}{R}{R}; install prevention for the target Watchwolf and deal exactly 3 damage to its controller, whose life total changes by three."
+trace_required = true
+
+[[features]]
+id = "nonred-spend-prevention-only"
+summary = "Pay {W}{G}{G}; install the same prevention for a real attacking Watchwolf without dealing damage to its controller."
+trace_required = true
+
+[[features]]
+id = "combat-damage-prevented-in-state"
+summary = "In both full games, the targeted Watchwolf's combat damage to seat zero is prevented and seat zero's life does not change from that packet."
+trace_required = true
+
+[[features]]
+id = "targeted-semantic-mutations"
+summary = "The reference trace rejects mutations to the red conditional damage, payment-color receipt, and combat-prevention event."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.6 Mana spent to cast a spell", "117 Priority", "601.2 Casting spells", "608.2-608.3 Resolving spells", "510 Combat damage", "611.2a Continuous effects with a duration"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Boros Fury-Shield"
+collector_number = 5
+url = "https://scryfall.com/card/rav/5/boros-fury-shield"
+retained_data = "Public card identity, mana cost, color, type, and conditional prevention/damage operations needed by the traces"

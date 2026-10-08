@@ -1,0 +1,42 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-voyager-staff"
+definition_id = "RAV-VOYAGER-STAFF"
+expansion = "RAV"
+variant = "single-card"
+bundle = "voyager_staff_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/voyager_staff.rs"
+authority_bin = "rav-voyager-staff-pvp"
+materializer = "varieties/magic/scripts/materialize_voyager_staff_task.py"
+scorer = "varieties/magic/scripts/score_voyager_staff_pvp.py"
+review_scope = "RAV #274 Voyager Staff original printed identity and timing-wording modernization; exact {1} artifact cast; instant-speed {2} sacrifice-source activation; opposing creature target; exact target/exile incarnation linked to its next-end-step return; owner control and new incarnation after return; normal full-game PvP terminal result and deterministic replay; semantic mutations; exact literal-source/AST guard before candidate calls and compile-valid side-effect rejection; zero rewards and credit"
+review_files = [
+  "adapters/harbor/bundles/voyager_staff_card/README.md",
+  "adapters/harbor/bundles/voyager_staff_card/instruction.md",
+  "adapters/harbor/bundles/voyager_staff_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/scripts/materialize_voyager_staff_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_voyager_staff_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_voyager_staff_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/voyager_staff.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/voyager_staff_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-voyager-staff-pvp/README.md",
+  "varieties/magic/tasks/rav-voyager-staff-pvp/source-note.md",
+  "varieties/magic/tasks/rav-voyager-staff-pvp/features.toml",
+  "varieties/magic/tasks/rav-voyager-staff-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Voyager Staff must pay {2}, sacrifice itself, exile the exact target, and return it at the next end step"
+
+[mutation]
+find = "mana_cost: ManaCost::new(2)"
+replace = "mana_cost: ManaCost::new(1)"
+expected_diagnostic = "Voyager Staff exact two-generic activation mutation escaped the trace oracle"

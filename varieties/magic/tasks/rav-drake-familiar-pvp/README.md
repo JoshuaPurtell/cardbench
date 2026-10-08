@@ -1,0 +1,9 @@
+# Drake Familiar RAV full-game task
+
+Implement Drake Familiar (#44) in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/drake_familiar.rs`. The RAV printing is a blue `{1}{U}` 2/1 Drake creature with Flying. Its mandatory enters-the-battlefield trigger is not targeted: as it resolves, its controller may return any battlefield enchantment, including one an opponent controls or an untargetable enchantment, to its owner's hand. If they decline or no enchantment is available, sacrifice Drake Familiar. The RAV FAQ and its 2005 ruling establish this scope; current Oracle preserves the same relevant behavior while modernizing the entry wording.
+
+The deterministic 60-card duel has the opponent cast Dark Heart of the Wood before Drake Familiar, then chooses that opponent-owned enchantment during Drake's resolution and attacks with the surviving Drake. It checks that the trigger is stacked without targets, the opponent receives the normal response window before the controller's resolution-time choice, the enchantment moves to its owner's hand, replay is deterministic, and the game reaches a clean seat-zero win. Separate focused contracts cover returning an opponent-owned enchantment, choosing an opponent's untargetable enchantment, declining despite eligible enchantments, no eligible enchantment, and a response that removes Drake Familiar before its trigger resolves.
+
+The trusted authority checks the complete candidate module source and AST before calling either candidate function. It syntactically parses a malicious side-effect mutation and verifies that the source gate rejects it before candidate functions can run; the injected fixture is not claimed to have been compiled. The full-game trace also detects gameplay mutations to the cost, characteristics, Flying, trigger, target status, and return/sacrifice operation.
+
+This is an uncredited local diagnostic. It runs no provider trial and awards no card credit, set completion, or Harbor reward.

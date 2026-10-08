@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 210
+definition_id = "RAV-GOLGARI-ROTWURM"
+card_name = "Golgari Rotwurm"
+printed_mana_cost = "{3}{B}{G}"
+colors = ["black", "green"]
+card_types = ["creature"]
+power = 5
+toughness = 4
+keywords = []
+abilities = ["{B}, sacrifice another creature: target player loses 1 life"]
+source_authority = "RAV printing identity and characteristics, with the activated operation represented in a candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "exact-black-green-creature-cast"
+summary = "Pay five mana including exactly the required black and green symbols, cast Rotwurm, and verify its live black-green 5/4 Creature characteristics."
+trace_required = true
+
+[[features]]
+id = "black-activation-creature-sacrifice"
+summary = "Pay exactly {B}, sacrifice a distinct Elves of Deep Shadow as the creature cost, and verify that fodder moves to its owner's graveyard before the ability is put on the stack."
+trace_required = true
+
+[[features]]
+id = "target-player-life-loss"
+summary = "Resolve the activated ability against the opponent and verify the typed LifeLost event reduces that player's life by exactly one."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-replay-mutants"
+summary = "Attack with the live 5/4 Rotwurm through four legal empty blocks to a terminal win; validate ordered typed events, deterministic replay, and compiled wrong-cost, missing-sacrifice, and missing-life-loss mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 colored mana costs and payment", "117 priority and timing", "302.1 creature characteristics", "508 declaring attackers", "510 combat damage", "601.2 casting and paying costs", "602.2 activating abilities, selecting targets, and paying costs", "608.2 resolving activated abilities", "119.3 loss of life", "701.17 sacrifice", "704 state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Golgari Rotwurm"
+collector_number = 210
+url = "https://scryfall.com/card/rav/210/golgari-rotwurm"
+retained_data = "Public card identity, mana cost, colors, type, power, toughness, and activated operation needed by the trace"
+
+[[rules_cutoff]]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

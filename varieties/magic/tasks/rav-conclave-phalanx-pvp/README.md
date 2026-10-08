@@ -1,0 +1,5 @@
+# Conclave Phalanx PvP card task
+
+Implement the RAV Conclave Phalanx definition and its enters-the-battlefield ability in the candidate-owned card module. The diagnostic authority runs a shuffled, constructed 60-card game. It pays the four generic mana in `{4}{W}` with four distinct creatures through Convoke and pays the white symbol with exactly one White mana. It then checks the live 2/4 creature, resolves its trigger after an opponent creature is present, and verifies that life gain counts only the five creatures controlled by the Phalanx's controller.
+
+The full game continues through legal combat to a win. The task validates typed, ordered payment, cast, resolution, entry, trigger, life-gain, combat, and end events; contributor identities; deterministic replay; and compiled gameplay mutants for missing Convoke, an increased generic cost, and a global rather than controller-only creature count. Stub matching is separately exercised using the generic Harbor reference qualifier and a compile-valid but incomplete public module. This remains diagnostic-only: 1 of 291 unique card names and 306 printings, zero card credit, and zero reward.

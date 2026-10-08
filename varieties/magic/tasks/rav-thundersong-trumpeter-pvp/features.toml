@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 235
+definition_id = "RAV-THUNDERSONG-TRUMPETER"
+card_name = "Thundersong Trumpeter"
+printed_mana_cost = "{R}{W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+power = 2
+toughness = 1
+keywords = []
+abilities = ["tap a source to temporarily restrict a target creature from combat"]
+source_authority = "RAV printed identity and characteristics represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-casting"
+summary = "Cast Thundersong Trumpeter in an ordinary shuffled two-player constructed match, recording its red and white mana payment, spell resolution, battlefield entry, and live 2/1 characteristics."
+trace_required = true
+
+[[features]]
+id = "targeted-combat-restriction"
+summary = "Use the creature's tap activation at instant speed against a legal opposing creature; check activation, source tap, effect creation, resolution, and the target's updated live combat capability."
+trace_required = true
+
+[[features]]
+id = "combat-choice-and-terminal-match"
+summary = "Continue the full match through attack and blocker declarations, assert the affected creature cannot block and is absent from assignments, then verify ordered damage and the terminal seat-zero win."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and activated ability timing", "302.6 Tap-cost abilities", "508.1 Declare attackers", "509.1 Declare blockers", "602.1-602.2 Activate abilities and pay costs", "608.2 Resolve targeted abilities", "611.2a and 613 Temporary continuous effects", "704.5 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the source cutoff apply."

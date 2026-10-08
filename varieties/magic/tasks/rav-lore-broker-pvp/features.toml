@@ -1,0 +1,56 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-LORE-BROKER"
+set_code = "RAV"
+collector_number = 57
+card_name = "Lore Broker"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+subtypes = ["Human", "Rogue"]
+power = 1
+toughness = 2
+keywords = []
+abilities = ["{T}: Each player draws a card, then discards a card"]
+source_authority = "RAV printing controls public identity and tested semantics per RAV_PVP_SOURCE_CONTRACT.md; Oracle wording is interpretation only"
+oracle_reconciliation = "Current Oracle wording modernizes the discard pronoun while preserving each player's own-hand discard; the trace does not use a gameplay-changing later erratum"
+public_identity_record = "https://www.mtg.wtf/card/rav/57/Lore-Broker"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "Retain public identity facts and CardBench-authored operations only; no scans, art, flavor, or card-prose corpus"
+
+[[features]]
+id = "blue-creature-identity-and-cost"
+summary = "Cast Lore Broker for exactly {1}{U}; verify its blue Creature 1/2 characteristics. Human Rogue is printed identity but is not represented by the current engine schema."
+trace_required = true
+
+[[features]]
+id = "tap-activated-each-player-effect"
+summary = "After summoning sickness ends, activate the instant-speed tap ability once, record the source tap and activation receipt, and resolve its registered each-player draw/discard effect."
+trace_required = true
+
+[[features]]
+id = "draw-before-private-own-hand-discard"
+summary = "Both living players draw one before the first choice; choices are sequential, private to each chooser, restricted to that chooser's own hand, and no discard commits before both choices are submitted."
+trace_required = true
+
+[[features]]
+id = "public-discard-receipts-and-terminal-game"
+summary = "Record exactly one public discard and graveyard movement for each player after both private choices, then finish normal later-turn combat in a terminal seat-zero win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full shuffled game deterministically and detect wrong body, spell cost, tap cost, or effect mutations. Reject a compile-valid side-effect candidate before candidate calls."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117.1b and 117.3c priority", "301.1 and 302.1 permanent and creature characteristics", "602.1-602.2 activated abilities and costs", "608.2 ability resolution", "121.2-121.3 drawing cards", "400.2 public and hidden zones", "701.8 discarding cards", "508 and 510 combat"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only Comprehensive Rules effective by the task cutoff are in scope."

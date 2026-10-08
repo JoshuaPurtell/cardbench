@@ -1,0 +1,38 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-festival-of-the-guildpact"
+definition_id = "RAV-FESTIVAL-OF-THE-GUILDPACT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "festival_of_the_guildpact_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/festival_of_the_guildpact.rs"
+authority_bin = "rav-festival-of-the-guildpact-pvp"
+materializer = "varieties/magic/scripts/materialize_festival_of_the_guildpact_task.py"
+scorer = "varieties/magic/scripts/score_festival_of_the_guildpact_pvp.py"
+review_scope = "Festival of the Guildpact full-game PvP authority, chosen-X exact payment, controller damage prevention, draw resolution, deterministic replay, semantic mutations, candidate source contract, materialization, scorer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/festival_of_the_guildpact_card/README.md",
+  "adapters/harbor/bundles/festival_of_the_guildpact_card/instruction.md",
+  "adapters/harbor/bundles/festival_of_the_guildpact_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_festival_of_the_guildpact_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_festival_of_the_guildpact_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_festival_of_the_guildpact_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/festival_of_the_guildpact.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-festival-of-the-guildpact-pvp/README.md",
+  "varieties/magic/tasks/rav-festival-of-the-guildpact-pvp/features.toml",
+  "varieties/magic/tasks/rav-festival-of-the-guildpact-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Festival definition is outside its literal source contract"
+
+[mutation]
+find = "Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn"
+replace = "Effect::DrawController"
+expected_diagnostic = "Festival definition is outside its literal source contract"

@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 111
+definition_id = "RAV-VIGOR-MORTIS"
+card_name = "Vigor Mortis"
+printed_mana_cost = "{2}{B}{B}"
+colors = ["B"]
+mana_colors = []
+card_types = ["sorcery"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Return target creature card from your graveyard to the battlefield", "If green mana was spent to cast this spell, put a +1/+1 counter on that creature"]
+source_authority = "Public RAV identity and Vigor Mortis semantics; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public card identity and semantics needed by the trace"
+
+[[features]]
+id = "targeted-own-graveyard-creature-return"
+summary = "A legal Vigor Mortis cast targets a creature card in its controller's graveyard and returns that exact card to the battlefield on resolution."
+trace_required = true
+
+[[features]]
+id = "green-spent-counter-condition"
+summary = "The cast's immutable mana-payment receipt controls whether exactly one +1/+1 counter is placed on the returned creature."
+trace_required = true
+
+[[features]]
+id = "non-green-control-terminal-replay"
+summary = "A black-generic-payment control returns the creature without a counter; both normal shuffled duels reach a terminal result and replay deterministically."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["400 Zones", "601 Casting spells", "608 Resolving spells", "120 Counters", "704 State-based actions", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Vigor Mortis"
+collector_number = 111
+url = "https://scryfall.com/card/rav/111/vigor-mortis"
+retained_data = "Public card identity, cost, graveyard return, and green-spent counter condition needed by the trace"

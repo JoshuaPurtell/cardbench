@@ -16,6 +16,9 @@ pub(super) enum SelectedReturns {
     Creatures(Vec<GraveyardCreatureCardSnapshot>),
     Lands(Vec<GraveyardLandCardSnapshot>),
     TriggeredReturn(ObjectId),
+    /// The selected hand cards a resolving all-player instruction will move
+    /// to their owners' library tops after commander replacements are chosen.
+    LibraryTop(Vec<(PlayerId, ObjectId)>),
     Search {
         selected: Option<ObjectId>,
         destination: LibrarySearchDestination,
@@ -65,7 +68,7 @@ impl Game {
                 "terminal draw changed stack identity",
             ));
         }
-        if self.resolve_commander_draw_sequence(&top, 0, player, count, None, None, None)? {
+        if self.resolve_commander_draw_sequence(&top, 0, player, count, true, None, None, None)? {
             return Ok(());
         }
         self.format.commander_selected_returns.remove(&top.id);
@@ -296,9 +299,6 @@ impl Game {
         counter_payment: Option<bool>,
         counter_discard: Option<bool>,
     ) -> Result<Option<bool>, RulesError> {
-        if self.format.commanders.is_empty() {
-            return Ok(None);
-        }
         let effect = &top.effects[index];
         if matches!(
             effect,
@@ -329,6 +329,7 @@ impl Game {
                 index,
                 top.controller,
                 1,
+                false,
                 optional_trigger,
                 counter_payment,
                 counter_discard,
@@ -382,6 +383,7 @@ impl Game {
             index,
             player,
             count,
+            true,
             optional_trigger,
             counter_payment,
             counter_discard,
@@ -395,6 +397,7 @@ impl Game {
         index: usize,
         player: PlayerId,
         count: usize,
+        allow_dredge: bool,
         optional_trigger: Option<(bool, Option<Target>)>,
         counter_payment: Option<bool>,
         counter_discard: Option<bool>,
@@ -405,11 +408,56 @@ impl Game {
             .commander_stack_draws
             .entry(key)
             .or_insert((player, count));
+        let mut dredge_declined = self.format.spell_draw_dredge_declined.contains(&key);
         while remaining > 0 {
+            let dredge_options = if allow_dredge && !dredge_declined {
+                self.players[player.0]
+                    .graveyard
+                    .iter()
+                    .copied()
+                    .filter(|card| {
+                        self.object(*card)
+                            .is_ok_and(|object| object.owner == player)
+                            && self
+                                .card_definition(*card)
+                                .ok()
+                                .and_then(CardDefinition::dredge)
+                                .is_some_and(|amount| {
+                                    self.players[player.0].library.len() >= usize::from(amount)
+                                })
+                    })
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            };
+            if allow_dredge && !dredge_options.is_empty() {
+                self.stack.push(top.clone());
+                if index > 0 {
+                    self.stack_effect_cursors.insert(top.id, index);
+                }
+                self.open_pending_decision(
+                    player,
+                    DecisionVisibility::Public,
+                    DecisionKind::DredgeReplacement,
+                    0,
+                    1,
+                    dredge_options,
+                    DecisionContinuation::SpellDredgeReplacement {
+                        stack: top.id,
+                        effect_index: index,
+                        player,
+                        optional_trigger,
+                        counter_payment,
+                        counter_discard,
+                    },
+                )?;
+                return Ok(true);
+            }
             if self.players[player.0]
                 .library
                 .last()
-                .is_some_and(|card| self.is_commander(*card))
+                .is_some_and(|card| self.format.commanders.contains_key(card))
             {
                 self.stack.push(top.clone());
                 if index > 0 {
@@ -430,9 +478,265 @@ impl Game {
             self.format
                 .commander_stack_draws
                 .insert(key, (player, remaining));
+            if dredge_declined {
+                self.format.spell_draw_dredge_declined.remove(&key);
+                dredge_declined = false;
+            }
         }
         self.format.commander_stack_draws.remove(&key);
         Ok(false)
+    }
+
+    pub(super) fn validate_spell_dredge_replacement(
+        &self,
+        decision: &PendingDecision,
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+    ) -> Result<(), RulesError> {
+        let key = (stack, effect_index);
+        let options = self
+            .players
+            .get(player.0)
+            .ok_or(RulesError::IllegalAction("unknown Dredge decision player"))?
+            .graveyard
+            .iter()
+            .copied()
+            .filter(|card| {
+                self.object(*card)
+                    .is_ok_and(|object| object.owner == player)
+                    && self
+                        .card_definition(*card)
+                        .ok()
+                        .and_then(CardDefinition::dredge)
+                        .is_some_and(|amount| {
+                            self.players[player.0].library.len() >= usize::from(amount)
+                        })
+            })
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::DredgeReplacement
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != player
+            || decision.min_selections != 0
+            || decision.max_selections != 1
+            || decision.options != options
+            || !self.format.commander_stack_draws.get(&key).is_some_and(
+                |(pending_player, remaining)| *pending_player == player && *remaining > 0,
+            )
+            || !self.stack.last().is_some_and(|top| {
+                top.id == stack && self.stack_effect_cursor(top).ok() == Some(effect_index)
+            })
+        {
+            return Err(RulesError::IllegalAction("stale spell Dredge replacement"));
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_spell_commander_dredge_replacement(
+        &self,
+        decision: &PendingDecision,
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+        commander: ObjectId,
+        incarnation: u64,
+        amount: u8,
+    ) -> Result<(), RulesError> {
+        let key = (stack, effect_index);
+        if decision.kind != DecisionKind::CommanderZoneReplacement
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != player
+            || decision.options != vec![DecisionOption::Object(commander)]
+            || decision.min_selections != 0
+            || decision.max_selections != 1
+            || self.zone_of(commander) != Some(Zone::Graveyard)
+            || !self.object_has_incarnation(commander, incarnation)
+            || self.object(commander)?.owner != player
+            || !self.players[player.0].graveyard.contains(&commander)
+            || self.card_definition(commander)?.dredge() != Some(amount)
+            || self
+                .format
+                .commanders
+                .get(&commander)
+                .map(|record| record.owner)
+                != Some(player)
+            || !self.format.commander_stack_draws.get(&key).is_some_and(
+                |(pending_player, remaining)| *pending_player == player && *remaining > 0,
+            )
+            || !self.stack.last().is_some_and(|top| {
+                top.id == stack && self.stack_effect_cursor(top).ok() == Some(effect_index)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "stale commander Dredge replacement",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn complete_spell_dredge_replacement(
+        &mut self,
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+        dredge: Option<ObjectId>,
+        optional_trigger: Option<(bool, Option<Target>)>,
+        counter_payment: Option<bool>,
+        counter_discard: Option<bool>,
+    ) -> Result<(), RulesError> {
+        let key = (stack, effect_index);
+        let (pending_player, remaining) =
+            *self
+                .format
+                .commander_stack_draws
+                .get(&key)
+                .ok_or(RulesError::IllegalAction(
+                    "spell Dredge continuation lost its draw sequence",
+                ))?;
+        if pending_player != player || remaining == 0 {
+            return Err(RulesError::IllegalAction(
+                "spell Dredge continuation changed its draw recipient",
+            ));
+        }
+        if let Some(card) = dredge {
+            if self.format.commanders.contains_key(&card) {
+                let amount = self
+                    .card_definition(card)?
+                    .dredge()
+                    .ok_or(RulesError::IllegalAction("card has no dredge ability"))?;
+                if self.zone_of(card) != Some(Zone::Graveyard)
+                    || self.object(card)?.owner != player
+                    || self.players[player.0].library.len() < usize::from(amount)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "spell Dredge candidate changed before resolution",
+                    ));
+                }
+                for _ in 0..amount {
+                    let milled = self.players[player.0]
+                        .library
+                        .last()
+                        .copied()
+                        .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
+                    self.move_to_zone(milled, Zone::Graveyard)?;
+                }
+                let incarnation = self.object(card)?.incarnation;
+                self.open_pending_decision(
+                    player,
+                    DecisionVisibility::Public,
+                    DecisionKind::CommanderZoneReplacement,
+                    0,
+                    1,
+                    vec![DecisionOption::Object(card)],
+                    DecisionContinuation::SpellCommanderDredgeReplacement {
+                        stack,
+                        effect_index,
+                        player,
+                        commander: card,
+                        incarnation,
+                        amount,
+                        optional_trigger,
+                        counter_payment,
+                        counter_discard,
+                    },
+                )?;
+                return Ok(());
+            }
+            let amount = self
+                .card_definition(card)?
+                .dredge()
+                .ok_or(RulesError::IllegalAction("card has no dredge ability"))?;
+            if self.zone_of(card) != Some(Zone::Graveyard)
+                || self.object(card)?.owner != player
+                || self.players[player.0].library.len() < usize::from(amount)
+            {
+                return Err(RulesError::IllegalAction(
+                    "spell Dredge candidate changed before resolution",
+                ));
+            }
+            for _ in 0..amount {
+                let milled = self.players[player.0]
+                    .library
+                    .last()
+                    .copied()
+                    .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
+                self.move_to_zone(milled, Zone::Graveyard)?;
+            }
+            self.move_to_zone(card, Zone::Hand)?;
+            self.record_event(GameEvent::Dredged {
+                player,
+                card,
+                count: amount,
+            });
+        } else {
+            self.format.spell_draw_dredge_declined.insert(key);
+            return self.resolve_top_of_stack_with_optional_decision(
+                optional_trigger,
+                counter_payment,
+                counter_discard,
+            );
+        }
+        self.format
+            .commander_stack_draws
+            .insert(key, (player, remaining - 1));
+        self.resolve_top_of_stack_with_optional_decision(
+            optional_trigger,
+            counter_payment,
+            counter_discard,
+        )
+    }
+
+    pub(super) fn complete_spell_commander_dredge_replacement(
+        &mut self,
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+        commander: ObjectId,
+        incarnation: u64,
+        amount: u8,
+        choose_command_zone: bool,
+        optional_trigger: Option<(bool, Option<Target>)>,
+        counter_payment: Option<bool>,
+        counter_discard: Option<bool>,
+    ) -> Result<(), RulesError> {
+        let key = (stack, effect_index);
+        let (pending_player, remaining) =
+            *self
+                .format
+                .commander_stack_draws
+                .get(&key)
+                .ok_or(RulesError::IllegalAction(
+                    "commander Dredge continuation lost its draw sequence",
+                ))?;
+        if pending_player != player
+            || remaining == 0
+            || self.zone_of(commander) != Some(Zone::Graveyard)
+            || !self.object_has_incarnation(commander, incarnation)
+            || self.object(commander)?.owner != player
+            || !self.players[player.0].graveyard.contains(&commander)
+            || self.card_definition(commander)?.dredge() != Some(amount)
+        {
+            return Err(RulesError::IllegalAction(
+                "commander Dredge continuation became stale",
+            ));
+        }
+        self.format.commander_draw_choice =
+            Some((commander, incarnation, Zone::Graveyard, choose_command_zone));
+        self.move_to_zone(commander, Zone::Hand)?;
+        self.record_event(GameEvent::Dredged {
+            player,
+            card: commander,
+            count: amount,
+        });
+        self.format
+            .commander_stack_draws
+            .insert(key, (player, remaining - 1));
+        self.resolve_top_of_stack_with_optional_decision(
+            optional_trigger,
+            counter_payment,
+            counter_discard,
+        )
     }
     pub(super) fn validate_commander_draw_replacement(
         &self,
@@ -514,16 +818,60 @@ impl Game {
             ));
         }
         for ((stack, index), (player, remaining)) in &self.format.commander_stack_draws {
-            if *remaining == 0
-                || self.players.get(player.0).is_none()
-                || !matches!(self.pending_decision.as_ref().map(|decision| &decision.continuation),
-                    Some(DecisionContinuation::CommanderZoneReplacement { stack: pending, effect_index, .. })
-                        if stack == pending && index == effect_index)
+            let matching_continuation = match self
+                .pending_decision
+                .as_ref()
+                .map(|decision| &decision.continuation)
             {
+                Some(DecisionContinuation::CommanderZoneReplacement {
+                    stack: pending,
+                    effect_index,
+                    ..
+                })
+                | Some(DecisionContinuation::SpellDredgeReplacement {
+                    stack: pending,
+                    effect_index,
+                    ..
+                })
+                | Some(DecisionContinuation::SpellCommanderDredgeReplacement {
+                    stack: pending,
+                    effect_index,
+                    ..
+                }) => stack == pending && index == effect_index,
+                _ => false,
+            };
+            if self.players.get(player.0).is_none() || !matching_continuation {
                 return Err(RulesError::IllegalAction(
                     "partial draws escaped their replacement instruction",
                 ));
             }
+        }
+        if self
+            .format
+            .spell_draw_dredge_declined
+            .iter()
+            .any(|(stack, index)| {
+                !self
+                    .format
+                    .commander_stack_draws
+                    .contains_key(&(*stack, *index))
+                    || !matches!(
+                        self.pending_decision
+                            .as_ref()
+                            .map(|decision| &decision.continuation),
+                        Some(DecisionContinuation::CommanderZoneReplacement {
+                            stack: pending,
+                            effect_index,
+                            from: Some(Zone::Library),
+                            to: Zone::Hand,
+                            ..
+                        }) if pending == stack && effect_index == index
+                    )
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "declined Dredge escaped its matching commander draw replacement",
+            ));
         }
         for ((stack, index, card), (incarnation, from, to, _)) in
             &self.format.commander_zone_choices
@@ -597,6 +945,13 @@ impl Game {
                     "selected return lost its ability",
                 ))?,
                 Some(selected),
+            ),
+            SelectedReturns::LibraryTop(selected) => self.finish_trigger_library_top_choices(
+                top.card,
+                top.ability_id.ok_or(RulesError::IllegalAction(
+                    "library-top choice lost its ability",
+                ))?,
+                selected,
             ),
             SelectedReturns::Search {
                 selected,
@@ -695,6 +1050,9 @@ impl Game {
                     intents.extend(cards.iter().map(|card| (card.card, Zone::Hand)))
                 }
                 SelectedReturns::TriggeredReturn(card) => intents.push((*card, Zone::Hand)),
+                SelectedReturns::LibraryTop(selected) => {
+                    intents.extend(selected.iter().map(|(_, card)| (*card, Zone::Library)))
+                }
                 SelectedReturns::Search {
                     selected,
                     destination: LibrarySearchDestination::Hand,
@@ -766,7 +1124,10 @@ impl Game {
                 if let Some(Target::Spell(card)) = target
                     && !self.virtual_spell_copies.contains_key(&card)
                     && !self.exile_on_resolution.contains(&card)
-                    && self.stack.iter().any(|item| item.card == card && item.ability_id.is_none())
+                    && self
+                        .stack
+                        .iter()
+                        .any(|item| item.card == card && item.ability_id.is_none())
                     && self.stack_target_incarnation_matches(top, offset, Target::Spell(card))
                 {
                     intents.push((card, Zone::Hand));
@@ -835,6 +1196,17 @@ impl Game {
                     && self.object_has_incarnation(card, incarnation)
                 {
                     intents.push((card, Zone::Hand));
+                }
+            }
+            Effect::ReturnSourceAttachedPermanentAndAurasToOwnersHands
+                if self.zone_of(top.card) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(top.card, top.source_incarnation) =>
+            {
+                if let Some((creature, auras)) =
+                    self.source_attached_creature_and_auras(top.card, top.source_incarnation)?
+                {
+                    intents.extend(auras.into_iter().map(|aura| (aura, Zone::Hand)));
+                    intents.push((creature, Zone::Hand));
                 }
             }
             Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand => {
@@ -921,8 +1293,15 @@ impl Game {
                 continue;
             }
             let from = self.zone_of(commander);
-            if from.is_none() && !self.stack.iter().any(|item| item.card == commander && item.ability_id.is_none()) {
-                return Err(RulesError::IllegalAction("commander replacement source is not in a zone or on the stack"));
+            if from.is_none()
+                && !self
+                    .stack
+                    .iter()
+                    .any(|item| item.card == commander && item.ability_id.is_none())
+            {
+                return Err(RulesError::IllegalAction(
+                    "commander replacement source is not in a zone or on the stack",
+                ));
             }
             let visibility = if matches!(from, Some(Zone::Hand | Zone::Library)) {
                 DecisionVisibility::Private

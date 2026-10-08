@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 23
+definition_id = "RAV-LEAVE-NO-TRACE"
+card_name = "Leave No Trace"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["Radiance — destroy target enchantment and each other enchantment that shares a color with it"]
+source_authority = "RAV printed identity, {1}{W} cost, white Instant type, typed enchantment target, Radiance color-sharing destruction, and graveyard movement represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-instant-exact-cost"
+summary = "Cast Leave No Trace as a white {1}{W} Instant with one white and exactly one generic mana recorded in the payment receipt."
+trace_required = true
+
+[[features]]
+id = "radiance-shared-color-destruction"
+summary = "Target a white enchantment, destroy it and another white enchantment (including one controlled by the pilot), and leave a blue enchantment on the battlefield."
+trace_required = true
+
+[[features]]
+id = "ordered-destruction-and-graveyard-moves"
+summary = "Record Leave No Trace as destruction source for both matching enchantments, their graveyard moves, spell resolution, and the spell's own graveyard move in order."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal-replay-and-mutants"
+summary = "Continue the shuffled duel to a terminal pilot win, replay deterministically, and detect removal of Radiance, loss of shared-color destruction, and a changed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and choosing targets", "608.2 Resolving spells and abilities", "701.7 Destroying permanents", "702.39 Radiance", "508.1 Declaring attackers", "510.1 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

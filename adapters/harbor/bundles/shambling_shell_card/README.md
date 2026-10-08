@@ -1,0 +1,3 @@
+# Shambling Shell task bundle
+
+Implement RAV #230: black-green `{1}{B}{G}`, 3/1 Creature — Plant Zombie, an activated ability that sacrifices the Shell to put a +1/+1 counter on target creature, and Dredge 3. The trusted full-game authority checks the sacrifice cost and exact counter target, replaces a real draw with exactly three cards milled and the same Shell object returned to hand, validates deterministic replay and semantic mutations, and rejects invalid candidate source before candidate calls. Plant and Zombie are printed identity only because `CardDefinition` has no subtype field. The task awards zero card credit and zero reward.

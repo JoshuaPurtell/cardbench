@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 268
+definition_id = "RAV-PEREGRINE-MASK"
+card_name = "Peregrine Mask"
+printed_mana_cost = "{1}"
+colors = []
+card_types = ["artifact"]
+keywords = []
+abilities = ["Equipment", "Equip {2} at sorcery speed to a creature you control", "Equipped creature has Defender, Flying, and First Strike"]
+source_authority = "RAV printed identity and {1} cost, colorless Artifact Equipment type, {2} sorcery-speed equip ability targeting a creature its controller controls, and Defender/Flying/First Strike attachment characteristics"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "colorless-equipment-casting"
+summary = "Cast Peregrine Mask as a colorless Artifact for exactly {1}."
+trace_required = true
+
+[[features]]
+id = "controlled-creature-equip"
+summary = "Pay exactly {2} to activate equip at sorcery speed and attach the Equipment to its controller's exact Watchwolf."
+trace_required = true
+
+[[features]]
+id = "defender-flying-first-strike"
+summary = "Verify the attached creature gains Defender, Flying, and First Strike; reject its attack without changing game state; and use Flying to block a Skyknight before First Strike damage destroys it."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-and-mutations"
+summary = "Finish the shuffled PvP game, replay it deterministically, and detect in-game removal of each granted keyword or a changed equip cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "301 Artifacts", "302 Creatures", "602.2 Activating abilities", "702.3 Defender", "702.7 First Strike", "702.9 Flying", "509 Blocking", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

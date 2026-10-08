@@ -11,7 +11,8 @@ use cardbench_magic_policies::{
     shared_card_index,
 };
 use cardbench_magic_session::{
-    MatchManifest, MatchTranscript, TRANSCRIPT_SCHEMA, critique, project_events, timeline,
+    MatchManifest, MatchTranscript, TRANSCRIPT_SCHEMA, critique, facts_for, project_events,
+    timeline,
 };
 
 const AGGRO: &str = "rav_boros_aggro";
@@ -24,12 +25,21 @@ fn play(seed: u64) -> (MatchTranscript, Vec<String>) {
 struct NeverAttack(Box<dyn cardbench_magic_policies::CodePolicy>);
 
 impl cardbench_magic_policies::CodePolicy for NeverAttack {
-    fn id(&self) -> &'static str { "test.never-attack" }
-    fn propose_move(&mut self, view: &cardbench_magic_engine::GameView) -> cardbench_magic_engine::PolicyAction {
+    fn id(&self) -> &'static str {
+        "test.never-attack"
+    }
+    fn propose_move(
+        &mut self,
+        view: &cardbench_magic_engine::GameView,
+    ) -> cardbench_magic_engine::PolicyAction {
         use cardbench_magic_engine::PolicyAction;
         match self.0.propose_move(view) {
-            PolicyAction::DeclareAttackers { .. } => PolicyAction::DeclareAttackers { attackers: vec![] },
-            PolicyAction::DeclareAttackersAgainst { .. } => PolicyAction::DeclareAttackersAgainst { attackers: vec![] },
+            PolicyAction::DeclareAttackers { .. } => {
+                PolicyAction::DeclareAttackers { attackers: vec![] }
+            }
+            PolicyAction::DeclareAttackersAgainst { .. } => {
+                PolicyAction::DeclareAttackersAgainst { attackers: vec![] }
+            }
             action => action,
         }
     }
@@ -54,7 +64,9 @@ fn play_fixture(seed: u64, passive_second_seat: bool) -> (MatchTranscript, Vec<S
     let [first, second] = pilots;
     let second: Box<dyn cardbench_magic_policies::CodePolicy> = if passive_second_seat {
         Box::new(NeverAttack(second))
-    } else { second };
+    } else {
+        second
+    };
     let pilots = [first, second];
     let policies = [pilots[0].id().to_owned(), pilots[1].id().to_owned()];
     let config = DeckMatchConfig {
@@ -162,6 +174,73 @@ fn structured_facts_are_populated_for_reviewable_events() {
         assert_eq!(event.facts.seats.len(), 1);
         assert_eq!(event.facts.objects.len(), 1, "damage names its source");
     }
+}
+
+#[test]
+fn damage_prevention_and_convoke_receipts_have_typed_facts() {
+    use cardbench_magic_engine::{
+        Color, DamageReplacementChoice, GameEvent, ObjectId, PlayerId, Target,
+    };
+    use cardbench_magic_protocol::{ObjectRef, SeatId};
+
+    let generic_convoke = facts_for(&GameEvent::ConvokeUsed {
+        player: PlayerId(0),
+        creature: ObjectId(101),
+        contribution: None,
+    });
+    assert_eq!(generic_convoke.seats, [SeatId(0)]);
+    assert_eq!(generic_convoke.objects, [ObjectRef(101)]);
+    assert_eq!(
+        generic_convoke.convoke_contribution.as_deref(),
+        Some("generic")
+    );
+
+    let colored_convoke = facts_for(&GameEvent::ConvokeUsed {
+        player: PlayerId(1),
+        creature: ObjectId(102),
+        contribution: Some(Color::White),
+    });
+    assert_eq!(
+        colored_convoke.convoke_contribution.as_deref(),
+        Some("White")
+    );
+
+    let applied = facts_for(&GameEvent::DamageReplacementApplied {
+        affected_player: PlayerId(0),
+        target: Target::Player(PlayerId(0)),
+        replacement: DamageReplacementChoice::CreatureDamagePrevention {
+            id: 9,
+            source: ObjectId(103),
+        },
+    });
+    assert_eq!(
+        applied.replacement.as_deref(),
+        Some("creature_damage_prevention")
+    );
+    assert_eq!(applied.replacement_id, Some(9));
+    assert_eq!(applied.target_player, Some(SeatId(0)));
+    assert_eq!(applied.objects, [ObjectRef(103)]);
+
+    let prevented = facts_for(&GameEvent::DamagePrevented {
+        source: ObjectId(104),
+        target: Target::Permanent(ObjectId(105)),
+        amount: 2,
+    });
+    assert_eq!(prevented.amount, Some(2));
+    assert_eq!(prevented.target_permanent, Some(ObjectRef(105)));
+    assert_eq!(prevented.objects, [ObjectRef(104), ObjectRef(105)]);
+
+    let creature_prevented = facts_for(&GameEvent::CreatureDamagePrevented {
+        replacement_id: 9,
+        source: ObjectId(104),
+        prevented_by: ObjectId(103),
+        controller: PlayerId(0),
+        target: Target::Player(PlayerId(0)),
+        amount: 2,
+    });
+    assert_eq!(creature_prevented.replacement_id, Some(9));
+    assert_eq!(creature_prevented.target_player, Some(SeatId(0)));
+    assert_eq!(creature_prevented.amount, Some(2));
 }
 
 /// Turn numbers are carried forward so a record is placeable without a join.

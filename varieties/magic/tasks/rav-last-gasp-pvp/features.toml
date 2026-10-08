@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 93
+definition_id = "RAV-LAST-GASP"
+card_name = "Last Gasp"
+printed_mana_cost = "{1}{B}"
+colors = ["black"]
+card_types = ["instant"]
+abilities = ["Target creature gets -3/-3 until end of turn"]
+source_authority = "RAV printing identity and characteristics, with the targeted power/toughness effect owned by the candidate module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-instant-cast"
+summary = "Cast Last Gasp from a shuffled library at instant speed and record actual payment for its generic and black mana symbols."
+trace_required = true
+
+[[features]]
+id = "targeted-minus-three-minus-three"
+summary = "Resolve Last Gasp targeting an opposing 3/3 Watchwolf and create the target-bound power/toughness modifier."
+trace_required = true
+
+[[features]]
+id = "toughness-zero-state-action"
+summary = "Observe toughness zero or less causing the opposing Watchwolf to move to its owner's graveyard before combat damage."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the same legal 60-card PvP game to a seat-zero win with ordered event receipts and identical deterministic replay."
+trace_required = true
+
+[[features]]
+id = "targeted-effect-mutation"
+summary = "Change the candidate modifier to -2/-2 and require the trace to reject the surviving 1/1 Watchwolf."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106.1-106.4 Mana", "117 Priority", "109.5 and 115 Targets", "601.2 Casting spells", "608.2b-608.3a Resolving spells", "613.4 Power/toughness modification layer", "704.5f Toughness-zero state-based action", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Last Gasp"
+collector_number = 93
+url = "https://scryfall.com/card/rav/93/last-gasp"
+retained_data = "Public card identity, mana cost, color, instant type, and targeted -3/-3 effect required by this trace"

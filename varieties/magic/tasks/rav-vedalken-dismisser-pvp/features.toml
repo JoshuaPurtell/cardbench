@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 73
+definition_id = "RAV-VEDALKEN-DISMISSER"
+card_name = "Vedalken Dismisser"
+printed_mana_cost = "{5}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+keywords = []
+abilities = ["When Vedalken Dismisser enters the battlefield, target creature is put on top of its owner's library"]
+source_authority = "RAV printed identity, collector number, {5}{U} cost, blue 2/2 Creature body, mandatory targeted enters-the-battlefield ability, creature target, and owner-library-top zone change represented by the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-exact-cost-and-body"
+summary = "Cast Vedalken Dismisser for six total mana including blue and verify that the exact object enters as a blue 2/2 Creature."
+trace_required = true
+
+[[features]]
+id = "mandatory-controller-selected-trigger-target"
+summary = "Resolve Dismisser, accept its mandatory triggered-ability target decision as its controller, and choose the exact opposing creature permanent."
+trace_required = true
+
+[[features]]
+id = "target-owner-library-top-zone-change"
+summary = "Move the targeted object's same identity to its owner's library, verify the object remains the exact top card and its incarnation changes, and match trigger source incarnation at resolution."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-replay-and-mutants"
+summary = "Continue the shuffled duel through Watchwolf combat to a terminal pilot win, replay deterministically, and detect five semantic gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2: casting a creature spell", "603.3: putting triggered abilities on the stack", "603.3d: choosing targets for a triggered ability", "608.2: resolving a targeted ability", "701.13: zone changes and library ordering"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

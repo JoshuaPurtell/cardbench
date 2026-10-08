@@ -1,0 +1,33 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-mnemonic-nexus"
+definition_id = "RAV-MNEMONIC-NEXUS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "mnemonic_nexus_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mnemonic_nexus.rs"
+authority_bin = "rav_mnemonic_nexus_pvp"
+materializer = "varieties/magic/scripts/materialize_mnemonic_nexus_task.py"
+scorer = "varieties/magic/scripts/score_mnemonic_nexus_pvp.py"
+review_scope = "RAV #59 printed identity and historical wording; blue {3}{U} Instant; each player's own graveyard moves to that player's own library; per-owner library shuffles; spell is not shuffled into a library during its own resolution; full legal 60-card two-player game; exact ordered movement/shuffle/event trace; deterministic replay; mutation sensitivity; candidate AST guard; materializer, scorer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/mnemonic_nexus_card/README.md",
+  "adapters/harbor/bundles/mnemonic_nexus_card/instruction.md",
+  "adapters/harbor/bundles/mnemonic_nexus_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_mnemonic_nexus_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_mnemonic_nexus_pvp.py",
+  "varieties/magic/session/src/bin/rav_mnemonic_nexus_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mnemonic_nexus.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-mnemonic-nexus-pvp/README.md",
+  "varieties/magic/tasks/rav-mnemonic-nexus-pvp/source-note.md",
+  "varieties/magic/tasks/rav-mnemonic-nexus-pvp/features.toml",
+  "varieties/magic/tasks/rav-mnemonic-nexus-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Mnemonic Nexus identity, {3}{U} cost, instant type, or all-player graveyard shuffle differs"
+
+[mutation]
+find = "effects: vec![Effect::ShuffleGraveyardsIntoLibraries]"
+replace = "effects: vec![]"
+expected_diagnostic = "Mnemonic Nexus identity, {3}{U} cost, instant type, or all-player graveyard shuffle differs"

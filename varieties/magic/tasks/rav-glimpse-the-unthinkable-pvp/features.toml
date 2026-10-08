@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 208
+definition_id = "RAV-GLIMPSE-THE-UNTHINKABLE"
+card_name = "Glimpse the Unthinkable"
+printed_mana_cost = "{U}{B}"
+colors = ["blue", "black"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["Target player mills ten cards"]
+source_authority = "RAV printing identity and candidate-owned definition; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-cost-and-color"
+summary = "Register Glimpse as a blue-black sorcery with exact {U}{B} cost and color identity."
+trace_required = true
+
+[[features]]
+id = "target-player-retained"
+summary = "Cast the spell with PlayerId(1) as the chosen target and preserve that target through resolution."
+trace_required = true
+
+[[features]]
+id = "exact-ten-library-zone-changes"
+summary = "Move exactly ten distinct cards from the targeted player's library to that player's graveyard and verify the library delta."
+trace_required = true
+
+[[features]]
+id = "spell-resolution-and-terminal-zone"
+summary = "Preserve the engine's effect zone-change receipts, spell resolution receipt, then Glimpse's move from the stack to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "deterministic-pvp-and-gameplay-mutations"
+summary = "Replay a shuffled full-game trace to a legal seat-zero win and detect mill-count, target, casting-cost, and color-identity mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Priority", "202.1-202.2 Mana cost and color", "304.1 Sorceries", "601.2 Casting spells and paying costs", "608.2 Resolving spells and abilities", "701.13 Mill", "400.7 Zone changes and new game objects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Glimpse the Unthinkable"
+collector_number = 208
+url = "https://scryfall.com/card/rav/208/glimpse-the-unthinkable"
+retained_data = "Public card identity, cost, color, card type, and targeted ten-card mill needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

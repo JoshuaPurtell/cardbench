@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-terraformer"
+definition_id = "RAV-TERRAFORMER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "terraformer_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/terraformer.rs"
+authority_bin = "rav-terraformer-pvp"
+materializer = "varieties/magic/scripts/materialize_terraformer_task.py"
+scorer = "varieties/magic/scripts/score_terraformer_pvp.py"
+review_scope = "Terraformer RAV #70 identity and {2}{U} 2/2 creature, instant-speed {1} activation without tap cost, exact chosen Forest type layer on controller lands only, preservation of opponent lands, intrinsic Green mana from former Islands, end-of-turn effect expiration and restoration, Greater Mossdog {3}{G} cast paid by the second conversion, terminal PvP win, deterministic replay, six semantic gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/terraformer_card/README.md",
+  "adapters/harbor/bundles/terraformer_card/instruction.md",
+  "adapters/harbor/bundles/terraformer_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_terraformer_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_terraformer_pvp.py",
+  "varieties/magic/session/src/bin/rav_terraformer_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/terraformer.rs",
+  "varieties/magic/tasks/rav-terraformer-pvp/README.md",
+  "varieties/magic/tasks/rav-terraformer-pvp/features.toml",
+  "varieties/magic/tasks/rav-terraformer-pvp/harbor.toml",
+]
+
+[mutation]
+find = "mana_cost: ManaCost::new(1),"
+replace = "mana_cost: ManaCost::new(2),"
+expected_diagnostic = "Terraformer candidate activation differs from the RAV source contract"

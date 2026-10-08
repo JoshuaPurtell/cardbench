@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-junktroller"
+definition_id = "RAV-JUNKTROLLER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "junktroller_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/junktroller.rs"
+authority_bin = "rav-junktroller-pvp"
+materializer = "varieties/magic/scripts/materialize_junktroller_task.py"
+scorer = "varieties/magic/scripts/score_junktroller_pvp.py"
+review_scope = "Junktroller #264 printed RAV source contract, colorless {4} artifact creature identity, 0/6 Defender, tap-only activation, exact opponent-owned graveyard target, owner-library bottom movement without shuffle, terminal 60-card match, deterministic replay, semantic mutants, candidate source AST contract, candidate isolation, authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/junktroller_card/README.md",
+  "adapters/harbor/bundles/junktroller_card/instruction.md",
+  "adapters/harbor/bundles/junktroller_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_junktroller_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_junktroller_pvp.py",
+  "varieties/magic/session/src/bin/rav_junktroller_pvp.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/junktroller.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/junktroller_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/junktroller_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/stasis_junktroller_manifest_merge_red.rs",
+  "varieties/magic/tasks/rav-junktroller-pvp/README.md",
+  "varieties/magic/tasks/rav-junktroller-pvp/features.toml",
+  "varieties/magic/tasks/rav-junktroller-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Junktroller candidate definition or ability is outside its literal source contract"
+
+[mutation]
+find = "mana_cost: ManaCost::new(0)"
+replace = "mana_cost: ManaCost::new(1)"
+expected_diagnostic = "Junktroller candidate definition or ability is outside its literal source contract"

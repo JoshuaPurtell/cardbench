@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 233
+definition_id = "RAV-SUNHOME-ENFORCER"
+card_name = "Sunhome Enforcer"
+printed_mana_cost = "{2}{R}{W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+power = 2
+toughness = 4
+keywords = []
+abilities = ["whenever Sunhome Enforcer deals damage, you gain that much life"]
+source_authority = "RAV printing identity and candidate-owned typed DealsDamage trigger that gains life equal to this source's committed damage"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-white-creature-casting"
+summary = "Cast and resolve Sunhome Enforcer for two generic, one red, and one white mana in a legal 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-source-damage-trigger"
+summary = "The live Enforcer deals combat damage to the opponent; its candidate-owned DealsDamage trigger is stacked and resolves."
+trace_required = true
+
+[[features]]
+id = "life-gain-equals-committed-damage"
+summary = "Each nonlethal two-damage packet resolves the trigger for exactly two life, with ordered damage, stack, life gain, and ability-resolution events."
+trace_required = true
+
+[[features]]
+id = "live-state-terminal-and-replay"
+summary = "Keep Sunhome Enforcer as a live 2/4, complete a terminal player-zero win, and reproduce the complete event stream and state on replay."
+trace_required = true
+
+[[features]]
+id = "targeted-semantic-mutation-and-stub"
+summary = "Replacing source-damage life gain with fixed one-life gain and the compile-valid starter stub must reach and fail the exact-damage trace gate."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and spell payment", "117 Priority and spell resolution", "119 Life totals and life gain", "120 Damage and damage events", "302.1-302.2 Creature permanents", "508 and 510 Attackers and combat damage", "601.2 Casting and resolving permanent spells", "603.2 and 603.3 Triggered abilities and putting them on the stack", "608.3a Resolving permanent spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Sunhome Enforcer"
+collector_number = 233
+url = "https://scryfall.com/card/rav/233/sunhome-enforcer"
+retained_data = "Public identity, mana cost, colors, type, power, toughness, and the source-damage life-gain ability required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

@@ -1,0 +1,5 @@
+Implement Ravnica: City of Guilds #177, Primordial Sage, in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/primordial_sage.rs`. It is a green `{4}{G}{G}` 4/5 Creature — Spirit. When its controller casts a creature spell, that player controls an optional trigger whose accepted branch draws one card.
+
+The trusted authority uses shuffled 60-card PvP decks and casts Sage, then later creature spells. One full game accepts the optional draw triggers; another declines them. It checks the Sage controller's creature casts, confirms an opponent's creature casts do not trigger this Sage, verifies the trigger resolves above the creature spell, and confirms the exact top card moves to hand only when the trigger is accepted. Both games continue to a normal seat-zero win with deterministic replay.
+
+Implement both `definition()` and `triggered_ability()` as declarative constructors. Keep the module local to this card. The current engine does not represent creature subtypes, so Spirit is recorded in the task metadata and source note rather than as a modeled characteristic. Do not add files to the candidate submission.

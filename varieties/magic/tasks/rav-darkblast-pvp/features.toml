@@ -1,0 +1,66 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 82
+definition_id = "RAV-DARKBLAST"
+card_name = "Darkblast"
+printed_mana_cost = "{B}"
+colors = ["black"]
+card_types = ["instant"]
+abilities = ["Target creature gets -1/-1 until end of turn", "Dredge 3"]
+source_authority = "Original RAV printing identity and tested mechanics control under RAV_PVP_SOURCE_CONTRACT.md; Oracle is consulted only for interpretation."
+oracle_reconciliation = "RAV's printed Dredge reminder text spells out the three-card replacement and fallback draw; current Oracle uses concise Dredge 3 reminder wording with the same behavior."
+public_identity_record = "https://mtg-jp.com/products/card-gallery/0000057/87922/"
+model_limitations = "The tested instant, cost, modifier, and Dredge replacement are represented by engine definitions and shared mechanics."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-instant-cast"
+summary = "Cast Darkblast from a shuffled library at instant speed and record actual payment of its black mana symbol."
+trace_required = true
+
+[[features]]
+id = "targeted-minus-one-minus-one"
+summary = "Resolve Darkblast targeting each of two distinct opposing 3/3 Watchwolves and observe each target at exactly 2/2."
+trace_required = true
+
+[[features]]
+id = "combat-death-of-modified-target"
+summary = "Each modified Watchwolf blocks the pilot's Watchwolf, deals two combat damage, receives three, and moves to its owner's graveyard through lethal damage."
+trace_required = true
+
+[[features]]
+id = "exact-dredge-three-and-recast"
+summary = "Replace one draw with Dredge 3; verify three distinct library objects are milled and the same Darkblast object returns to hand and is recast."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the same legal 60-card PvP game to a normal seat-zero win with ordered event receipts and identical replay."
+trace_required = true
+
+[[features]]
+id = "literal-source-guard-and-mutations"
+summary = "Reject cost, modifier, Dredge-presence/count mutations and a compile-valid injected side-effect candidate before candidate function execution."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106.1-106.4 Mana", "117 Priority and draw replacement", "109.5 and 115 Targets", "601.2 Casting spells", "608.2b-608.3a Resolving spells", "613.4 Power/toughness modification layer", "702.52 Dredge", "704.5f Toughness-zero state-based action", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Darkblast"
+collector_number = 82
+url = "https://mtg-jp.com/products/card-gallery/0000057/87922/"
+retained_data = "Public identity, black {B} instant, temporary targeted -1/-1, and Dredge 3"
+
+[[source_references]]
+source = "Current Oracle wording consulted for interpretation"
+card = "Darkblast"
+url = "https://mtgseeker.com/card/rav/82/darkblast"
+retained_data = "Oracle retains the same -1/-1 effect and Dredge 3; its concise reminder text has the same replacement behavior as the RAV printed reminder."

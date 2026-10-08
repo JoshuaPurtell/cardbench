@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-indentured-oaf"
+definition_id = "RAV-INDENTURED-OAF"
+expansion = "RAV"
+variant = "single-card"
+bundle = "indentured_oaf_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/indentured_oaf.rs"
+authority_bin = "rav-indentured-oaf-pvp"
+materializer = "varieties/magic/scripts/materialize_indentured_oaf_task.py"
+scorer = "varieties/magic/scripts/score_indentured_oaf_pvp.py"
+review_scope = "RAV #133 printed source identity and source-bound damage prevention; exact {3}{R} cast; red hybrid payment for Boros Recruit; Recruit's first-strike damage to Oaf; Oaf's four damage prevented against a red creature; target survives undamaged; ordinary full-game terminal win and deterministic replay; semantic mutations; exact source literal and AST guard before candidate calls; compile-valid side-effect rejection; zero reward and credit"
+review_files = [
+  "adapters/harbor/bundles/indentured_oaf_card/README.md",
+  "adapters/harbor/bundles/indentured_oaf_card/instruction.md",
+  "adapters/harbor/bundles/indentured_oaf_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_indentured_oaf_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_indentured_oaf_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_indentured_oaf_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/indentured_oaf.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/boros_recruit.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/indentured_oaf_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-indentured-oaf-pvp/README.md",
+  "varieties/magic/tasks/rav-indentured-oaf-pvp/source-note.md",
+  "varieties/magic/tasks/rav-indentured-oaf-pvp/features.toml",
+  "varieties/magic/tasks/rav-indentured-oaf-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Indentured Oaf source differs from the pinned RAV literal module"
+
+[mutation]
+find = "Keyword::PreventDamageToCreaturesOfColor(Color::Red)"
+replace = "Keyword::PreventDamageFromColor(Color::Red)"
+expected_diagnostic = "Indentured Oaf source differs from the pinned RAV literal module"

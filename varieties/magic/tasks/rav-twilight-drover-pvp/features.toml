@@ -1,0 +1,73 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 33
+definition_id = "RAV-TWILIGHT-DROVER"
+card_name = "Twilight Drover"
+printed_mana_cost = "{2}{W}"
+colors = ["white"]
+card_types = ["creature"]
+creature_subtypes = ["Spirit"]
+creature_subtypes_asserted_in_card_definition = false
+creature_subtype_note = "The printed body is a Spirit, but CardDefinition has no ordinary creature-subtype field. This boundary is disclosed; generated white Spirit tokens remain fully typed."
+power = 1
+toughness = 1
+keywords = []
+abilities = [
+  "Whenever a creature token leaves the battlefield, put a +1/+1 counter on Twilight Drover.",
+  "{2}{W}, remove a +1/+1 counter from Twilight Drover: create two 1/1 white Spirit creature tokens with flying."
+]
+source_authority = "RAV printed identity, characteristics, and ability structure as reconciled in source-note.md"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-cast-and-entry"
+summary = "Cast the white {2}{W} 1/1 Twilight Drover from a legal 60-card constructed deck."
+trace_required = true
+
+[[features]]
+id = "token-only-departure-trigger"
+summary = "A creature token's battlefield departure triggers one mandatory source counter; a simultaneous nontoken creature departure does not trigger this ability."
+trace_required = true
+
+[[features]]
+id = "source-counter-activation-cost"
+summary = "Pay {2}{W} and remove exactly one +1/+1 counter from Twilight Drover as an activation cost."
+trace_required = true
+
+[[features]]
+id = "two-white-flying-spirit-tokens"
+summary = "The stack-backed activation creates exactly two live 1/1 white Spirit creature tokens with flying."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "The 60-card PvP trace reaches a terminal win, replays deterministically, and rejects body, condition, optionality, cost, count, and missing-trigger mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["111 Tokens", "117 Timing and Priority", "302 Creatures", "601.2 Casting Spells", "602 Activated Abilities", "603.2 Trigger Events", "608 Resolving Spells and Abilities", "701.26 Returning Permanents"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Current Oracle transcription and historical rulings"
+card = "Twilight Drover"
+collector_number = 33
+url = "https://www.mtg.wtf/card/rav/33/Twilight-Drover"
+retained_data = "Current wording, printed identity facts, and the 2005 ruling that this card's Spirit tokens trigger the token-departure ability"
+
+[[source_references]]
+source = "RAV printing text transcription"
+card = "Twilight Drover"
+collector_number = 33
+url = "https://www.lastdodo.com/en/items/829511-twilight-drover"
+retained_data = "Printed cost, color, type line, power/toughness, token-only trigger, counter action, and two 1/1 white Flying Spirit token quantity"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Uses the effective Comprehensive Rules release as of the stated task cutoff."

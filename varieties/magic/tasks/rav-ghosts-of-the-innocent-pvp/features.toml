@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 20
+definition_id = "RAV-GHOSTS-OF-THE-INNOCENT"
+card_name = "Ghosts of the Innocent"
+printed_mana_cost = "{5}{W}{W}"
+colors = ["W"]
+mana_colors = []
+card_types = ["creature"]
+power = 4
+toughness = 5
+keywords = []
+abilities = ["Each damage source deals half damage, rounded down, to every permanent or player"]
+source_authority = "Public RAV identity and damage-halving semantics; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public card identity and semantics needed by the trace"
+
+[[features]]
+id = "global-permanent-damage-halving"
+summary = "Damage from an opposing Char is halved, rounded down, when assigned to a controlled Watchwolf; the creature survives with two marked damage."
+trace_required = true
+
+[[features]]
+id = "global-player-damage-halving"
+summary = "Damage from an opposing Char to a player and Char's separate self-damage packet are each independently halved, rounded down."
+trace_required = true
+
+[[features]]
+id = "combat-damage-halving"
+summary = "A controlled Watchwolf deals half its combat damage, rounded down, to the opponent while Ghosts remains on the battlefield."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A normal shuffled 60-card game reaches a terminal win, replays deterministically, and detects card-characteristic and damage-replacement mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["120 Damage", "400 Zones", "601 Casting spells", "608 Resolving spells", "614 Replacement effects", "510 Combat damage", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Ghosts of the Innocent"
+collector_number = 20
+url = "https://scryfall.com/card/rav/20/ghosts-of-the-innocent"
+retained_data = "Public card identity, cost, base characteristics, and global damage-halving rule needed by the trace"

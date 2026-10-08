@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-halcyon-glaze-pvp"
+definition_id = "RAV-HALCYON-GLAZE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "halcyon_glaze_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/halcyon_glaze.rs"
+authority_bin = "rav-halcyon-glaze-pvp"
+materializer = "varieties/magic/scripts/materialize_halcyon_glaze_task.py"
+scorer = "varieties/magic/scripts/score_halcyon_glaze_pvp.py"
+review_scope = "RAV #54 printed blue {1}{U}{U} Enchantment and controller-scoped creature-spell cast trigger; trigger resolves above each controller creature spell; exact temporary blue 4/4 Illusion Creature with Flying retaining Enchantment; no opponent-cast trigger; Cleanup restoration; five flying four-damage Glaze attacks and full-game P0 terminal win; deterministic replay; semantic/source mutations; exact normalized source and AST guard before candidate invocation; public materializer and expected trusted-stub rejection; source reconciliation and provenance"
+review_files = [
+  "adapters/harbor/bundles/halcyon_glaze_card/README.md",
+  "adapters/harbor/bundles/halcyon_glaze_card/instruction.md",
+  "adapters/harbor/bundles/halcyon_glaze_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_halcyon_glaze_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_halcyon_glaze_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_halcyon_glaze_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/halcyon_glaze.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/halcyon_glaze_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-halcyon-glaze-pvp/README.md",
+  "varieties/magic/tasks/rav-halcyon-glaze-pvp/source-note.md",
+  "varieties/magic/tasks/rav-halcyon-glaze-pvp/features.toml",
+  "varieties/magic/tasks/rav-halcyon-glaze-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Halcyon Glaze source differs from the pinned literal RAV module"
+
+[mutation]
+find = "power: 4,"
+replace = "power: 3,"
+expected_diagnostic = "Halcyon Glaze source differs from the pinned literal RAV module"

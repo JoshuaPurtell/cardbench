@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-oathsworn-giant"
+definition_id = "RAV-OATHSWORN-GIANT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "oathsworn_giant_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/oathsworn_giant.rs"
+authority_bin = "rav-oathsworn-giant-pvp"
+materializer = "varieties/magic/scripts/materialize_oathsworn_giant_task.py"
+scorer = "varieties/magic/scripts/score_oathsworn_giant_pvp.py"
+review_scope = "RAV Oathsworn Giant identity and candidate-owned +0/+2 plus vigilance bindings, printed vigilance, actual white and green/white cast payments, live Watchwolf 3/3-to-3/5 change, source self-exclusion, vigilance combat damage and untapped state, terminal game, deterministic replay, semantic mutations, compile-valid stub rejection, and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/oathsworn_giant_card/README.md",
+  "adapters/harbor/bundles/oathsworn_giant_card/instruction.md",
+  "adapters/harbor/bundles/oathsworn_giant_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_oathsworn_giant_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_oathsworn_giant_pvp.py",
+  "varieties/magic/session/src/bin/rav_oathsworn_giant_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/oathsworn_giant.rs",
+  "varieties/magic/tasks/rav-oathsworn-giant-pvp/README.md",
+  "varieties/magic/tasks/rav-oathsworn-giant-pvp/features.toml",
+  "varieties/magic/tasks/rav-oathsworn-giant-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Oathsworn Giant Watchwolf live power/toughness or source self-exclusion differs"
+
+[mutation]
+find = "toughness: 2"
+replace = "toughness: 0"
+expected_diagnostic = "Oathsworn Giant Watchwolf live power/toughness or source self-exclusion differs"

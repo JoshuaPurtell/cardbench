@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-belltower-sphinx"
+definition_id = "RAV-BELLTOWER-SPHINX"
+expansion = "RAV"
+variant = "single-card"
+bundle = "belltower_sphinx_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/belltower_sphinx.rs"
+authority_bin = "rav-belltower-sphinx-pvp"
+materializer = "varieties/magic/scripts/materialize_belltower_sphinx_task.py"
+scorer = "varieties/magic/scripts/score_belltower_sphinx_pvp.py"
+review_scope = "Belltower Sphinx identity and exact {4}{U} payment, 2/5 Flying characteristics, damage source/target, source-controller mill amount and destination, trigger stack/resolution, terminal full-game PvP result, replay, isolated candidate materialization, and gameplay mutations"
+review_files = [
+  "adapters/harbor/bundles/belltower_sphinx_card/README.md",
+  "adapters/harbor/bundles/belltower_sphinx_card/instruction.md",
+  "adapters/harbor/bundles/belltower_sphinx_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_belltower_sphinx_task.py",
+  "varieties/magic/scripts/score_belltower_sphinx_pvp.py",
+  "varieties/magic/session/src/bin/rav_belltower_sphinx_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/belltower_sphinx.rs",
+  "varieties/magic/tasks/rav-belltower-sphinx-pvp/README.md",
+  "varieties/magic/tasks/rav-belltower-sphinx-pvp/features.toml",
+  "varieties/magic/tasks/rav-belltower-sphinx-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "no complete Belltower Sphinx trace found"
+
+[mutation]
+find = "Effect::MillSourceControllerFromSourceDamage"
+replace = ""
+expected_diagnostic = "no complete Belltower Sphinx trace found"

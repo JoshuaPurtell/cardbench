@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 75
+definition_id = "RAV-WIZENED-SNITCHES"
+card_name = "Wizened Snitches"
+printed_mana_cost = "{3}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+keywords = ["flying"]
+abilities = ["each-player-reveals-each-library-top-while-source-is-on-battlefield"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition and reveal binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-identity-and-flying"
+summary = "Cast RAV #75 as a blue 1/3 creature with Flying for {3}{U}."
+trace_required = true
+
+[[features]]
+id = "both-library-tops-visible-to-both-players"
+summary = "While Wizened Snitches is on the battlefield, each player's typed view exposes the current top card of each player's library."
+trace_required = true
+
+[[features]]
+id = "visibility-revoked-on-departure"
+summary = "After Last Gasp moves Wizened Snitches off the battlefield, neither player continues to see library tops through this source."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Finish a shuffled two-player 60-card game with a clean pilot win and reproduce its ordered events for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "The gameplay oracle detects removed Flying, absent or narrowed reveal behavior, and changed printed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302 Creature characteristics", "508 Declare attackers", "601.2 Cast spells", "608.2 Resolve spells", "701.16 Reveal", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

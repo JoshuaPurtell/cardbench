@@ -1,0 +1,56 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 46
+definition_id = "RAV-DRIFT-OF-PHANTASMS"
+card_name = "Drift of Phantasms"
+printed_mana_cost = "{2}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+subtypes = ["Spirit"]
+keywords = ["Defender", "Flying", "Transmute {1}{U}{U}"]
+abilities = ["Transmute only as a sorcery; search for a card with the same converted mana cost, reveal it, put it into hand, then shuffle"]
+source_authority = "RAV #46 original printing controls identity and mechanics; current Oracle is used only to interpret converted mana cost as mana value"
+oracle_reconciliation = "RAV reminder text says converted mana cost and play only as a sorcery; current Oracle uses mana value and Transmute only as a sorcery. The search, reveal, hand destination, shuffle, timing, and cost are unchanged."
+model_limitations = "Spirit is retained as printed identity but not asserted by CardDefinition, which currently records Creature only. Defender, Flying, and Transmute are asserted and behaviorally exercised."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary grounded in the RAV printing and current Oracle interpretation; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-creature-cost-characteristics-and-keywords"
+summary = "Preserve the blue {2}{U} 0/5 Creature with Defender and Flying; show it cannot attack after summoning sickness ends and can block the opponent's exact flying Snapping Drake."
+trace_required = true
+
+[[features]]
+id = "transmute-cost-and-sorcery-timing"
+summary = "At the pilot's main phase with an empty stack, pay exactly {1}{U}{U} and discard the exact Drift of Phantasms from hand as Transmute's cost."
+trace_required = true
+
+[[features]]
+id = "private-same-mana-value-search"
+summary = "Privately choose and reveal a different physical Drift of Phantasms from the controller's library, verify matching mana value 3, move it to hand, and shuffle after the search."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-source-guard-and-mutations"
+summary = "Complete a shuffled two-player duel to a normal seat-zero win, replay deterministically, validate normalized literal source and AST before candidate calls, reject a compile-valid side effect, and detect printed-characteristic/keyword/transmute mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and timing", "202.3 Mana value", "302.4 Defender", "702.9 Flying", "702.53 Transmute", "701.19 Library search and shuffle", "508 Attacking", "509 Blocking", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing and catalog identity"
+card = "Drift of Phantasms"
+collector_number = 46
+url = "https://manabase.com/card.php?name=Drift+of+Phantasms"
+retained_data = "RAV printing identity, {2}{U} cost, Creature — Spirit line, Defender, Flying, Transmute {1}{U}{U}, converted mana cost search wording, reveal, hand destination, shuffle, and sorcery timing"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Follow the shared RAV source contract: printed RAV facts control, with Oracle used only for interpretation."

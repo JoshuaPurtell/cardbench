@@ -8,18 +8,30 @@ fn counter_to_hand_replay_requires_its_exact_replacement_receipt() {
     game.event_log = vec![
         GameEvent::CounteredSpellHandReplacement { card, source },
         GameEvent::SpellCountered { card, source },
-        GameEvent::CardMoved { card, to: Zone::Hand },
+        GameEvent::CardMoved {
+            card,
+            to: Zone::Hand,
+        },
     ];
     game.validate_stack_terminal_event_order().unwrap();
     let valid = game.event_log.clone();
     game.event_log.remove(0);
     assert!(game.validate_stack_terminal_event_order().is_err());
     game.event_log = valid.clone();
-    game.event_log[0] = GameEvent::CounteredSpellHandReplacement { card, source: ObjectId(1000) };
+    game.event_log[0] = GameEvent::CounteredSpellHandReplacement {
+        card,
+        source: ObjectId(1000),
+    };
     assert!(game.validate_stack_terminal_event_order().is_err());
     game.event_log = valid;
-    game.event_log[2] = GameEvent::CardMoved { card, to: Zone::Command };
-    assert!(game.validate_stack_terminal_event_order().is_err(), "command return needs its owner-choice receipt");
+    game.event_log[2] = GameEvent::CardMoved {
+        card,
+        to: Zone::Command,
+    };
+    assert!(
+        game.validate_stack_terminal_event_order().is_err(),
+        "command return needs its owner-choice receipt"
+    );
 }
 
 #[test]
@@ -91,14 +103,26 @@ fn repeated_trigger_flush_preserves_pending_apnap_order_choice() {
     let (mut game, card) = fixture();
     let opponent = game.put_on_battlefield(PlayerId(1), "EDH-TEST").unwrap();
     let event = |source, controller, id| PendingTriggeredAbilityEvent {
-        source, controller, source_incarnation: game.objects[&source].incarnation,
+        source,
+        controller,
+        source_incarnation: game.objects[&source].incarnation,
         source_colors: BTreeSet::new(),
-        ability: crate::TriggeredAbility { id, condition: TriggerCondition::Dies,
-            mana_cost: crate::ManaCost::new(0), optional: false, targets: vec![], effects: vec![] },
+        ability: crate::TriggeredAbility {
+            id,
+            condition: TriggerCondition::Dies,
+            mana_cost: crate::ManaCost::new(0),
+            optional: false,
+            targets: vec![],
+            effects: vec![],
+        },
         payload: TriggerEventPayload::None,
     };
-    let events = vec![event(card, PlayerId(0), "first"), event(card, PlayerId(0), "second"),
-        event(opponent, PlayerId(1), "third"), event(opponent, PlayerId(1), "fourth")];
+    let events = vec![
+        event(card, PlayerId(0), "first"),
+        event(card, PlayerId(0), "second"),
+        event(opponent, PlayerId(1), "third"),
+        event(opponent, PlayerId(1), "fourth"),
+    ];
     game.pending_trigger_events = events;
     game.flush_pending_trigger_events().unwrap();
     let first = game.pending_decision.clone().unwrap();
@@ -106,15 +130,22 @@ fn repeated_trigger_flush_preserves_pending_apnap_order_choice() {
     game.advance_pending_trigger_placements().unwrap();
     assert_eq!(game.pending_decision.as_ref().unwrap().id, first.id);
     let order = Game::decision_trigger_candidates(&first);
-    game.resolve_triggered_ability_order_decision(&first, PlayerId(0), order).unwrap();
+    game.resolve_triggered_ability_order_decision(&first, PlayerId(0), order)
+        .unwrap();
     let second = game.pending_decision.clone().unwrap();
     assert_eq!(second.player, PlayerId(1));
     assert_ne!(second.id, first.id);
     let order = Game::decision_trigger_candidates(&second);
-    game.resolve_triggered_ability_order_decision(&second, PlayerId(1), order).unwrap();
+    game.resolve_triggered_ability_order_decision(&second, PlayerId(1), order)
+        .unwrap();
     assert!(game.pending_decision.is_none());
-    assert_eq!(game.stack.iter().map(|item| item.controller).collect::<Vec<_>>(),
-        vec![PlayerId(0), PlayerId(0), PlayerId(1), PlayerId(1)]);
+    assert_eq!(
+        game.stack
+            .iter()
+            .map(|item| item.controller)
+            .collect::<Vec<_>>(),
+        vec![PlayerId(0), PlayerId(0), PlayerId(1), PlayerId(1)]
+    );
 }
 
 #[test]
@@ -123,21 +154,35 @@ fn combat_mill_receipts_survive_later_departure_but_reject_damage_after_loss() {
     game.register_damage_replacement_effect_bindings([crate::DamageReplacementEffectBinding {
         source_definition: "EDH-TEST",
         effect: DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
-    }]).unwrap();
+    }])
+    .unwrap();
     game.begin_game().unwrap();
     game.atomic_transition(|game| {
         game.deal_combat_damage_to_player(commander, PlayerId(1), 2)?;
         game.lose_player(PlayerId(1), "unit-test departure")
-    }).unwrap();
+    })
+    .unwrap();
     game.validate_invariants().unwrap();
-    let receipt = game.event_log.iter().find(|event| matches!(
-        event, GameEvent::CombatDamageReplacedWithMillAndCounters { .. }
-    )).unwrap().clone();
+    let receipt = game
+        .event_log
+        .iter()
+        .find(|event| {
+            matches!(
+                event,
+                GameEvent::CombatDamageReplacedWithMillAndCounters { .. }
+            )
+        })
+        .unwrap()
+        .clone();
     // Deliberate replay corruption: a second otherwise-identical receipt now
     // follows PlayerLost. Historical validation must still reject this.
     game.event_log.push(receipt);
-    assert!(game.validate_combat_damage_mill_counter_replacement_events().unwrap_err()
-        .to_string().contains("invalid provenance"));
+    assert!(
+        game.validate_combat_damage_mill_counter_replacement_events()
+            .unwrap_err()
+            .to_string()
+            .contains("invalid provenance")
+    );
 }
 
 #[test]
@@ -267,11 +312,23 @@ fn commander_death_preserves_its_dies_trigger_after_owner_returns_it() {
 fn commander_return_precedes_simultaneous_dies_trigger_ordering() {
     let (mut game, commander) = fixture();
     let other = game.put_on_battlefield(PlayerId(0), "EDH-TEST").unwrap();
-    game.triggered_abilities.insert("EDH-TEST", BTreeMap::from([("dies", crate::TriggeredAbility {
-        id: "dies", condition: TriggerCondition::Dies, mana_cost: crate::ManaCost::new(0),
-        optional: false, targets: vec![], effects: vec![],
-    })]));
-    for card in [commander, other] { game.objects.get_mut(&card).unwrap().damage = 2; }
+    game.triggered_abilities.insert(
+        "EDH-TEST",
+        BTreeMap::from([(
+            "dies",
+            crate::TriggeredAbility {
+                id: "dies",
+                condition: TriggerCondition::Dies,
+                mana_cost: crate::ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![],
+            },
+        )]),
+    );
+    for card in [commander, other] {
+        game.objects.get_mut(&card).unwrap().damage = 2;
+    }
     game.refresh_public_state_integrity();
     game.check_state_based_actions().unwrap();
     let first = game.pending_decision.as_ref().unwrap().id;
@@ -283,7 +340,12 @@ fn commander_return_precedes_simultaneous_dies_trigger_ordering() {
     let decision = game.pending_decision.clone().unwrap();
     assert_eq!(decision.kind, DecisionKind::TriggeredAbilityOrder);
     let order = Game::decision_trigger_candidates(&decision);
-    game.submit_decision(PlayerId(0), decision.id, DecisionSelection::TriggerOrder(order)).unwrap();
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::TriggerOrder(order),
+    )
+    .unwrap();
     assert_eq!(game.stack.len(), 2);
     game.validate_invariants().unwrap();
 }

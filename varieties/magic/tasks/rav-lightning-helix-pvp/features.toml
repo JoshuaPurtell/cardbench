@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 213
+definition_id = "RAV-LIGHTNING-HELIX"
+card_name = "Lightning Helix"
+printed_mana_cost = "{R}{W}"
+colors = ["white", "red"]
+card_types = ["instant"]
+source_authority = "RAV printed semantics; current Oracle reviewed as cross-check, later target-domain errata excluded for original-set compatibility"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "card-identity-and-cast"
+summary = "Represent the RAV identity as a red-white instant; a legal full-game cast enters the normal stack and priority lifecycle."
+trace_required = true
+
+[[features]]
+id = "player-or-creature-target"
+summary = "A legal player or creature target receives three damage when the spell resolves."
+trace_required = true
+branches = ["player", "opponent-creature"]
+
+[[features]]
+id = "controller-life-gain"
+summary = "After the damage instruction, the spell's controller gains three life."
+trace_required = true
+
+[[features]]
+id = "ordered-resolution-and-zone-change"
+summary = "The target damage precedes controller life gain; resolution completes before the spell moves from the stack to its owner's graveyard."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Timing and Priority", "119 Life", "601 Casting Spells", "608 Resolving Spells and Abilities", "120 Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[rules_references]]
+document = "The Hobbit update bulletin"
+published = "2026-08-10"
+relevance = "Reconciled for rules changes published after the June 19 baseline; no Lightning Helix-specific behavior override recorded."
+url = "https://magic.wizards.com/en/news/announcements/the-hobbit-update-bulletin"

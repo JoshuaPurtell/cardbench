@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-woebringer-demon"
+definition_id = "RAV-WOEBRINGER-DEMON"
+expansion = "RAV"
+variant = "single-card"
+bundle = "woebringer_demon_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/woebringer_demon.rs"
+authority_bin = "rav-woebringer-demon-pvp"
+materializer = "varieties/magic/scripts/materialize_woebringer_demon_task.py"
+scorer = "varieties/magic/scripts/score_woebringer_demon_pvp.py"
+review_scope = "RAV Woebringer Demon identity and candidate-owned definition/any-upkeep trigger; shuffled 60-card PvP; exact {3}{B}{B} payment; 4/4 Flying characteristics; active player choice and exact creature sacrifice at opponent and controller upkeeps; graveyard moves; deterministic replay; terminal pilot win; cost, stats, Flying, and trigger mutations; source-contract stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/woebringer_demon_card/README.md",
+  "adapters/harbor/bundles/woebringer_demon_card/instruction.md",
+  "adapters/harbor/bundles/woebringer_demon_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_woebringer_demon_task.py",
+  "varieties/magic/scripts/score_woebringer_demon_pvp.py",
+  "varieties/magic/session/src/bin/rav_woebringer_demon_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/woebringer_demon.rs",
+  "varieties/magic/tasks/rav-woebringer-demon-pvp/README.md",
+  "varieties/magic/tasks/rav-woebringer-demon-pvp/features.toml",
+  "varieties/magic/tasks/rav-woebringer-demon-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Woebringer Demon candidate or registry differs from RAV #113 contract"
+
+[mutation]
+find = "Effect::SacrificeUpkeepPlayerCreature"
+replace = "Effect::SacrificeControllerCreature"
+expected_diagnostic = "Woebringer Demon candidate or registry differs from RAV #113 contract"

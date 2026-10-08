@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-last-gasp"
+definition_id = "RAV-LAST-GASP"
+expansion = "RAV"
+variant = "single-card"
+bundle = "last_gasp_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/last_gasp.rs"
+authority_bin = "rav-last-gasp-pvp"
+materializer = "varieties/magic/scripts/materialize_last_gasp_task.py"
+scorer = "varieties/magic/scripts/score_last_gasp_pvp.py"
+review_scope = "RAV Last Gasp identity and candidate-owned definition; legal 60-card PvP with actual generic/black Last Gasp payment and green/white Watchwolf payment; instant-speed targeting, stack resolution, -3/-3 continuous effect, toughness-zero state action and graveyard movement; ordered events, deterministic replay, terminal PvP, targeted -2/-2 source mutation, compile-valid stub rejection, and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/last_gasp_card/README.md",
+  "adapters/harbor/bundles/last_gasp_card/instruction.md",
+  "adapters/harbor/bundles/last_gasp_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_last_gasp_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_last_gasp_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_last_gasp_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/last_gasp.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-last-gasp-pvp/README.md",
+  "varieties/magic/tasks/rav-last-gasp-pvp/features.toml",
+  "varieties/magic/tasks/rav-last-gasp-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Last Gasp did not remove the 3/3 Watchwolf through the toughness-based state action"
+
+[mutation]
+find = "power: -3,\n            toughness: -3"
+replace = "power: -2,\n            toughness: -2"
+expected_diagnostic = "Last Gasp did not remove the 3/3 Watchwolf through the toughness-based state action"

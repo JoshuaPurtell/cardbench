@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dream-leash"
+definition_id = "RAV-DREAM-LEASH"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dream_leash_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dream_leash.rs"
+authority_bin = "rav-dream-leash-pvp"
+materializer = "varieties/magic/scripts/materialize_dream_leash_task.py"
+scorer = "varieties/magic/scripts/score_dream_leash_pvp.py"
+review_scope = "Dream Leash RAV #45 printed identity and cast-only tapped target restriction; legal full-game PvP response that untaps the exact target before resolution; Aura attachment and source-relative control; terminal duel and deterministic replay; semantic mutations, normalized source and AST guard, malicious candidate rejection, catalog denominator, source contract, event/state implementation, session projection, RAV registry, materializer, scorer, Harbor bundle, and provenance"
+review_files = [
+  "adapters/harbor/bundles/dream_leash_card/README.md",
+  "adapters/harbor/bundles/dream_leash_card/instruction.md",
+  "adapters/harbor/bundles/dream_leash_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_dream_leash_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_dream_leash_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_dream_leash_pvp.rs",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dream_leash.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-dream-leash-pvp/README.md",
+  "varieties/magic/tasks/rav-dream-leash-pvp/source-note.md",
+  "varieties/magic/tasks/rav-dream-leash-pvp/features.toml",
+  "varieties/magic/tasks/rav-dream-leash-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Dream Leash normalized source differs from its exact literal contract"
+
+[mutation]
+find = "Effect::AttachSourceToTappedTarget {"
+replace = "Effect::AttachSourceToTarget {"
+expected_diagnostic = "Dream Leash normalized source differs from its exact literal contract"

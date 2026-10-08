@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-fists-of-ironwood"
+definition_id = "RAV-FISTS-OF-IRONWOOD"
+expansion = "RAV"
+variant = "single-card"
+bundle = "fists_of_ironwood_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/fists_of_ironwood.rs"
+authority_bin = "rav-fists-of-ironwood-pvp"
+materializer = "varieties/magic/scripts/materialize_fists_of_ironwood_task.py"
+scorer = "varieties/magic/scripts/score_fists_of_ironwood_pvp.py"
+review_scope = "Fists of Ironwood RAV identity and {1}{G} cost, Creature Aura attachment, attached-creature Trample effect, mandatory two-Saproling ETB trigger, exact object and incarnation receipts, full-game blocked Trample combat with one lethal blocker damage and two excess player damage, terminal result, deterministic replay, three semantic mutants, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/fists_of_ironwood_card/README.md",
+  "adapters/harbor/bundles/fists_of_ironwood_card/instruction.md",
+  "adapters/harbor/bundles/fists_of_ironwood_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_fists_of_ironwood_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_fists_of_ironwood_pvp.py",
+  "varieties/magic/session/src/bin/rav_fists_of_ironwood_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/fists_of_ironwood.rs",
+  "varieties/magic/tasks/rav-fists-of-ironwood-pvp/README.md",
+  "varieties/magic/tasks/rav-fists-of-ironwood-pvp/features.toml",
+  "varieties/magic/tasks/rav-fists-of-ironwood-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Fists of Ironwood trigger literal is outside the task source contract"
+
+[mutation]
+find = "count: 2"
+replace = "count: 1"
+expected_diagnostic = "Fists of Ironwood trigger literal is outside the task source contract"

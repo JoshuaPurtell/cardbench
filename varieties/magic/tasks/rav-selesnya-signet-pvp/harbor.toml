@@ -1,0 +1,54 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-selesnya-signet"
+definition_id = "RAV-SELESNYA-SIGNET"
+expansion = "RAV"
+variant = "single-card"
+bundle = "selesnya_signet_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_signet.rs"
+authority_bin = "rav-selesnya-signet-pvp"
+materializer = "varieties/magic/scripts/materialize_selesnya_signet_task.py"
+scorer = "varieties/magic/scripts/score_selesnya_signet_pvp.py"
+review_scope = "RAV Selesnya Signet printing identity and candidate-owned paid green-white mana binding; real two-generic artifact casting; one-generic activation payment and tap cost; exact non-stack green-white output bundle; actual green/white Watchwolf payment; live vanilla 3/3, later-turn combat, terminal PvP replay; wrong-color semantic mutation and compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/selesnya_signet_card/README.md",
+  "adapters/harbor/bundles/selesnya_signet_card/instruction.md",
+  "adapters/harbor/bundles/selesnya_signet_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_selesnya_signet_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_selesnya_signet_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_selesnya_signet_pvp.rs",
+  "varieties/magic/session/src/bin/rav_watchwolf_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_signet.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/watchwolf.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-selesnya-signet-pvp/README.md",
+  "varieties/magic/tasks/rav-selesnya-signet-pvp/features.toml",
+  "varieties/magic/tasks/rav-selesnya-signet-pvp/harbor.toml",
+  "varieties/magic/tasks/rav-watchwolf-pvp/README.md",
+  "varieties/magic/tasks/rav-watchwolf-pvp/features.toml",
+  "varieties/magic/tasks/rav-watchwolf-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Selesnya Signet did not produce exactly green and white with its tap cost paid"
+
+[mutation]
+find = "[(Color::Green, 1), (Color::White, 1)]"
+replace = "[(Color::Red, 1), (Color::White, 1)]"
+expected_diagnostic = "Selesnya Signet did not produce exactly green and white with its tap cost paid"

@@ -1,0 +1,35 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-wizened-snitches"
+definition_id = "RAV-WIZENED-SNITCHES"
+expansion = "RAV"
+variant = "single-card"
+bundle = "wizened_snitches_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wizened_snitches.rs"
+authority_bin = "rav-wizened-snitches-pvp"
+materializer = "varieties/magic/scripts/materialize_wizened_snitches_task.py"
+scorer = "varieties/magic/scripts/score_wizened_snitches_pvp.py"
+review_scope = "Wizened Snitches RAV #75 {3}{U} 1/3 Flying identity, global visibility of both library tops to both players while on the battlefield, revocation after Last Gasp removal, shuffled full-game PvP, exact ordered evidence, deterministic replay, four gameplay mutations, candidate source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/wizened_snitches_card/README.md",
+  "adapters/harbor/bundles/wizened_snitches_card/instruction.md",
+  "adapters/harbor/bundles/wizened_snitches_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_wizened_snitches_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_wizened_snitches_pvp.py",
+  "varieties/magic/session/src/bin/rav_wizened_snitches_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wizened_snitches.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/wizened_snitches_red.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/tasks/rav-wizened-snitches-pvp/README.md",
+  "varieties/magic/tasks/rav-wizened-snitches-pvp/features.toml",
+  "varieties/magic/tasks/rav-wizened-snitches-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Wizened Snitches candidate differs from RAV #75 printed characteristics or global reveal behavior"
+
+[mutation]
+find = "keywords: vec![Keyword::Flying]"
+replace = "keywords: vec![]"
+expected_diagnostic = "Wizened Snitches candidate differs from RAV #75 printed characteristics or global reveal behavior"

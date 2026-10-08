@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 212
+definition_id = "RAV-GUARDIAN-OF-VITU-GHAZI"
+card_name = "Guardian of Vitu-Ghazi"
+printed_mana_cost = "{6}{G}{W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+power = 4
+toughness = 7
+keywords = ["convoke", "vigilance"]
+abilities = ["Convoke", "Vigilance"]
+source_authority = "RAV printed card identity, cost, color, type line, power, toughness, Convoke, and Vigilance represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-white-4-7-convoke-creature"
+summary = "Resolve a green-white 4/7 Creature with exact {6}{G}{W} cost and live Convoke and Vigilance keywords."
+trace_required = true
+
+[[features]]
+id = "six-generic-convoke-and-two-colored-pips"
+summary = "Tap six distinct creatures for six Generic Convoke contributions, then pay exactly one Green and one White mana for the colored symbols."
+trace_required = true
+
+[[features]]
+id = "vigilance-live-attack"
+summary = "Declare Guardian as an attacker in legal combat, inspect its live 4/7 and Vigilance at declaration, and verify that it remains untapped while dealing four combat damage."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full shuffled game deterministically and reject compiled gameplay mutants that remove Convoke, increase generic cost, or remove Vigilance."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "702.50 Convoke", "702.20 Vigilance", "508 Declaring attackers", "510 Combat damage and state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

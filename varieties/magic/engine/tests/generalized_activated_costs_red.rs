@@ -156,7 +156,11 @@ fn commander_activation_replacement_preserves_costs_until_all_choices_are_collec
             let player = PlayerId(0);
             let source = game.put_on_battlefield(player, SOURCE).unwrap();
             let bearer = game.put_on_battlefield(player, COUNTER_BEARER).unwrap();
-            let returned = if return_source { source } else { game.put_on_battlefield(player, RETURNED).unwrap() };
+            let returned = if return_source {
+                source
+            } else {
+                game.put_on_battlefield(player, RETURNED).unwrap()
+            };
             game.designate_commander(player, returned).unwrap();
             game.begin_game().unwrap();
             activate_seed(&mut game, source, bearer);
@@ -164,14 +168,32 @@ fn commander_activation_replacement_preserves_costs_until_all_choices_are_collec
             let pool = game.player(player).unwrap().mana_pool.clone();
             let counters = game.object(bearer).unwrap().counters.clone();
             let before = game.event_log.len();
-            game.activate_ability_with_generalized_costs(player, GeneralizedAbilityActivation {
-                activation: AbilityActivation { source, ability_id: "pay-everything",
-                    sacrifice_sources: vec![], additional_tap_creatures: vec![], discard_cards: vec![], targets: vec![] },
-                cost_payment: AbilityCostPayment { counter_sources: vec![bearer], return_permanents: vec![returned],
-                    chosen_x: Some(3), ..Default::default() },
-                mana_payment_selection: None,
-            }).unwrap();
-            let decision = game.view_for_player(player).unwrap().pending_decision.unwrap();
+            game.activate_ability_with_generalized_costs(
+                player,
+                GeneralizedAbilityActivation {
+                    activation: AbilityActivation {
+                        source,
+                        ability_id: "pay-everything",
+                        sacrifice_sources: vec![],
+                        additional_tap_creatures: vec![],
+                        discard_cards: vec![],
+                        targets: vec![],
+                    },
+                    cost_payment: AbilityCostPayment {
+                        counter_sources: vec![bearer],
+                        return_permanents: vec![returned],
+                        chosen_x: Some(3),
+                        ..Default::default()
+                    },
+                    mana_payment_selection: None,
+                },
+            )
+            .unwrap();
+            let decision = game
+                .view_for_player(player)
+                .unwrap()
+                .pending_decision
+                .unwrap();
             assert_eq!(decision.kind, DecisionKind::CommanderZoneReplacement);
             assert_eq!(game.zone_of(returned), Some(Zone::Battlefield));
             assert_eq!(game.player(player).unwrap().life, 40);
@@ -179,16 +201,37 @@ fn commander_activation_replacement_preserves_costs_until_all_choices_are_collec
             assert_eq!(game.object(bearer).unwrap().counters, counters);
             assert!(game.stack.is_empty());
             assert!(game.pass_priority(player).is_err());
-            game.submit_decision(player, decision.id,
-                DecisionSelection::Objects(if accept { vec![returned] } else { vec![] })).unwrap();
-            assert_eq!(game.zone_of(returned), Some(if accept { Zone::Command } else { Zone::Hand }));
+            game.submit_decision(
+                player,
+                decision.id,
+                DecisionSelection::Objects(if accept { vec![returned] } else { vec![] }),
+            )
+            .unwrap();
+            assert_eq!(
+                game.zone_of(returned),
+                Some(if accept { Zone::Command } else { Zone::Hand })
+            );
             assert_eq!(game.player(player).unwrap().life, 38);
             assert_eq!(game.stack.len(), 1);
-            assert_eq!(game.event_log[before..].iter().filter(|event| matches!(event,
-                GameEvent::AbilityManaPaid { ability: "pay-everything", .. })).count(), 1);
+            assert_eq!(
+                game.event_log[before..]
+                    .iter()
+                    .filter(|event| matches!(
+                        event,
+                        GameEvent::AbilityManaPaid {
+                            ability: "pay-everything",
+                            ..
+                        }
+                    ))
+                    .count(),
+                1
+            );
             pass_pair(&mut game);
             assert_eq!(game.player(player).unwrap().life, 39);
-            assert!(game.submit_decision(player, decision.id, DecisionSelection::Objects(vec![])).is_err());
+            assert!(
+                game.submit_decision(player, decision.id, DecisionSelection::Objects(vec![]))
+                    .is_err()
+            );
             game.validate_invariants().unwrap();
         }
     }

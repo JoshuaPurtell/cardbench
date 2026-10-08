@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 159
+definition_id = "RAV-DOWSING-SHAMAN"
+card_name = "Dowsing Shaman"
+printed_mana_cost = "{4}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 3
+toughness = 4
+keywords = []
+abilities = ["{2}{G}, tap: Return target enchantment card from your graveyard to your hand"]
+source_authority = "RAV printed identity, cost, color, Creature type and base characteristics, plus the controller-graveyard enchantment target, {2}{G} cost, tap cost and return-to-hand effect represented by candidate-owned definition and activated binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-identity"
+summary = "Cast the exact green {4}{G} 3/4 Dowsing Shaman through ordinary legal full-game actions."
+trace_required = true
+
+[[features]]
+id = "aura-enters-own-graveyard"
+summary = "Resolve Fists of Ironwood onto Elves of Deep Shadow and move that exact Aura into its controller's graveyard when the enchanted Elf dies."
+trace_required = true
+
+[[features]]
+id = "targeted-enchantment-return"
+summary = "Pay {2}{G}, tap Dowsing Shaman, target the exact enchantment card in its controller's graveyard, resolve the ability, and return that card to hand."
+trace_required = true
+
+[[features]]
+id = "terminal-game-and-semantic-mutants"
+summary = "Continue the legal seeded duel to a terminal result, replay deterministically, and detect mutations to cost, target scope, effect, and printed characteristics."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.1 Creatures", "303.4 Auras", "400.7 Zone changes", "602.1-602.2 Activated abilities", "608.2 Ability resolution", "601.2 Casting and payment"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

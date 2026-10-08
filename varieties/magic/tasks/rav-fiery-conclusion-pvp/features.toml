@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 122
+definition_id = "RAV-FIERY-CONCLUSION"
+card_name = "Fiery Conclusion"
+printed_mana_cost = "{1}{R}"
+colors = ["red"]
+card_types = ["instant"]
+abilities = ["As an additional cost to cast this spell, sacrifice a creature", "Fiery Conclusion deals 5 damage to target creature"]
+source_authority = "RAV printing identity and characteristics, with the candidate-owned definition and additional-cost binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-instant-cast"
+summary = "Cast Fiery Conclusion from a shuffled library during an opponent's combat and prove exactly one red mana plus one generic mana was paid."
+trace_required = true
+
+[[features]]
+id = "additional-creature-sacrifice"
+summary = "Choose a controlled battlefield creature as an additional cast cost; record its sacrifice receipt and immediate graveyard movement before SpellCast."
+trace_required = true
+
+[[features]]
+id = "attacking-creature-removal"
+summary = "Deal exactly 5 damage to the opponent's attacking Watchwolf, observe its lethal-damage state-based action and graveyard movement before blockers, and confirm it deals no combat damage."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal"
+summary = "Continue the same ordinary shuffled PvP game to a terminal seat-zero win after removing the attacker."
+trace_required = true
+
+[[features]]
+id = "damage-cost-and-color-mutations"
+summary = "Gameplay mutations to 4 damage, removal of the sacrifice binding, and removal of the red symbol each fail the trace oracle after using their corresponding changed behavior."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["510 Combat damage", "601.2 Casting spells and paying costs", "608.2-608.3 Resolving spells", "701.21 Sacrifice", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Fiery Conclusion"
+collector_number = 122
+url = "https://scryfall.com/card/rav/122/fiery-conclusion"
+retained_data = "Public card identity, mana cost, color, type, sacrifice-as-additional-cost semantics, and five damage to a target creature needed by the trace"

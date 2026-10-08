@@ -1,0 +1,65 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 262
+definition_id = "RAV-GOLGARI-SIGNET"
+card_name = "Golgari Signet"
+printed_mana_cost = "{2}"
+colors = []
+card_types = ["artifact"]
+keywords = []
+abilities = ["pay {1} and tap: add {B}{G}"]
+source_authority = "RAV printing identity and candidate-owned paid black-green mana-ability binding represented by CardBench's typed mana bundle"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "colorless-artifact-cast"
+summary = "Cast and resolve Golgari Signet for its printed two-generic-mana cost in a legal 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "paid-tap-mana-ability"
+summary = "Pay exactly one generic mana and tap the Signet; its bound mana ability creates exactly one black and one green mana in one non-stack bundle event."
+trace_required = true
+
+[[features]]
+id = "actual-black-green-spell-payment"
+summary = "Spend the Signet's black output on Roofstalker Wight's black symbol and its green output on the Wight's generic symbol in the actual `{1}{B}` payment."
+trace_required = true
+
+[[features]]
+id = "live-creature-combat-terminal-replay"
+summary = "Resolve Roofstalker Wight as a live vanilla 2/1, attack on a later turn, finish with a terminal player-zero win, and reproduce the full state and event stream deterministically."
+trace_required = true
+
+[[features]]
+id = "wrong-bundle-mutation-and-stub"
+summary = "The authority's wrong-color bundle mutation and compile-valid red-black starter stub both compile and fail the live black-green output/payment gate."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and payment", "117 Priority and spell resolution", "301 Artifact cards and permanents", "302 Creature cards and permanents", "508 Attackers", "510 Combat damage", "601.2 Casting and paying spell costs", "605.1a Mana abilities", "605.3 Activating mana abilities", "608.3a Resolving permanent spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Golgari Signet"
+collector_number = 262
+url = "https://scryfall.com/card/rav/262/golgari-signet"
+retained_data = "Public identity, mana cost, artifact type, and the paid black-green mana ability required by the trace"
+
+[[source_references]]
+source = "RAV support printing"
+card = "Roofstalker Wight"
+collector_number = 102
+url = "https://scryfall.com/card/rav/102/roofstalker-wight"
+retained_data = "Public identity, `{1}{B}` mana cost, and vanilla 2/1 creature characteristics used as the paid-spell support card"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

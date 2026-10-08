@@ -1,0 +1,3 @@
+# Surge of Zeal RAV card task
+
+Implement the candidate-owned definition for Surge of Zeal (RAV #146), a `{R}` red instant. Its target creature and each other creature sharing one of its colors gain haste until end of turn. The reference authority casts it in a shuffled 60-card two-player game on a creature cast that turn, checks the exact red payment and complete Radiance recipient set across both players, and confirms the new creature attacks before its first end step. A colorless Glass Golem is present and excluded. The game continues to a terminal P0 win with deterministic replay and semantic mutation checks. Diagnostic reports credit no RAV coverage or Harbor reward.

@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 4
+definition_id = "RAV-BLAZING-ARCHON"
+card_name = "Blazing Archon"
+printed_mana_cost = "{6}{W}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 5
+toughness = 6
+keywords = ["flying"]
+abilities = ["Opponents cannot attack you while Blazing Archon is on the battlefield"]
+source_authority = "RAV printed identity and characteristics represented by candidate-owned definition and static attack-restriction binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-six-nine-mana-creature-casting"
+summary = "Cast Blazing Archon for exact {6}{W}{W}{W} using nine white mana and resolve the white 5/6 Creature with Flying."
+trace_required = true
+
+[[features]]
+id = "live-opponent-attack-prohibition"
+summary = "Observe a legal opposing creature attack before Archon enters and a typed empty opposing AttackersDeclared event while Archon is live."
+trace_required = true
+
+[[features]]
+id = "archon-terminal-combat"
+summary = "Attack with the live 5/6 flyer, verify five-damage packets, and finish the full game through Archon combat."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-compiled-mutants"
+summary = "Replay the full game deterministically and detect compiled mutants removing Flying or the opponent attack restriction."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.1-302.2 Creature permanents and control", "508.1 Declaring attackers", "509 Declaring blockers", "601.2 Casting spells and paying costs", "608.2 Resolving spells", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

@@ -18,7 +18,11 @@ fn greater_mossdog_has_complete_dredge_and_characteristics_contract() {
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
     assert_eq!(
         definition.supported_rules,
-        ["full-rules-fidelity", "dredge", "base-characteristics"]
+        [
+            "full-rules-fidelity",
+            "dredge",
+            "base-characteristics",
+        ]
     );
     assert_eq!(
         definition.mana_cost,

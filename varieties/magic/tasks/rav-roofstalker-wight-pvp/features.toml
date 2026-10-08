@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 102
+definition_id = "RAV-ROOFSTALKER-WIGHT"
+card_name = "Roofstalker Wight"
+printed_mana_cost = "{1}{B}"
+colors = ["black"]
+card_types = ["creature"]
+power = 2
+toughness = 1
+keywords = []
+abilities = ["{1}{U}: this creature gains Flying until end of turn"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-casting"
+summary = "Cast Roofstalker Wight through the normal stack, pay black plus generic mana, and verify its live 2/1 characteristics."
+trace_required = true
+
+[[features]]
+id = "activated-self-flying"
+summary = "Pay blue plus generic mana for the candidate-owned ability, resolve it through the stack, and observe Flying on the live source."
+trace_required = true
+
+[[features]]
+id = "flying-combat-and-rejected-block"
+summary = "Attack with Flying and challenge a live opposing ground Watchwolf; its illegal block must be rejected atomically before combat continues."
+trace_required = true
+
+[[features]]
+id = "cleanup-duration-and-reactivation"
+summary = "Observe the until-end-of-turn Flying effect expire at cleanup, then pay and resolve a later activation to grant Flying again."
+trace_required = true
+
+[[features]]
+id = "terminal-game-and-replay"
+summary = "Require ordered cast, payment, ability, combat, cleanup, and terminal events; replay the seeded match with the same digest and outcome."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-and-stub"
+summary = "Replacing the Flying grant with Reach, and a compile-valid Reach stub, must reach the trace and fail at the Flying block challenge."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and colored costs", "106.1 and 106.4 Mana and payment", "117 Priority", "302.1-302.6 Creature permanents and summoning sickness", "508 Declaring attackers", "509.1 Flying and block legality", "601.2 Casting spells", "602.1-602.2 Activated abilities", "608.3a Resolving permanent spells", "611.2a and 613 Until-end-of-turn continuous effects", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Roofstalker Wight"
+collector_number = 102
+url = "https://scryfall.com/card/rav/102/roofstalker-wight"
+retained_data = "Public identity, mana cost, color, type, power, toughness, and the activated Flying grant needed by the trace"

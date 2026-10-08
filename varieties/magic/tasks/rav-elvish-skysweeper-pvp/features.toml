@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 162
+definition_id = "RAV-ELVISH-SKYSWEEPER"
+card_name = "Elvish Skysweeper"
+printed_mana_cost = "{G}"
+colors = ["green"]
+card_types = ["creature"]
+printed_subtypes = ["Elf", "Warrior"]
+runtime_subtypes_asserted = false
+keywords = []
+abilities = ["{4}{G}, Sacrifice a creature: Destroy target creature with flying"]
+source_authority = "RAV #162 identity, {G} cost, green 1/1 creature body, five-mana activated cost, one-creature sacrifice, flying-creature target requirement, and destroy effect represented by the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-exact-body-and-cost"
+summary = "Cast Elvish Skysweeper for exactly {G} and verify its green 1/1 Creature characteristics."
+trace_required = true
+
+[[features]]
+id = "five-mana-creature-sacrifice-activation"
+summary = "Pay {4}{G} and sacrifice a different Creature as the exact activation cost; Skysweeper itself remains the ability source."
+trace_required = true
+
+[[features]]
+id = "flying-only-target-destruction"
+summary = "Target the opponent's Birds of Paradise, whose live Flying keyword makes it legal, and verify the exact target is destroyed and moves to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "ordered-full-game-terminal-replay-and-mutants"
+summary = "Continue through combat to a terminal pilot win, replay deterministically, and reject wrong activation cost, missing sacrifice, broad creature targeting, wrong effect, and wrong body."
+trace_required = true
+
+[[features]]
+id = "candidate-source-ast-guard"
+summary = "Validate the exact candidate module shape and declarative literal AST before calling candidate factories; reject a compile-valid side-effect injection."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.1-302.2: creature characteristics", "602.1-602.2: activating abilities and paying costs", "701.7: destroying a permanent", "702.9: flying and target legality", "508 and 510: combat and damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

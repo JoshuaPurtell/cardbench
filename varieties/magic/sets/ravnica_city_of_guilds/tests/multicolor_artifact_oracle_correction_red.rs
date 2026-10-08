@@ -6,8 +6,8 @@
 //! activation or Equipment substrate happens to exist.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CastRequest, Color, Effect, Game, Keyword, ManaCost, PlayerId, PolicyAction,
-    Step, Target, Zone,
+    AbilityActivation, CastRequest, Color, DecisionKind, DecisionSelection, Effect,
+    EntryAttachmentBinding, Game, Keyword, ManaCost, PlayerId, PolicyAction, Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -35,6 +35,11 @@ fn game() -> Game {
     .expect("RAV game builds");
     game.register_attachment_bindings(rav_attachment_bindings())
         .expect("RAV attachment bindings register before play");
+    game.register_entry_attachment_bindings([EntryAttachmentBinding {
+        card_definition: "RAV-GRIFTERS-BLADE",
+        may_decline: true,
+    }])
+    .expect("Grifter's Blade entry choice registers before play");
     game
 }
 
@@ -149,7 +154,7 @@ fn cyclopean_snare_returns_itself_only_after_its_stack_ability_resolves() {
 }
 
 #[test]
-fn grifters_blade_flashes_in_then_its_entry_trigger_attaches_when_a_target_exists() {
+fn grifters_blade_flashes_in_then_its_non_targeting_entry_choice_attaches_when_selected() {
     let mut game = game();
     let blade = game
         .add_card(PlayerId(1), "RAV-GRIFTERS-BLADE", Zone::Hand)
@@ -185,23 +190,34 @@ fn grifters_blade_flashes_in_then_its_entry_trigger_attaches_when_a_target_exist
     );
     cast.expect("Flash permits Grifter's Blade to be cast during the opponent's upkeep");
     resolve_top(&mut game);
+    let decision = game
+        .view_for_player(PlayerId(1))
+        .expect("controller view")
+        .pending_decision
+        .expect("entry attachment choice");
+    assert_eq!(decision.kind, DecisionKind::PermanentEntryAttachment);
+    assert_eq!(
+        game.view_for_player(PlayerId(1))
+            .expect("controller view")
+            .stack_depth,
+        1,
+        "the permanent spell is still pending its as-enters choice"
+    );
+    assert!(
+        decision
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == creature)
+    );
     game.submit_policy_move(
         PlayerId(1),
         "test.grifters-blade-entry-attachment.v1",
-        PolicyAction::ChooseTriggeredAbilityTargets {
-            decision: game
-                .view_for_player(PlayerId(1))
-                .expect("controller view")
-                .triggered_ability_target_choice
-                .expect("entry target choice")
-                .decision,
-            source: blade,
-            ability: "etb-attach-to-controlled-creature",
-            targets: vec![Target::Permanent(creature)],
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![creature]),
         },
     )
-    .expect("entry trigger asks its controller for one controlled creature");
-    resolve_top(&mut game);
+    .expect("the controller makes a non-targeting entry attachment choice");
     println!(
         "Grifter's Blade correction trace: {:#?}",
         game.canonical_event_log()
@@ -216,6 +232,29 @@ fn grifters_blade_flashes_in_then_its_entry_trigger_attaches_when_a_target_exist
         .expect("creature characteristics");
     assert_eq!(characteristics.power, Some(4));
     assert_eq!(characteristics.toughness, Some(4));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::TriggeredAbilityStacked { source, .. } if *source == blade
+    )));
+    let choice_opened = game.event_log.iter().position(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::DecisionOpened { decision: id, kind: DecisionKind::PermanentEntryAttachment, .. } if *id == decision.id
+    )).expect("entry choice opens");
+    let choice_completed = game.event_log.iter().position(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::DecisionCompleted { decision: id, kind: DecisionKind::PermanentEntryAttachment, .. } if *id == decision.id
+    )).expect("entry choice completes");
+    let spell_resolved = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                cardbench_magic_engine::GameEvent::SpellResolved { card } if *card == blade
+            )
+        })
+        .expect("spell resolves after entry choice");
+    assert!(choice_opened < choice_completed && choice_completed < spell_resolved);
     game.validate_invariants()
         .expect("Flash entry attachment leaves an auditable state");
 }
@@ -271,7 +310,8 @@ fn cyclopean_snare_never_returns_a_source_that_left_before_resolution() {
         .expect("red response mana is available");
     game.activate_mana_ability(PlayerId(1), response_lands[1], Color::White)
         .expect("generic response mana is available");
-    game.activate_mana_ability(PlayerId(1), response_lands[2], Color::White).unwrap();
+    game.activate_mana_ability(PlayerId(1), response_lands[2], Color::White)
+        .unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {
@@ -300,11 +340,91 @@ fn cyclopean_snare_never_returns_a_source_that_left_before_resolution() {
 }
 
 #[test]
+fn grifters_blade_controller_may_decline_an_available_entry_attachment() {
+    let mut game = game();
+    let blade = game
+        .add_card(PlayerId(1), "RAV-GRIFTERS-BLADE", Zone::Hand)
+        .expect("Blade enters hand before the measured game");
+    let creature = game
+        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+        .expect("a legal controlled creature is available");
+    let plains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(1), "RAV-PLAINS")
+                .expect("cast mana enters before the measured game")
+        })
+        .collect::<Vec<_>>();
+    game.begin_game().expect("game starts");
+    game.pass_priority(PlayerId(0))
+        .expect("nonactive player receives priority in upkeep");
+    for land in plains {
+        game.activate_mana_ability(PlayerId(1), land, Color::White)
+            .expect("cast mana is available");
+    }
+    game.cast_spell(
+        PlayerId(1),
+        CastRequest {
+            card: blade,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Flash permits Grifter's Blade to be cast during the opponent's upkeep");
+    resolve_top(&mut game);
+    let decision = game
+        .view_for_player(PlayerId(1))
+        .expect("controller view")
+        .pending_decision
+        .expect("optional entry attachment choice");
+    assert_eq!(decision.kind, DecisionKind::PermanentEntryAttachment);
+    assert_eq!(decision.min_selections, 0);
+    assert_eq!(decision.max_selections, 1);
+    assert!(
+        decision
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == creature)
+    );
+    game.submit_policy_move(
+        PlayerId(1),
+        "test.grifters-blade-decline-entry-attachment.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![]),
+        },
+    )
+    .expect("controller may decline to attach at entry");
+    assert_eq!(game.zone_of(blade), Some(Zone::Battlefield));
+    assert_eq!(game.object(blade).expect("Blade exists").attached_to, None);
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::EquipmentAttached { equipment, .. } if *equipment == blade
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::TriggeredAbilityStacked { source, .. } if *source == blade
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::DecisionCompleted {
+            decision: id,
+            kind: DecisionKind::PermanentEntryAttachment,
+            ..
+        } if *id == decision.id
+    )));
+    game.validate_invariants()
+        .expect("declining the entry attachment leaves an auditable unattached Equipment");
+}
+
+#[test]
 fn grifters_blade_enters_unattached_when_no_controlled_creature_is_legal() {
     let mut game = game();
     let blade = game
         .add_card(PlayerId(1), "RAV-GRIFTERS-BLADE", Zone::Hand)
         .expect("Blade enters hand before the measured game");
+    game.put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
+        .expect("an opponent-controlled creature is not a legal entry choice");
     let plains = (0..3)
         .map(|_| {
             game.put_on_battlefield(PlayerId(1), "RAV-PLAINS")
@@ -338,6 +458,17 @@ fn grifters_blade_enters_unattached_when_no_controlled_creature_is_legal() {
     assert!(!game.event_log.iter().any(|event| matches!(
         event,
         cardbench_magic_engine::GameEvent::EquipmentAttached { equipment, .. } if *equipment == blade
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::TriggeredAbilityStacked { source, .. } if *source == blade
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::DecisionOpened {
+            kind: DecisionKind::PermanentEntryAttachment,
+            ..
+        }
     )));
     game.validate_invariants()
         .expect("unattached Equipment entry remains a valid state");

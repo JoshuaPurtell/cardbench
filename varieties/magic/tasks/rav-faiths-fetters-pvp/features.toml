@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 16
+definition_id = "RAV-FAITHS-FETTERS"
+card_name = "Faith's Fetters"
+printed_mana_cost = "{3}{W}"
+colors = ["white"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Aura enchants a permanent; attached permanent can't attack or block and its nonmana activated abilities are suppressed; mandatory ETB trigger gains four life"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition/trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-aura-exact-casting"
+summary = "Cast the white Aura for exact {3}{W} payment in a legal PvP main phase."
+trace_required = true
+
+[[features]]
+id = "permanent-attachment-and-restrictions"
+summary = "Attach Faith's Fetters to the exact opposing permanent and verify it cannot attack or block and its nonmana activated abilities are suppressed."
+trace_required = true
+
+[[features]]
+id = "mandatory-etb-gain-four-life"
+summary = "Stack and resolve the mandatory enters-the-battlefield trigger and verify four life is gained."
+trace_required = true
+
+[[features]]
+id = "atomic-restriction-probes"
+summary = "Confirm rejected ability activation, attack, and block attempts leave the full-game state unchanged."
+trace_required = true
+
+[[features]]
+id = "combat-replay-and-semantic-controls"
+summary = "Continue to a terminal combat win, replay deterministically, and detect mutations that remove Aura restrictions, change the life amount, or remove the trigger."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "303.4 Auras", "601.2 Casting spells", "603.2-603.3 Triggered abilities", "608.2 Resolving spells and abilities", "613 Continuous effects", "509 Attacker and blocker declarations", "119 Life totals"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

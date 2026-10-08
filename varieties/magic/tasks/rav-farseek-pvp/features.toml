@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 163
+definition_id = "RAV-FARSEEK"
+card_name = "Farseek"
+printed_mana_cost = "{1}{G}"
+colors = ["green"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["search for a Plains, Island, Swamp, or Mountain card; put it onto the battlefield tapped; then shuffle"]
+source_authority = "CardBench-authored semantic summary of RAV Farseek's identity, characteristics, typed non-Forest basic-land search, and tapped entry"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-sorcery-and-exact-payment"
+summary = "Cast Farseek for {1}{G} in a legal PvP main phase and preserve its ordered payment and spell-resolution receipts."
+trace_required = true
+
+[[features]]
+id = "typed-nonforest-basic-land-search"
+summary = "Offer legal Plains, Island, Swamp, and Mountain cards while excluding Forest from the search candidates."
+trace_required = true
+
+[[features]]
+id = "private-selection-and-tapped-entry"
+summary = "Expose candidate identities only to Farseek's controller, select a Plains, and verify its immediate tapped battlefield entry without a reveal event."
+trace_required = true
+
+[[features]]
+id = "shuffle-and-terminal-full-game"
+summary = "Shuffle after the search, finish the shuffled 60-card duel through combat to a seat-zero win, and deterministically replay the complete event trace."
+trace_required = true
+
+[[features]]
+id = "search-semantic-mutations"
+summary = "Detect mutations that allow Forest, move the searched land untapped, or reveal the private selection."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["305 Lands", "400.2 Public and hidden zones", "601.2 Casting spells", "608.2 Resolving spells and abilities", "701.16 Revealing cards", "701.19 Searching a library"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only Comprehensive Rules effective by the cutoff date are in scope."

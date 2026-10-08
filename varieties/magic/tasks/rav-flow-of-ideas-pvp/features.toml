@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 50
+definition_id = "RAV-FLOW-OF-IDEAS"
+card_name = "Flow of Ideas"
+printed_mana_cost = "{5}{U}"
+colors = ["blue"]
+card_types = ["sorcery"]
+keywords = []
+abilities = []
+source_authority = "RAV printed semantics; original-set identity and effect cross-checked against the card catalog and executable source contract"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-exact-blue-sorcery-cast"
+summary = "Flow of Ideas is a blue sorcery with exact {5}{U} cost, paid as one blue and five generic blue mana through the legal full-game stack lifecycle."
+trace_required = true
+
+[[features]]
+id = "controlled-island-cardinality"
+summary = "At cast time, the controller has six Islands and the opponent has five; resolution moves exactly six distinct cards to the controller's hand, ignoring the opponent's Islands."
+trace_required = true
+
+[[features]]
+id = "ordered-resolution-and-terminal-match"
+summary = "Typed events preserve payment, cast, six draw movements, resolution, graveyard movement, Watchwolf follow-up, combat, and terminal win order."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutants"
+summary = "A repeated seed yields identical events and outcomes; compiled cost, color, land-type, and fixed-one-card draw mutants are all rejected."
+trace_required = true
+branches = ["reference", "wrong-exact-cost", "wrong-color", "wrong-land-type", "draw-one"]
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and colored mana costs", "106 Mana", "117 Timing and Priority", "305.6 Basic land types", "601.2 Casting spells", "608.2 Resolving spells and abilities", "121.2-121.3 Drawing cards"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Rules changes in later announced bulletins are excluded until their effective release."

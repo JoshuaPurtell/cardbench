@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 52
+definition_id = "RAV-GRAYSCALED-GHARIAL"
+card_name = "Grayscaled Gharial"
+printed_mana_cost = "{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = ["islandwalk"]
+abilities = []
+source_authority = "RAV printed identity, {U} cost, blue 1/1 Creature type, and Islandwalk keyword represented by the candidate-owned definition and full-game combat trace"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-one-one-exact-cost"
+summary = "Cast Grayscaled Gharial as a blue 1/1 creature with exact cost {U}."
+trace_required = true
+
+[[features]]
+id = "islandwalk-block-legality"
+summary = "Attack while the defending player controls an Island and a live Drift of Phantasms; verify an attempted block is rejected by Islandwalk and the rejection preserves game state."
+trace_required = true
+
+[[features]]
+id = "unblocked-combat-terminal-win"
+summary = "Verify the defender submits an empty legal block declaration, Grayscaled Gharial deals combat damage, and the shuffled full game ends in a pilot win with deterministic replay."
+trace_required = true
+
+[[features]]
+id = "full-game-gameplay-mutants"
+summary = "Detect removal of Islandwalk through block legality, a printed-cost change, and a power change through the full-game trace."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["702.14: landwalk", "509.1: declare blockers", "510.1: combat damage", "601.2: casting a creature spell"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

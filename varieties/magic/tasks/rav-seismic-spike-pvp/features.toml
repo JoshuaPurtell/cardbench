@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 141
+definition_id = "RAV-SEISMIC-SPIKE"
+card_name = "Seismic Spike"
+printed_mana_cost = "{2}{R}{R}"
+colors = ["red"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["destroy-target-land", "add-two-red-mana-after-destruction"]
+source_authority = "CardBench-authored semantic summary of RAV printed identity and effect order"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-sorcery-casting"
+summary = "Cast RAV Seismic Spike as a red sorcery for {2}{R}{R} during a main phase with the stack empty."
+trace_required = true
+
+[[features]]
+id = "target-land-destruction"
+summary = "Choose an opponent Mountain as the target land; resolution records the spell's destruction of that exact object and its move to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "ordered-two-red-mana"
+summary = "After destroying the land, Seismic Spike adds exactly two red mana to its controller's pool before the spell finishes resolving."
+trace_required = true
+
+[[features]]
+id = "full-game-mana-use-and-pvp"
+summary = "Spend the two red mana added by Seismic Spike to pay for a Viashino Slasher, continue the deterministic constructed game, and win through combat."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Timing and Priority", "601.2 Casting Spells", "608 Resolving Spells and Abilities", "701.7 Destroying", "106 Mana"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

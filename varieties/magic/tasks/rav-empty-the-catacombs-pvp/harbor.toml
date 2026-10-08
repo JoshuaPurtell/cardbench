@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-empty-the-catacombs"
+definition_id = "RAV-EMPTY-THE-CATACOMBS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "empty_the_catacombs_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/empty_the_catacombs.rs"
+authority_bin = "rav-empty-the-catacombs-pvp"
+materializer = "varieties/magic/scripts/materialize_empty_the_catacombs_task.py"
+scorer = "varieties/magic/scripts/score_empty_the_catacombs_pvp.py"
+review_scope = "RAV #86 printed identity and historical wording; black {3}{B} Sorcery; all creature cards return from each player's own graveyard to that player's hand with no card selection; optional commander-zone replacement where applicable; noncreatures remain; spell reaches its owner's graveyard after resolution; full legal 60-card two-player game; exact ordered owner-relative moves; deterministic replay; mutation sensitivity; candidate AST guard; engine, registry, catalog, materializer, scorer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/empty_the_catacombs_card/README.md",
+  "adapters/harbor/bundles/empty_the_catacombs_card/instruction.md",
+  "adapters/harbor/bundles/empty_the_catacombs_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_empty_the_catacombs_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_empty_the_catacombs_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_empty_the_catacombs_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/empty_the_catacombs.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/empty_the_catacombs_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/empty_the_catacombs_no_choice_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-empty-the-catacombs-pvp/README.md",
+  "varieties/magic/tasks/rav-empty-the-catacombs-pvp/source-note.md",
+  "varieties/magic/tasks/rav-empty-the-catacombs-pvp/features.toml",
+  "varieties/magic/tasks/rav-empty-the-catacombs-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Empty the Catacombs identity, {3}{B} cost, sorcery type, or all-creature return effect differs"
+
+[mutation]
+find = "effects: vec![Effect::ReturnAllCreatureCardsFromEachGraveyardToHand]"
+replace = "effects: vec![]"
+expected_diagnostic = "Empty the Catacombs identity, {3}{B} cost, sorcery type, or all-creature return effect differs"

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 96
+definition_id = "RAV-MORTIPEDE"
+card_name = "Mortipede"
+printed_mana_cost = "{3}{B}"
+colors = ["black"]
+card_types = ["creature"]
+power = 4
+toughness = 1
+keywords = []
+abilities = ["{2}{G}: this creature must be blocked if able until end of turn"]
+source_authority = "RAV printing identity and candidate-owned definition and activated ability; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-base-characteristics"
+summary = "Cast Mortipede for {3}{B} and verify its black 4/1 creature characteristics."
+trace_required = true
+
+[[features]]
+id = "activated-cost-and-continuous-effect"
+summary = "Pay exactly {2}{G}, resolve the activated ability before combat, and grant the source MustBeBlockedIfAble until end of turn."
+trace_required = true
+
+[[features]]
+id = "required-block-and-combat"
+summary = "With an available blocker, verify the opponent assigns a block to Mortipede; confirm 4 damage to the blocker, 1 damage to Mortipede, and both deaths."
+trace_required = true
+
+[[features]]
+id = "complete-legal-game-and-mutations"
+summary = "Continue the deterministic legal duel to a seat-zero win; reject gameplay mutations to the ability effect and cost, casting cost, power, and toughness."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.1 Creature characteristics", "601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities", "608.2 Resolving abilities", "611.2 Until-end-of-turn continuous effects", "509.1 Blocking requirements", "510.1-510.2 Combat damage", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Mortipede"
+collector_number = 96
+url = "https://scryfall.com/card/rav/96/mortipede"
+retained_data = "Public card identity, mana cost, color, creature type, power/toughness, and activated ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

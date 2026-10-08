@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 228
+definition_id = "RAV-SELESNYA-EVANGEL"
+card_name = "Selesnya Evangel"
+printed_mana_cost = "{G}{W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+power = 1
+toughness = 2
+keywords = []
+abilities = ["activated green 1/1 Saproling creation"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-cost-casting"
+summary = "Cast the green-white Evangel through the ordinary stack lifecycle and pay exactly one green and one white mana."
+trace_required = true
+
+[[features]]
+id = "activated-ability-costs"
+summary = "After the creature can legally pay its tap symbol, pay one generic mana, tap Selesnya Evangel, and tap a distinct controlled creature as costs."
+trace_required = true
+
+[[features]]
+id = "additional-creature-tap-mutation"
+summary = "A targeted mutation removing the distinct creature tap cost reaches the PvP trace and fails on the missing cost receipt and live tap state."
+trace_required = true
+
+[[features]]
+id = "stack-resolution"
+summary = "Record the activated ability entering and leaving the stack after its activation-cost receipts."
+trace_required = true
+
+[[features]]
+id = "saproling-token-state"
+summary = "The resolving ability creates one controlled green 1/1 Saproling creature that remains on the battlefield."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-replay"
+summary = "Continue the same legal constructed match to a clean terminal result and reproduce its ordered event log from the same seed."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1 and 106.4 Mana and payment", "111.3 Tokens", "117.1b and 117.3c Priority", "202.1-202.2 Mana Cost and Colors", "302.1-302.6 Creatures and Summoning Sickness", "601.2 Casting Spells", "602.1-602.2 Activating Activated Abilities", "608.3a Resolving Permanent Spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Selesnya Evangel"
+collector_number = 228
+url = "https://scryfall.com/card/rav/228/selesnya-evangel"
+retained_data = "Public card identity, mana cost, colors, type, power, toughness, and the token-creation operation needed by the trace"

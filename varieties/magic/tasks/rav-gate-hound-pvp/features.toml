@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 19
+definition_id = "RAV-GATE-HOUND"
+card_name = "Gate Hound"
+printed_mana_cost = "{2}{W}"
+colors = ["white"]
+card_types = ["creature"]
+keywords = []
+abilities = ["1/1; while Gate Hound is enchanted, creatures its controller controls have vigilance"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition/static binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-exact-casting"
+summary = "Cast the 1/1 white creature for exact {2}{W} payment in a legal PvP main phase."
+trace_required = true
+
+[[features]]
+id = "conditional-vigilance"
+summary = "Verify Gate Hound grants no vigilance while unenchanted and grants vigilance to every creature its controller controls while the Aura remains attached."
+trace_required = true
+
+[[features]]
+id = "vigilance-combat-and-terminal"
+summary = "Attack with Gate Hound and additional controlled creatures, confirm they remain untapped through combat, and continue the shuffled duel to a terminal P0 win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay deterministically and reject mutations removing the conditional keyword, removing the enchantment condition, or changing the mana cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.1 Creature characteristics", "601.2 Casting spells", "613 Continuous effects", "702.20 Vigilance", "510.1 Attacking creatures and tapping"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-siege-wurm"
+definition_id = "RAV-SIEGE-WURM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "siege_wurm_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/siege_wurm.rs"
+authority_bin = "rav-siege-wurm-pvp"
+materializer = "varieties/magic/scripts/materialize_siege_wurm_task.py"
+scorer = "varieties/magic/scripts/score_siege_wurm_pvp.py"
+review_scope = "Siege Wurm RAV #183 identity, green {5}{G}{G} 5/5 characteristics, seven distinct Convoke payers with two green and five generic contributions, shuffled-deck creature development, cast/resolution, Trample damage to a cast Watchwolf blocker and opponent, blocker lethal-damage SBA/graveyard move, terminal PvP win, replay, three gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/siege_wurm_card/README.md",
+  "adapters/harbor/bundles/siege_wurm_card/instruction.md",
+  "adapters/harbor/bundles/siege_wurm_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_siege_wurm_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_siege_wurm_pvp.py",
+  "varieties/magic/session/src/bin/rav_siege_wurm_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/siege_wurm.rs",
+  "varieties/magic/tasks/rav-siege-wurm-pvp/README.md",
+  "varieties/magic/tasks/rav-siege-wurm-pvp/features.toml",
+  "varieties/magic/tasks/rav-siege-wurm-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Siege Wurm candidate or registry differs from exact RAV #183 identity"
+
+[mutation]
+find = "Keyword::Convoke, Keyword::Trample"
+replace = "Keyword::Trample"
+expected_diagnostic = "Siege Wurm candidate or registry differs from exact RAV #183 identity"

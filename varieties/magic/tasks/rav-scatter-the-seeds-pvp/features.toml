@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 181
+definition_id = "RAV-SCATTER-THE-SEEDS"
+card_name = "Scatter the Seeds"
+printed_mana_cost = "{3}{G}{G}"
+colors = ["green"]
+card_types = ["instant"]
+keywords = ["convoke"]
+abilities = ["Convoke", "Create three green 1/1 Saproling creature tokens"]
+source_authority = "RAV printed card identity, exact cost, color, type, Convoke, and three Saproling token effect represented by candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-instant-five-mana-convoke"
+summary = "Cast the green Instant with exact {3}{G}{G} cost, paying three green mana and tapping two distinct creatures for generic Convoke."
+trace_required = true
+
+[[features]]
+id = "three-live-saproling-tokens"
+summary = "Resolve the spell and verify exactly three green 1/1 Saproling creature tokens with no keywords enter under its controller's control."
+trace_required = true
+
+[[features]]
+id = "token-combat-terminal"
+summary = "Attack only with live tokens, capture typed attack and combat-damage events, and finish the complete game with the defending player's life at zero."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-compiled-mutants"
+summary = "Replay the shuffled full game deterministically and reject compiled mutants removing Convoke, increasing generic cost, creating two tokens, or changing Saproling power."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "608.2 Resolving spells", "702.50 Convoke", "111.1 and 111.3 Token creation and characteristics", "508.1 Declaring attackers", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

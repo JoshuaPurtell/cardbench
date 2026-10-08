@@ -1,0 +1,31 @@
+{
+  "schema_version": "cardbench.magic.independent-review.v1",
+  "status": "passed",
+  "reviewer": "independent review subagent /root/rav_card_vertical_next/three_dreams_task_tools",
+  "reviewed_at_utc": "2026-09-24T15:22:41Z",
+  "review_scope": "Ghosts of the Innocent RAV #20 identity and 4/5 body; global half-rounded-down replacement for creature, player, self, opposing-source, and combat damage; normal terminal duel, deterministic replay, and semantic mutations; isolated diagnostic scoring with rewards and credit fixed at zero",
+  "review_verdict": "No implementation, task-boundary, provenance, scoring, trace, mutation, or source-validation blocker found after the catalog and provenance scope descriptions were reconciled with the full-fidelity manifest.",
+  "review_findings": [],
+  "reviewed_files": {
+    "varieties/magic/DATA_PROVENANCE.md": "0811ae026db50db6024e3d5748f4bb401239c2e83bf56d34d718349d5ab6cd91",
+    "varieties/magic/engine/src/game.rs": "cfc848643007b7cf429be2783b86cafdedb867ec5791bf475eee84c77611fa7d",
+    "varieties/magic/engine/src/model.rs": "a98660c544249208de0cfa0c2e4e7cebe51ee6d7c40b407365c8677a5f1c8c59",
+    "varieties/magic/session/src/project.rs": "d03ad86c3b173eb5dd5cf2267c22e9d4ad0c6f5b59a635a994142986c762ab22",
+    "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv": "c08f472c724e85518c7c6423cbec330dee2e5a1ccd9daaf63d3fae7e90bec518",
+    "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md": "d238cc151c85ada6e9c2130cd4b361269b0c7c9ee3f2aaa2dc057c10076e08f8",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs": "f01cd9df75b063db47cd2887ce583f533cfe48bc7380f7ff7c4ff04712d35656",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs": "41820b4c799b51eaf358eb9633f81ffbe4eeaf75d6a5465bd53e373f24321fa6",
+    "adapters/harbor/bundles/ghosts_of_the_innocent_card/README.md": "8aab0df012d6a284dbf5c9c036b6bac58763f691fbca519d21bc7589b01c9fae",
+    "adapters/harbor/bundles/ghosts_of_the_innocent_card/instruction.md": "fa7ff1f50fa7edbe225b042723eef5fb0d4da30f25cdc391ef6c4a2fbd15bf3d",
+    "adapters/harbor/bundles/ghosts_of_the_innocent_card/tests/test.sh": "412603b0e9b22dea64802033ef68cf466553cd3047404f3445f5972a82ba06c3",
+    "varieties/magic/scripts/materialize_ghosts_of_the_innocent_task.py": "d3229ebe81c97871111300b8e0861008cbbc9f435ae3c34e42577f55a875a49c",
+    "varieties/magic/scripts/rav_card_task_workspace.py": "676d33a39cad307ca2800be4461501a6f3ab7e9acb3105f6af67a2ddd66a9ea8",
+    "varieties/magic/scripts/score_ghosts_of_the_innocent_pvp.py": "4325c908c26e595fca0d7da82018d1be5a50a3db3ecdc581a815131d17a53557",
+    "varieties/magic/session/src/bin/rav_ghosts_of_the_innocent_pvp.rs": "6d5811264bb690fc14ffb16f51d068e37ffbe3a4e3d71d5edb8500990e7ad72b",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ghosts_of_the_innocent.rs": "e67e59842c4b43f914db3c3f6c9e4371e9667ee6fbbec3612237e34021666795",
+    "varieties/magic/tasks/rav-ghosts-of-the-innocent-pvp/README.md": "54a7b09a55309e5bc075dd10fefa92fbf4d401904cf462003dbb94ddd2d3e0a9",
+    "varieties/magic/tasks/rav-ghosts-of-the-innocent-pvp/features.toml": "5f041307cec28a20b67aeb3f126816c2f072d80fcd012e453f8ed9ea035299aa",
+    "varieties/magic/tasks/rav-ghosts-of-the-innocent-pvp/harbor.toml": "f982e9c42f1cfddd25eaf01fd36d861521e98e881071fe8edc834f2f71a689c8"
+  },
+  "review_method": "Read-only independent review of every file listed by the task Harbor review_files contract. No Cargo build, provider trial, candidate trial, or Harbor receipt/credit was run during this review."
+}

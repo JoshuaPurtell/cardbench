@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 226
+definition_id = "RAV-SEARING-MEDITATION"
+card_name = "Searing Meditation"
+printed_mana_cost = "{2}{R}{W}"
+colors = ["red", "white"]
+card_types = ["enchantment"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Whenever you gain life, you may pay {1}{R}{W}. If you do, Searing Meditation deals 2 damage to any target."]
+source_authority = "RAV printing identity and candidate-owned LifeGained binding with optional colored mana payment, target selection, and fixed two damage"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-white-enchantment-casting"
+summary = "Cast and resolve Searing Meditation for two generic, one red, and one white mana in a shuffled 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "life-gain-trigger-stack"
+summary = "Lightning Helix gains three life for the controller and the Searing Meditation trigger is stacked after that life-gain event."
+trace_required = true
+
+[[features]]
+id = "optional-colored-payment-and-target"
+summary = "The controller may pay exactly {1}{R}{W} during trigger resolution and select a legal player target; the accepted branch deals exactly two damage."
+trace_required = true
+
+[[features]]
+id = "optional-decline"
+summary = "The declined branch resolves without paying mana, selecting a target, or dealing Searing Meditation damage."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-mutations"
+summary = "Both branches reach a terminal player-zero win and replay; removing the trigger or changing its damage amount fails the gameplay trace."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and spell payment", "117 Priority and spell resolution", "119 Life totals and life gain", "120 Damage and damage events", "303.1 Enchantments", "601.2 Casting and resolving spells", "603.2 and 603.3 Triggered abilities and putting them on the stack", "603.5 Optional triggered ability payment and resolution", "608.2 Resolving spells and abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Searing Meditation"
+collector_number = 226
+url = "https://scryfall.com/card/rav/226/searing-meditation"
+retained_data = "Public identity, mana cost, colors, enchantment type, and the life-gain damage ability required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

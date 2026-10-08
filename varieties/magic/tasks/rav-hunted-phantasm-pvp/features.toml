@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-HUNTED-PHANTASM"
+set_code = "RAV"
+collector_number = 55
+card_name = "Hunted Phantasm"
+printed_mana_cost = "{1}{U}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+subtypes = ["Spirit"]
+power = 4
+toughness = 6
+keywords = ["can't be blocked"]
+abilities = ["When this creature enters the battlefield, target opponent creates five red 1/1 Goblin creature tokens"]
+source_authority = "RAV printing controls public identity and tested semantics per RAV_PVP_SOURCE_CONTRACT.md; Oracle wording is interpretation only. The printed Spirit subtype is retained as an identity fact but is not asserted by the current engine model."
+oracle_reconciliation = "Current Oracle modernizes entry and token-creation terminology without changing the tested RAV behavior; no gameplay-changing reconciliation or excluded later erratum was found"
+public_identity_record = "https://www.mtg.wtf/card/rav/55/Hunted-Phantasm"
+model_limitations = "CardDefinition represents Creature but has no creature subtype field; Spirit is retained public identity and is not asserted in the gameplay trace."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "Retain only public identity facts and CardBench-authored operations; no card prose corpus, scans, or art"
+
+[[features]]
+id = "blue-phantasm-body-and-evasion"
+summary = "Cast Hunted Phantasm for exactly {1}{U}{U}, verify its live 4/6 Creature and unblockable characteristics, then demonstrate combat damage on a later turn through legal combat. The printed Spirit subtype is retained as source identity but is not modeled or asserted by CardDefinition."
+trace_required = true
+
+[[features]]
+id = "opponent-goblin-etb"
+summary = "Record the controller submitting the mandatory ETB target decision to the only legal opponent; bind the move's actor to the trigger controller, then create exactly five red 1/1 Goblin creature tokens under that opponent's control and capture them during resolution while both players are still alive."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full shuffled game deterministically and detect mutations to body, unblockability, cost, trigger condition, target domain, Goblin characteristics, and token count."
+trace_required = true
+
+[[features]]
+id = "candidate-source-execution-boundary"
+summary = "Validate the complete candidate source AST and exact literal source before any candidate function call; reject a compile-valid injected filesystem side effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 and 111 Permanents and tokens", "117 Timing and priority", "202.1-202.2 Colors and mana cost", "302.1 Creature characteristics", "509.1 Blocker declaration", "601.2 Casting spells", "603.2 and 603.3 Trigger events and target selection", "608.2 Resolving triggered abilities", "701.6 Creating tokens"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Future-effective rules updates are excluded from this RAV printing diagnostic."

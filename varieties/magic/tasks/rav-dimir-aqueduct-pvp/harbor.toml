@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dimir-aqueduct"
+definition_id = "RAV-DIMIR-AQUEDUCT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dimir_aqueduct_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dimir_aqueduct.rs"
+authority_bin = "rav-dimir-aqueduct-pvp"
+materializer = "varieties/magic/scripts/materialize_dimir_aqueduct_task.py"
+scorer = "varieties/magic/scripts/score_dimir_aqueduct_pvp.py"
+review_scope = "RAV Dimir Aqueduct identity and candidate-owned definition, tapped land entry, controlled-land ETB trigger and target, exact free blue-black bundle; shuffled 60-card PvP; full trigger/move/mana event order; Dimir Guildmage cast and terminal combat win; deterministic replay; tapped, target, trigger, and bundle mutations; compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/dimir_aqueduct_card/README.md",
+  "adapters/harbor/bundles/dimir_aqueduct_card/instruction.md",
+  "adapters/harbor/bundles/dimir_aqueduct_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_dimir_aqueduct_task.py",
+  "varieties/magic/scripts/score_dimir_aqueduct_pvp.py",
+  "varieties/magic/session/src/bin/rav_dimir_aqueduct_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dimir_aqueduct.rs",
+  "varieties/magic/tasks/rav-dimir-aqueduct-pvp/README.md",
+  "varieties/magic/tasks/rav-dimir-aqueduct-pvp/features.toml",
+  "varieties/magic/tasks/rav-dimir-aqueduct-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Dimir Aqueduct candidate or registry differs from RAV #276 contract"
+
+[mutation]
+find = "TargetRequirement::ControlledLand"
+replace = "TargetRequirement::Creature"
+expected_diagnostic = "Dimir Aqueduct candidate or registry differs from RAV #276 contract"

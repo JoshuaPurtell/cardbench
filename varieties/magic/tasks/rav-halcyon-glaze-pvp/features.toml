@@ -1,0 +1,66 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 54
+definition_id = "RAV-HALCYON-GLAZE"
+card_name = "Halcyon Glaze"
+printed_mana_cost = "{1}{U}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+card_subtypes = []
+keywords = []
+abilities = ["Whenever you play a creature spell, Halcyon Glaze becomes a 4/4 Illusion creature with flying until end of turn."]
+source_authority = "RAV printed identity; current Oracle clarifies play/cast terminology, self-reference, and retention of other types without changing the cast-triggered animation result"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no art, scans, flavor, or rules-text corpus; Illusion is an animated subtype because CardDefinition has no base subtype field"
+
+[[features]]
+id = "controller-creature-spell-cast-trigger"
+summary = "Verify each controlled creature spell cast while Halcyon Glaze is on the battlefield stacks exactly one mandatory source trigger; an opponent's creature spell does not trigger it."
+trace_required = true
+
+[[features]]
+id = "trigger-stacks-above-cast-creature-spell"
+summary = "Verify the trigger stacks on the creature spell cast event and resolves while that creature spell remains underneath it on the stack."
+trace_required = true
+
+[[features]]
+id = "layered-4-4-illusion-flying-animation"
+summary = "Verify Halcyon Glaze remains an Enchantment and gains Creature, Illusion, blue color, 4/4, and Flying until end of turn."
+trace_required = true
+
+[[features]]
+id = "cleanup-restores-enchantment"
+summary = "Verify Cleanup removes the temporary Creature type, Illusion subtype, 4/4 values, and Flying while retaining the same blue Enchantment object and incarnation."
+trace_required = true
+
+[[features]]
+id = "retrigger-full-game-terminal-result"
+summary = "Verify later controller creature spells retrigger the animation, the flying Glaze deals five four-damage packets in a normal full-game duel, replay is deterministic, and all semantic mutations are detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and timing", "302.1-302.6 Creature characteristics and summoning sickness", "601.2 Casting spells", "603.2 Triggered abilities", "608.2 Resolving spells and abilities", "514 Cleanup step"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing identity and original rules text"
+card = "Halcyon Glaze"
+collector_number = 54
+url = "https://www.lastdodo.com/en/items/829225-halcyon-glaze"
+retained_data = "Public identity, mana cost, color, type, printed play wording, and animation characteristics"
+
+[[source_references]]
+source = "Current Oracle wording and card record"
+card = "Halcyon Glaze"
+collector_number = 54
+url = "https://mtg.wtf/card/rav/54/Halcyon-Glaze"
+retained_data = "Public identity, current wording, and printed characteristics"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

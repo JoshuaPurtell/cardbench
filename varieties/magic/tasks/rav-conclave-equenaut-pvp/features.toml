@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 9
+definition_id = "RAV-CONCLAVE-EQUENAUT"
+card_name = "Conclave Equenaut"
+printed_mana_cost = "{4}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 3
+toughness = 3
+keywords = ["convoke", "flying"]
+abilities = ["Convoke", "Flying"]
+source_authority = "RAV printed card identity, cost, color, type line, power, toughness, and keywords represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-3-3-convoke-creature"
+summary = "Resolve a white 3/3 creature with exact {4}{W}{W} cost and live Convoke and Flying keywords."
+trace_required = true
+
+[[features]]
+id = "four-generic-convoke-and-two-white-pips"
+summary = "Tap four distinct creatures for four Generic Convoke contributions, then pay exactly two White mana for the colored symbols. The creature pool includes Birds of Paradise and Watchwolf playsets."
+trace_required = true
+
+[[features]]
+id = "live-flying-combat-evasion"
+summary = "Attack with the live Flying Equenaut while an opposing ground Watchwolf is on the battlefield; verify a ground blocker attempt is rejected by engine rules and the legal empty declaration lets Equenaut deal combat damage."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full shuffled game deterministically and reject compiled semantic mutations that remove Convoke, increase generic cost, or remove Flying."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "702.50 Convoke", "702.9 Flying", "508 Declaring attackers", "509 Declaring blockers and evasion", "510 Combat damage and state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

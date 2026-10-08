@@ -15,8 +15,9 @@ use std::collections::{BTreeSet, HashSet};
 
 use cardbench_magic_engine::{
     CardDefinition, CardObject, CardType, CastRequest, Color, CombatBlock, ConvokeContribution,
-    ConvokePayment, DecisionSelection, Effect, Game, GameEvent, GameView, Keyword, ManaCost,
-    ObjectId, PlayerId, PlayerState, PolicyAction, StackObject, Target, TargetRequirement, Zone,
+    ConvokePayment, DecisionSelection, DefenderChoice, Effect, Game, GameEvent, GameView, Keyword,
+    ManaCost, ObjectId, PlayerId, PlayerState, PolicyAction, StackObject, Target, TargetRequirement,
+    Zone,
 };
 
 const POLICY_ID: &str = "engine.stateful-policy-fuzz.v1";
@@ -582,11 +583,25 @@ fn selected_action(game: &Game, player: PlayerId, rng: &mut TraceRng) -> PolicyA
                 .filter(|card| card.can_attack)
                 .map(|card| card.id)
                 .collect();
-            let attackers = legal_attackers
+            let attackers: Vec<_> = legal_attackers
                 .into_iter()
                 .filter(|_| rng.choose(2) == 1)
                 .collect();
-            PolicyAction::DeclareAttackers { attackers }
+            if attackers.is_empty() {
+                PolicyAction::DeclareAttackers { attackers }
+            } else {
+                let n = game.players.len();
+                let defender = (1..=n)
+                    .map(|offset| PlayerId((player.0 + offset) % n))
+                    .find(|candidate| !game.players[candidate.0].lost)
+                    .expect("three-player trace always has a living opponent");
+                PolicyAction::DeclareAttackersAgainst {
+                    attackers: attackers
+                        .into_iter()
+                        .map(|card| (card, DefenderChoice::Player(defender)))
+                        .collect(),
+                }
+            }
         }
         cardbench_magic_engine::Step::DeclareBlockers if !view.blockers_declared => {
             let attacker = view.combat_attackers.first().map(|card| card.id);

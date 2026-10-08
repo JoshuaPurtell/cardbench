@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 32
+definition_id = "RAV-THREE-DREAMS"
+card_name = "Three Dreams"
+printed_mana_cost = "{4}{W}"
+colors = ["white"]
+card_types = ["sorcery"]
+keywords = []
+abilities = ["Search for up to three Aura cards with different names, reveal the selected cards, put them into hand, then shuffle"]
+source_authority = "RAV printed card identity, cost, color, type line, and policy-selected private Aura search represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-four-generic-sorcery"
+summary = "Cast and resolve the white Sorcery with exact {4}{W} payment."
+trace_required = true
+
+[[features]]
+id = "private-up-to-three-distinct-aura-search"
+summary = "Offer the player's library Aura choices and select three with pairwise-distinct printed names."
+trace_required = true
+
+[[features]]
+id = "reveal-hand-transfer-shuffle"
+summary = "Reveal each selected Aura before moving it to hand, then shuffle the library."
+trace_required = true
+
+[[features]]
+id = "zero-card-selection-while-options-remain"
+summary = "Choose zero Auras in a separate full game despite legal choices, then shuffle without revealing or moving a card."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay both full games deterministically and reject mutations that lower the maximum, permit duplicate names, or suppress reveals."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "601.2 Casting spells", "608.2 Resolving spells and abilities", "701.16 Revealing cards", "701.19 Searching a library"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,36 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-ivy-dancer"
+definition_id = "RAV-IVY-DANCER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "ivy_dancer_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ivy_dancer.rs"
+authority_bin = "rav-ivy-dancer-pvp"
+materializer = "varieties/magic/scripts/materialize_ivy_dancer_task.py"
+scorer = "varieties/magic/scripts/score_ivy_dancer_pvp.py"
+review_scope = "Ivy Dancer RAV #171 exact {2}{G} 1/2 definition, candidate-owned {T} target-creature Forestwalk ability, target selection and resolution, actual landwalk block legality with a Forest controlled by the defender, until-end-of-turn expiration, complete deterministic legal game, and gameplay semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/ivy_dancer_card/README.md",
+  "adapters/harbor/bundles/ivy_dancer_card/instruction.md",
+  "adapters/harbor/bundles/ivy_dancer_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_ivy_dancer_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_ivy_dancer_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_ivy_dancer_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ivy_dancer.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-ivy-dancer-pvp/README.md",
+  "varieties/magic/tasks/rav-ivy-dancer-pvp/features.toml",
+  "varieties/magic/tasks/rav-ivy-dancer-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Ivy Dancer candidate definition or ability is outside its literal source contract"
+
+[mutation]
+find = "keyword: Keyword::Landwalk(BasicLandType::Forest)"
+replace = "keyword: Keyword::Vigilance"
+expected_diagnostic = "Ivy Dancer candidate definition or ability is outside its literal source contract"

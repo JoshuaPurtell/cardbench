@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-convolute"
+definition_id = "RAV-CONVOLUTE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "convolute_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/convolute.rs"
+authority_bin = "rav-convolute-pvp"
+materializer = "varieties/magic/scripts/materialize_convolute_task.py"
+scorer = "varieties/magic/scripts/score_convolute_pvp.py"
+review_scope = "RAV Convolute identity and {2}{U} instant characteristics; legal 60-card PvP target spell, priority response, actual mana payment, target controller's resolution payment decision, exact counter provenance and graveyard movement, deterministic replay, semantic mutations, isolated candidate workspace and Harbor reference scoring"
+review_files = [
+  "adapters/harbor/bundles/convolute_card/README.md",
+  "adapters/harbor/bundles/convolute_card/instruction.md",
+  "adapters/harbor/bundles/convolute_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_convolute_task.py",
+  "varieties/magic/scripts/score_convolute_pvp.py",
+  "varieties/magic/session/src/bin/rav_convolute_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/convolute.rs",
+  "varieties/magic/tasks/rav-convolute-pvp/README.md",
+  "varieties/magic/tasks/rav-convolute-pvp/features.toml",
+  "varieties/magic/tasks/rav-convolute-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Convolute definition differs from its RAV identity"
+
+[mutation]
+find = "mana_cost: ManaCost::new(4)"
+replace = "mana_cost: ManaCost::new(3)"
+expected_diagnostic = "candidate Convolute definition differs from its RAV identity"

@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 12
+definition_id = "RAV-COURIER-HAWK"
+card_name = "Courier Hawk"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 1
+toughness = 2
+keywords = ["flying", "vigilance"]
+abilities = []
+source_authority = "RAV printed card identity and characteristics already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-casting"
+summary = "Cast Courier Hawk as a white creature through the normal full-game spell and priority lifecycle, paying one white and one generic mana."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical spell moves from the stack onto the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "flying"
+summary = "The entered permanent retains Flying as a live characteristic; omission is detected after resolution."
+trace_required = true
+
+[[features]]
+id = "vigilance-and-characteristics"
+summary = "The entered permanent has 1 power and 2 toughness; when legally declared as an attacker on a later turn, Vigilance leaves it untapped."
+trace_required = true
+
+[[features]]
+id = "vigilance-attack-state"
+summary = "The creature is actually declared as an attacker after summoning sickness ends and remains untapped immediately after attacker declaration."
+trace_required = true
+branches = ["legal-attack", "untapped-after-declaration"]
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and Priority", "302 Creatures", "508 Declaring Attackers", "601 Casting Spells", "608 Resolving Spells and Abilities", "702.9 Flying", "702.20 Vigilance"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"

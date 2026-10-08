@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-viashino-fangtail"
+definition_id = "RAV-VIASHINO-FANGTAIL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "viashino_fangtail_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/viashino_fangtail.rs"
+authority_bin = "rav-viashino-fangtail-pvp"
+materializer = "varieties/magic/scripts/materialize_viashino_fangtail_task.py"
+scorer = "varieties/magic/scripts/score_viashino_fangtail_pvp.py"
+review_scope = "Viashino Fangtail exact red casting payment, candidate-owned tap ability binding, summoning-sickness timing, stack activation and target, lethal 1 damage and state-based graveyard movement, live 3/3 source, later combat and full-game win, RAV identity, source contract, candidate materialization, trusted authority, targeted mutations, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/viashino_fangtail_card/README.md",
+  "adapters/harbor/bundles/viashino_fangtail_card/instruction.md",
+  "adapters/harbor/bundles/viashino_fangtail_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_viashino_fangtail_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_viashino_fangtail_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_viashino_fangtail_pvp.rs",
+  "varieties/magic/engine/INVARIANTS.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/viashino_fangtail.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-viashino-fangtail-pvp/README.md",
+  "varieties/magic/tasks/rav-viashino-fangtail-pvp/features.toml",
+  "varieties/magic/tasks/rav-viashino-fangtail-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Viashino Fangtail definition is outside its literal source contract"
+
+[mutation]
+find = "amount: 1,"
+replace = "amount: 0,"
+expected_diagnostic = "Viashino Fangtail activated ability is outside its literal source contract"

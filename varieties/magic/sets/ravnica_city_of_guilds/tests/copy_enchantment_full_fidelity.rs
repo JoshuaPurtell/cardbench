@@ -301,11 +301,8 @@ fn copying_an_aura_selects_its_attachment_before_the_copy_enters() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AttachmentEstablishedWithoutContinuousEffect {
-            attachment,
-            target,
-            ..
-        } if *attachment == copy && *target == creature
+        GameEvent::ContinuousEffectCreated { source, target, .. }
+            if *source == copy && *target == creature
     )));
     println!(
         "copy_enchantment_aura_event_log={:#?}",

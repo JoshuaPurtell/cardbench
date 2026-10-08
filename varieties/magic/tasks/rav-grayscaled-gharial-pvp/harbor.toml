@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-grayscaled-gharial"
+definition_id = "RAV-GRAYSCALED-GHARIAL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "grayscaled_gharial_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/grayscaled_gharial.rs"
+authority_bin = "rav-grayscaled-gharial-pvp"
+materializer = "varieties/magic/scripts/materialize_grayscaled_gharial_task.py"
+scorer = "varieties/magic/scripts/score_grayscaled_gharial_pvp.py"
+review_scope = "Grayscaled Gharial RAV #52 blue {U} 1/1 identity, Islandwalk keyword, attempted block rejected while defending player controls an Island and blocker is otherwise live, unchanged rejected state, legal empty block declaration, unblocked combat, normal shuffled 60-card full-game PvP, terminal win, replay, three gameplay mutations, candidate source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/grayscaled_gharial_card/README.md",
+  "adapters/harbor/bundles/grayscaled_gharial_card/instruction.md",
+  "adapters/harbor/bundles/grayscaled_gharial_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_grayscaled_gharial_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_grayscaled_gharial_pvp.py",
+  "varieties/magic/session/src/bin/rav_grayscaled_gharial_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/grayscaled_gharial.rs",
+  "varieties/magic/tasks/rav-grayscaled-gharial-pvp/README.md",
+  "varieties/magic/tasks/rav-grayscaled-gharial-pvp/features.toml",
+  "varieties/magic/tasks/rav-grayscaled-gharial-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Grayscaled Gharial candidate definition differs from the exact RAV #52 source contract"
+
+[mutation]
+find = "keywords: vec![Keyword::Landwalk(BasicLandType::Island)],"
+replace = "keywords: vec![],"
+expected_diagnostic = "Grayscaled Gharial candidate definition differs from the exact RAV #52 source contract"

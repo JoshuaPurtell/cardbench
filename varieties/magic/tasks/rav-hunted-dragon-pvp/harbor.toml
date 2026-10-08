@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-hunted-dragon"
+definition_id = "RAV-HUNTED-DRAGON"
+expansion = "RAV"
+variant = "single-card"
+bundle = "hunted_dragon_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_dragon.rs"
+authority_bin = "rav-hunted-dragon-pvp"
+materializer = "varieties/magic/scripts/materialize_hunted_dragon_task.py"
+scorer = "varieties/magic/scripts/score_hunted_dragon_pvp.py"
+review_scope = "Hunted Dragon #131 full-game 60-card diagnostic duel, 291-name/306-printing denominator, exact red {3}{R}{R} cost and 6/6 Flying/Haste body, opponent-only ETB creation of three white 2/2 First Strike Knights, capture while both players remain alive, same-turn Haste combat, deterministic replay, semantic mutations, compile-valid side-effect source rejection before candidate calls, exact candidate-source contract validation, public materializer/scorer/Harbor bundle, and RAV provenance/event review"
+review_files = [
+  "adapters/harbor/bundles/hunted_dragon_card/README.md",
+  "adapters/harbor/bundles/hunted_dragon_card/instruction.md",
+  "adapters/harbor/bundles/hunted_dragon_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_hunted_dragon_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_hunted_dragon_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_hunted_dragon_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_dragon.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/additional_red_creatures_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-hunted-dragon-pvp/README.md",
+  "varieties/magic/tasks/rav-hunted-dragon-pvp/features.toml",
+  "varieties/magic/tasks/rav-hunted-dragon-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Hunted Dragon source AST differs from task contract"
+
+[mutation]
+find = "pub(crate) fn definition() -> CardDefinition {"
+replace = "pub(crate) fn definition() -> CardDefinition {\n    let _ = std::fs::write(\"/tmp/cardbench-hunted-dragon-candidate-executed\", b\"executed\");"
+expected_diagnostic = "Hunted Dragon source AST differs from task contract"

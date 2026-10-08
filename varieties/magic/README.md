@@ -106,6 +106,40 @@ event log against its fixed public digest. With `--output-root PATH`, the Rust
 binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
 receipt.
 
+### First set-PvP pilot
+
+The first card-level Harbor route is `cardbench/magic/set_pvp`, scoped to Char
+(RAV #117). Run the reference receipt with:
+
+```bash
+./adapters/harbor/run.sh set-pvp verify magic
+```
+
+The runner stages a compile-valid Char stub, scores the reference and a
+compiled 4-to-3 damage mutant in a networkless Rust worker, and requires the
+stub to fail for the missing damage behavior. The receipt retains all 291 RAV
+names / 306 printings, records Char's two full-game traces, and reports
+`cards_passed=1`, `cards_credited=0`, `coverage_complete=false`, and
+`harbor_reward=0`. The pilot does not promote Magic, RAV, GPT, or DIS to a
+ready lane. A Codex candidate run is available through `set-pvp codex magic`;
+it is not run as part of reference verification.
+
+### RAV per-card PvP coverage
+
+The single-card PvP lane is expanding across every RAV identity. Each task
+owns one candidate card module and checks its behavior in a terminal shuffled
+two-player game with typed event receipts and card-specific gameplay mutations.
+The diagnostic coverage ledger checks the full 291-name / 306-printing
+denominator without granting card credit:
+
+```bash
+python3 varieties/magic/scripts/report_rav_pvp_coverage.py --limit 0
+```
+
+Per-card reference and candidate receipts remain separate from the Char set-PvP
+pilot. Whole-set coverage stays incomplete until every card identity has passed
+its reviewed candidate trial.
+
 | Component | Location | Scope in this milestone |
 | --- | --- | --- |
 | Expansion-neutral rules | `engine/` | Library, hand, battlefield, graveyard, exile, stack; priority; phases/steps; mana costs; lands; state-based actions; draw replacements; narrow instant/sorcery spell targeting and counters; continuous-effect layers 4–7 |
@@ -116,8 +150,10 @@ The public engine task id is `cardbench/magic/engine`. Its future sibling task
 ids are retained without conflating their rewards:
 
 ```text
+cardbench/magic/card
 cardbench/magic/code_policy
 cardbench/magic/deck_opt
+cardbench/magic/set_pvp
 cardbench/magic/engine
 cardbench/magic/react
 cardbench/magic/cybernetic
@@ -230,8 +266,11 @@ current corpus contains 192 scenarios and covers:
 - declared generic Dredge/Convoke compatibility slices with fixed event logs;
   these cover only the named shared keyword plus normal casting/base
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
-  `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Phalanx`,
+  `Necroplasm`, `Shambling Shell`, `Conclave Phalanx`,
   `Autochthon Wurm`, and the Stinkweed Imp Flying slice);
+- an isolated Grave-Shell Scarab card task that traces its sacrifice-to-draw
+  activation, Dredge replacement after the source is sacrificed, and ordinary
+  draw branch;
 - a full-fidelity each-upkeep sacrifice trigger with the active upkeep player
   captured into an explicit public choice (`Woebringer Demon`);
 - a full-fidelity each-end-step untapped-land sacrifice trigger with the

@@ -1,0 +1,56 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 2
+definition_id = "RAV-BATHE-IN-LIGHT"
+card_name = "Bathe in Light"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["choose a color; target creature and creatures sharing a color with it gain protection from the chosen color until end of turn"]
+source_authority = "CardBench-authored semantic summary of the RAV printed identity, characteristics, targeted Radiance recipients, and protection duration"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-instant-and-exact-cast-payment"
+summary = "Cast Bathe in Light as a white instant for {1}{W} during a legal priority window and record its actual payment."
+trace_required = true
+
+[[features]]
+id = "targeted-creature-and-chosen-color"
+summary = "Choose one color and target a creature; retain the target and color choices through resolution."
+trace_required = true
+
+[[features]]
+id = "radiance-cross-controller-shared-color"
+summary = "Apply protection to the target and all other creatures sharing at least one target color, including matching creatures controlled by either player."
+trace_required = true
+
+[[features]]
+id = "nonmatching-and-colorless-exclusion"
+summary = "Exclude nonmatching-color creatures controlled by either player and colorless creatures from the Radiance recipient set."
+trace_required = true
+
+[[features]]
+id = "protection-target-legality-and-terminal-pvp"
+summary = "Show that red protection rejects a red spell aimed at a cross-controller recipient, accepts the same spell aimed at a nonmatching blue creature, and continue the shuffled duel to a deterministic terminal combat win."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-detection"
+summary = "Reject changes to exact mana cost, card color, creature target requirement, and the cross-controller Radiance recipient semantics."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["207.2c Color", "601 Casting Spells", "608 Resolving Spells", "611 Continuous Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

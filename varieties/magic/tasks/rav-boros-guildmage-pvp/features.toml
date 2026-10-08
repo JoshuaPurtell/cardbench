@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 242
+definition_id = "RAV-BOROS-GUILDMAGE"
+card_name = "Boros Guildmage"
+printed_mana_cost = "{R/W}{R/W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = []
+abilities = ["{R}: target creature gains haste until end of turn", "{W}: target creature gains first strike until end of turn"]
+source_authority = "RAV printing identity and characteristics, with card-specific activated bindings in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "hybrid-identity-and-cast"
+summary = "Cast the red-white hybrid 2/2 through the ordinary stack lifecycle by paying one red and one white symbol."
+trace_required = true
+
+[[features]]
+id = "red-haste-activation"
+summary = "Pay exactly {R} to activate the candidate-owned grant-haste binding against a real creature target; record payment, activation, resolution, and live Haste."
+trace_required = true
+
+[[features]]
+id = "white-first-strike-activation"
+summary = "Pay exactly {W} to activate the candidate-owned grant-first-strike binding against the same live target; record payment, activation, resolution, and live First Strike."
+trace_required = true
+
+[[features]]
+id = "haste-changes-attack-legality"
+summary = "The creature that entered this turn attacks in that turn after receiving Haste."
+trace_required = true
+
+[[features]]
+id = "first-strike-combat-effect"
+summary = "The First Strike target deals lethal damage to a real 1/1 blocker before the normal combat damage step, and the blocker deals no damage back."
+trace_required = true
+
+[[features]]
+id = "targeted-effect-and-cost-mutations"
+summary = "Changing either grant to the wrong keyword or increasing either colored activation cost is detected by the same game trace."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and hybrid mana", "117 Priority", "302.1-302.6 Creatures and summoning sickness", "508 Declaring attackers", "510.4 and 702.7 First Strike", "601.2 Casting spells", "602.1-602.2 Activating abilities", "608.3a Resolving permanent spells", "611.2a and 613 Continuous effects and end-of-turn duration"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Boros Guildmage"
+collector_number = 242
+url = "https://scryfall.com/card/rav/242/boros-guildmage"
+retained_data = "Public card identity, mana cost, colors, type, power, toughness, and two activated keyword grants needed by the trace"

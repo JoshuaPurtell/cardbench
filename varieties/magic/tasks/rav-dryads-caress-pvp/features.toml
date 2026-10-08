@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 160
+definition_id = "RAV-DRYADS-CARESS"
+card_name = "Dryad's Caress"
+printed_mana_cost = "{4}{G}{G}"
+colors = ["green"]
+card_types = ["instant"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["You gain 1 life for each creature on the battlefield. If {W} was spent to cast this spell, untap all creatures you control."]
+source_authority = "RAV printing identity and candidate-owned life-gain and conditional untap effects"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-instant-casting"
+summary = "Cast and resolve Dryad's Caress for four generic and two green mana in a shuffled 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "battlefield-creature-count-life-gain"
+summary = "Gain life equal to the number of creatures on the battlefield as Dryad's Caress resolves."
+trace_required = true
+
+[[features]]
+id = "white-spent-controller-untap"
+summary = "When White mana was spent toward the generic cost, untap controlled creatures and leave the opponent's tapped creature tapped."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-mutations"
+summary = "The full-game trace reaches a Player 0 win, replays deterministically, and detects missing life gain, missing conditional untap, the wrong condition color, and an incorrect cast cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2: colors and mana costs", "106.1 and 106.4: mana production and colors of mana spent", "117: priority and timing", "119.1 and 119.4: life gain and life totals", "601.2: casting an instant spell", "608.2: resolving spell instructions in order", "701.21: untapping permanents", "508.1 and 510: attacking creatures and combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Dryad's Caress"
+collector_number = 160
+url = "https://scryfall.com/card/rav/160/dryads-caress"
+retained_data = "Public card identity, mana cost, color, type, and life-gain and conditional untap effects required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

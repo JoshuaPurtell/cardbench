@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 144
+definition_id = "RAV-SPARKMAGE-APPRENTICE"
+card_name = "Sparkmage Apprentice"
+printed_mana_cost = "{1}{R}"
+colors = ["red"]
+card_types = ["creature"]
+abilities = ["When Sparkmage Apprentice enters the battlefield, it deals 1 damage to any target"]
+source_authority = "RAV printing identity and characteristics, with the candidate-owned definition and enters-the-battlefield trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-one-one-creature"
+summary = "Cast Sparkmage Apprentice from a shuffled library with one red and one generic mana and put the creature onto the battlefield."
+trace_required = true
+
+[[features]]
+id = "targeted-etb-trigger"
+summary = "Stack the mandatory ETB trigger, explicitly select the opponent's Elves of Deep Shadow as a legal creature target, and resolve exactly one damage."
+trace_required = true
+
+[[features]]
+id = "lethal-damage-state-change"
+summary = "Record the target's lethal-damage state-based action and graveyard move before its next blocker opportunity."
+trace_required = true
+
+[[features]]
+id = "combat-lane-and-terminal-game"
+summary = "Continue the same shuffled PvP game; after the sole opposing creature is removed, seat zero attacks through the empty blocker lane, deals combat damage, and wins."
+trace_required = true
+
+[[features]]
+id = "damage-trigger-and-cost-mutations"
+summary = "A two-damage gameplay mutation, ETB trigger removal, and removal of the red mana symbol each fail the full-game oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "302.1 Creature permanents", "601.2 Casting spells", "603.2-603.3 Triggered abilities and target selection", "608.2 Resolving spells and abilities", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Sparkmage Apprentice"
+collector_number = 144
+url = "https://scryfall.com/card/rav/144/sparkmage-apprentice"
+retained_data = "Public card identity, mana cost, color, type, power/toughness, ETB targeting, and damage semantics needed by the trace"

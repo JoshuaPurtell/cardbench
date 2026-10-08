@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-seeds-of-strength"
+definition_id = "RAV-SEEDS-OF-STRENGTH"
+expansion = "RAV"
+variant = "single-card"
+bundle = "seeds_of_strength_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/seeds_of_strength.rs"
+authority_bin = "rav-seeds-of-strength-pvp"
+materializer = "varieties/magic/scripts/materialize_seeds_of_strength_task.py"
+scorer = "varieties/magic/scripts/score_seeds_of_strength_pvp.py"
+review_scope = "Seeds of Strength RAV #227 identity and {G}{W} cost, three exact creature objects, individual +1/+1 effect sources, before/during/after characteristics, end-of-turn expiration, post-expiration attacks and damage, terminal result, deterministic replay, three semantic mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/seeds_of_strength_card/README.md",
+  "adapters/harbor/bundles/seeds_of_strength_card/instruction.md",
+  "adapters/harbor/bundles/seeds_of_strength_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_seeds_of_strength_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_seeds_of_strength_pvp.py",
+  "varieties/magic/session/src/bin/rav_seeds_of_strength_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/seeds_of_strength.rs",
+  "varieties/magic/tasks/rav-seeds-of-strength-pvp/README.md",
+  "varieties/magic/tasks/rav-seeds-of-strength-pvp/features.toml",
+  "varieties/magic/tasks/rav-seeds-of-strength-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Seeds of Strength literal is outside the task source contract"
+
+[mutation]
+find = "power: 1,\n                toughness: 1"
+replace = "power: 1,\n                toughness: 0"
+expected_diagnostic = "Seeds of Strength literal is outside the task source contract"

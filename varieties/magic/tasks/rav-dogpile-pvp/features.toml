@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 120
+definition_id = "RAV-DOGPILE"
+card_name = "Dogpile"
+printed_mana_cost = "{3}{R}"
+colors = ["red"]
+card_types = ["instant"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Dogpile deals damage to any target equal to the number of attacking creatures."]
+source_authority = "RAV printing identity and candidate-owned effect for a targeted instant that counts attacking creatures at resolution"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-instant-casting"
+summary = "Cast and resolve Dogpile for three generic and one red mana in a shuffled 60-card PvP game."
+trace_required = true
+
+[[features]]
+id = "player-target-selection"
+summary = "Select the opposing player as a legal any-target recipient after two controlled Watchwolves attack."
+trace_required = true
+
+[[features]]
+id = "attacking-creature-count-damage"
+summary = "Dogpile deals exactly two damage to the opponent when two creatures are attacking as it resolves."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-mutations"
+summary = "The full-game trace reaches a Player 0 win, replays deterministically, and detects missing damage, an invalid target restriction, and an incorrect cast cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and payment", "117 Priority and timing", "601.2 Casting an instant spell", "608.2 Resolving a targeted spell", "508.1 Declaring attackers", "506.4 Attacking creatures remain attacking until combat ends", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Dogpile"
+collector_number = 120
+url = "https://scryfall.com/card/rav/120/dogpile"
+retained_data = "Public card identity, mana cost, color, type, and attacking-creature-count damage effect required by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace is tied to the specified historical Comprehensive Rules release and the RAV printing contract."

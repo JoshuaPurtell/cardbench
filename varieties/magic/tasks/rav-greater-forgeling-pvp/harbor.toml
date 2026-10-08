@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-greater-forgeling"
+definition_id = "RAV-GREATER-FORGELING"
+expansion = "RAV"
+variant = "single-card"
+bundle = "greater_forgeling_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/greater_forgeling.rs"
+authority_bin = "rav-greater-forgeling-pvp"
+materializer = "varieties/magic/scripts/materialize_greater_forgeling_task.py"
+scorer = "varieties/magic/scripts/score_greater_forgeling_pvp.py"
+review_scope = "Greater Forgeling RAV #129 identity, exact {3}{R}{R} cast and 3/4 body, candidate-owned {1}{R} +3/-3 activated binding, layer-7 temporary characteristics, cleanup restoration, repeated pump and combat, full-game event order and deterministic replay, and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/greater_forgeling_card/README.md",
+  "adapters/harbor/bundles/greater_forgeling_card/instruction.md",
+  "adapters/harbor/bundles/greater_forgeling_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_greater_forgeling_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_greater_forgeling_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_greater_forgeling_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/greater_forgeling.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-greater-forgeling-pvp/README.md",
+  "varieties/magic/tasks/rav-greater-forgeling-pvp/features.toml",
+  "varieties/magic/tasks/rav-greater-forgeling-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Greater Forgeling definition is outside its literal source contract"
+
+[mutation]
+find = "power: 3,\n            toughness: -3,"
+replace = "power: 0,\n            toughness: -3,"
+expected_diagnostic = "Greater Forgeling activated ability is outside its literal source contract"

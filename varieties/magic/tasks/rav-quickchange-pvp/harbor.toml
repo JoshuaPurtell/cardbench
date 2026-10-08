@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-quickchange"
+definition_id = "RAV-QUICKCHANGE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "quickchange_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/quickchange.rs"
+authority_bin = "rav-quickchange-pvp"
+materializer = "varieties/magic/scripts/materialize_quickchange_task.py"
+scorer = "varieties/magic/scripts/score_quickchange_pvp.py"
+review_scope = "Quickchange RAV #62 identity and {1}{U} cost, chosen color, exact target colors before/during/after the end-of-turn effect, controller draw, full-game combat after color expiry, terminal duel, deterministic replay, semantic controls, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/quickchange_card/README.md",
+  "adapters/harbor/bundles/quickchange_card/instruction.md",
+  "adapters/harbor/bundles/quickchange_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_quickchange_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_quickchange_pvp.py",
+  "varieties/magic/session/src/bin/rav_quickchange_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/quickchange.rs",
+  "varieties/magic/tasks/rav-quickchange-pvp/README.md",
+  "varieties/magic/tasks/rav-quickchange-pvp/features.toml",
+  "varieties/magic/tasks/rav-quickchange-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Quickchange literal is outside the task source contract"
+
+[mutation]
+find = "ManaCost::with_colors(1, [Color::Blue])"
+replace = "ManaCost::with_colors(0, [Color::Blue])"
+expected_diagnostic = "Quickchange literal is outside the task source contract"

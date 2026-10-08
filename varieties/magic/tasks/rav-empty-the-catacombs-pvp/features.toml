@@ -1,0 +1,67 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 86
+definition_id = "RAV-EMPTY-THE-CATACOMBS"
+card_name = "Empty the Catacombs"
+printed_mana_cost = "{3}{B}"
+colors = ["black"]
+card_types = ["sorcery"]
+abilities = ["Each player returns all creature cards from their own graveyard to their hand"]
+source_authority = "Original RAV printing identity and tested mechanics control under RAV_PVP_SOURCE_CONTRACT.md; current Oracle wording is checked for the same all-creature, own-graveyard operation."
+oracle_reconciliation = "The original RAV printing uses historical his-or-her pronouns. Current Oracle keeps the same instruction: each player returns all creature cards from their own graveyard to their hand."
+public_identity_record = "https://aetherhub.com/Card/RAV/Empty-the-Catacombs/86"
+model_limitations = "The all-player, all-creature graveyard-to-hand effect is represented directly, with no card-selection decision; optional commander-zone replacement is preserved for eligible cards."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-sorcery-and-exact-payment"
+summary = "Cast Empty the Catacombs as a sorcery from a shuffled legal deck and pay exactly four mana including black."
+trace_required = true
+
+[[features]]
+id = "every-creature-card-from-each-graveyard"
+summary = "Each player has at least two creature cards in their own graveyard before casting, and every such card returns to its owner's hand."
+trace_required = true
+
+[[features]]
+id = "noncreature-cards-stay"
+summary = "A noncreature spell remains in its owner's graveyard while every eligible creature card leaves; the sorcery itself reaches its owner's graveyard only after resolving."
+trace_required = true
+
+[[features]]
+id = "no-graveyard-card-selection"
+summary = "The all-creature effect resolves without the old one-card-per-player public choice prompt."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the same legal 60-card PvP game through combat to a normal terminal pilot win and replay the ordered event trace deterministically."
+trace_required = true
+
+[[features]]
+id = "literal-source-guard-and-mutations"
+summary = "Reject wrong cost, wrong color, and missing all-creature-return effect variants before diagnostic success."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Casting spells and priority", "202.1-202.2 Mana cost and color", "400.7 Zone changes and new objects", "601.2 Casting a spell", "608.2 Resolving spells", "903.9 Commander replacement effect"]
+url = "https://magic.wizards.com/en/rules"
+
+[[source_references]]
+source = "Ravnica: City of Guilds printing listing"
+card = "Empty the Catacombs"
+collector_number = 86
+url = "https://aetherhub.com/Card/RAV/Empty-the-Catacombs/86"
+retained_data = "RAV #86 identity, sorcery type, and symmetric all-creature graveyard-to-hand instruction"
+
+[[source_references]]
+source = "Current card wording and printing details"
+card = "Empty the Catacombs"
+collector_number = 86
+url = "https://mtg.wtf/card/rav/86/Empty-the-Catacombs"
+retained_data = "Black {3}{B} mana cost, current name/pronoun wording, and all-creature return operation"

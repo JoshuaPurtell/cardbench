@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-primordial-sage-pvp"
+definition_id = "RAV-PRIMORDIAL-SAGE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "primordial_sage_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/primordial_sage.rs"
+authority_bin = "rav-primordial-sage-pvp"
+materializer = "varieties/magic/scripts/materialize_primordial_sage_task.py"
+scorer = "varieties/magic/scripts/score_primordial_sage_pvp.py"
+review_scope = "RAV #177 green {4}{G}{G} 4/5 Spirit; controller creature-spell cast trigger; optional draw above the cast creature spell; exact top-card movement on acceptance and unchanged library on decline; opponent controller-scope; deterministic terminal PvP and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/primordial_sage_card/README.md",
+  "adapters/harbor/bundles/primordial_sage_card/instruction.md",
+  "adapters/harbor/bundles/primordial_sage_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_primordial_sage_task.py",
+  "varieties/magic/scripts/score_primordial_sage_pvp.py",
+  "varieties/magic/session/src/bin/rav_primordial_sage_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/primordial_sage.rs",
+  "varieties/magic/tasks/rav-primordial-sage-pvp/README.md",
+  "varieties/magic/tasks/rav-primordial-sage-pvp/source-note.md",
+  "varieties/magic/tasks/rav-primordial-sage-pvp/features.toml",
+  "varieties/magic/tasks/rav-primordial-sage-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Primordial Sage source differs from the pinned declarative module contract"
+
+[mutation]
+find = "power: Some(4),"
+replace = "power: Some(5),"
+expected_diagnostic = "Primordial Sage source differs from the pinned declarative module contract"

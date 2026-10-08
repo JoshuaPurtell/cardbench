@@ -15,7 +15,10 @@ fn tidewater_minion_requires_target_permanent_untap_and_self_defender_removal() 
         .expect("Tidewater Minion definition exists");
 
     assert_eq!(minion.name, "Tidewater Minion");
-    assert_eq!(minion.mana_cost, ManaCost::with_colors(3, [Color::Blue, Color::Blue]));
+    assert_eq!(
+        minion.mana_cost,
+        ManaCost::with_colors(3, [Color::Blue, Color::Blue])
+    );
     assert_eq!(minion.colors, BTreeSet::from([Color::Blue]));
     assert_eq!(minion.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((minion.power, minion.toughness), (Some(4), Some(4)));
@@ -25,7 +28,7 @@ fn tidewater_minion_requires_target_permanent_untap_and_self_defender_removal() 
     assert!(
         minion
             .supported_rules
-            .contains(&"tap-untap-target-permanent-and-blue-lose-defender")
+            .contains(&"tap-untap-target-permanent-and-four-lose-defender")
     );
 
     let bindings = rav_activated_ability_bindings()
@@ -44,13 +47,10 @@ fn tidewater_minion_requires_target_permanent_untap_and_self_defender_removal() 
 
     let lose_defender = bindings
         .iter()
-        .find(|binding| binding.ability.id == "blue-lose-defender")
+        .find(|binding| binding.ability.id == "lose-defender-until-end-of-turn")
         .expect("self defender-removal binding exists");
     assert!(!lose_defender.ability.tap_cost);
-    assert_eq!(
-        lose_defender.ability.mana_cost,
-        ManaCost::with_colors(0, [Color::Blue])
-    );
+    assert_eq!(lose_defender.ability.mana_cost, ManaCost::new(4));
     assert_eq!(lose_defender.ability.targets, []);
     assert_eq!(
         lose_defender.ability.effects,

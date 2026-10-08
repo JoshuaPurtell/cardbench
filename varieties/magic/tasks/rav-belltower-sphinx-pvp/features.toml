@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 38
+definition_id = "RAV-BELLTOWER-SPHINX"
+card_name = "Belltower Sphinx"
+printed_mana_cost = "{4}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+abilities = ["Flying", "When Belltower Sphinx is dealt damage, its controller mills that many cards from the controller of the damage source"]
+source_authority = "RAV printing identity and characteristics; the definition and triggered-ability binding are candidate-owned"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-cast"
+summary = "Cast Belltower Sphinx from the shuffled 60-card deck for exactly {4}{U} and verify its 2/5 Flying battlefield characteristics."
+trace_required = true
+
+[[features]]
+id = "damage-trigger-source-controller-mill"
+summary = "Resolve one damage from Viashino Fangtail onto the Sphinx, stack and resolve its mandatory non-targeted trigger, and move exactly one card from Fangtail's controller's library to that player's graveyard."
+trace_required = true
+
+[[features]]
+id = "terminal-game-and-replay"
+summary = "Continue normal PvP turns after the trigger to a seat-zero terminal win and reproduce the identical shuffled event trace on replay."
+trace_required = true
+
+[[features]]
+id = "trigger-semantic-mutations"
+summary = "Full-game mutations removing Flying, removing the trigger, and doubling the mill effect must each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "120 Damage", "302 Creatures", "601.2 Casting spells and paying costs", "603 Triggered abilities", "608 Resolving spells and abilities", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Belltower Sphinx"
+collector_number = 38
+url = "https://scryfall.com/card/rav/38/belltower-sphinx"
+retained_data = "Public card identity, mana cost, color, type, printed power/toughness, Flying, and damage-triggered mill operation needed by the trace"

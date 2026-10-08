@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-HUNTED-DRAGON"
+set_code = "RAV"
+collector_number = 131
+card_name = "Hunted Dragon"
+printed_mana_cost = "{3}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 6
+toughness = 6
+keywords = ["flying", "haste"]
+abilities = ["when this creature enters the battlefield, target opponent creates three white 2/2 Knight creature tokens with first strike"]
+source_authority = "RAV printed card identity and characteristics represented by candidate-owned card and ability bindings"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-dragon-body"
+summary = "Cast Hunted Dragon for exactly {3}{R}{R}; check its live 6/6, Flying, and Haste characteristics and demonstrate same-turn legal combat from Haste."
+trace_required = true
+
+[[features]]
+id = "opponent-knight-etb"
+summary = "Target only the opposing player with the mandatory ETB ability and create exactly three white 2/2 Knight tokens with First Strike under that opponent's control."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full constructed duel deterministically and reject mutations to the body, mana cost, Flying, Haste, ETB condition, opponent-only target, Knight characteristics, and token count."
+trace_required = true
+
+[[features]]
+id = "candidate-source-side-effect-guard"
+summary = "Parse and check the exact candidate-source contract before invoking candidate functions; reject a compile-valid injected filesystem side effect before candidate execution or report generation."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 and 111 Permanents and Tokens", "117 Timing and Priority", "202.1-202.2 Colors and Mana Cost", "302 Creatures", "601.2 Casting Spells", "603.2 and 603.3 Trigger Events and Target Selection", "608.2 Resolving Spells and Abilities", "702.9 Flying", "702.10 Haste", "702.7 First Strike", "701.6 Creating Tokens"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

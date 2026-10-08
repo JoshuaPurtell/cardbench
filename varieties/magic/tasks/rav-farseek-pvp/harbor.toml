@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-farseek"
+definition_id = "RAV-FARSEEK"
+expansion = "RAV"
+variant = "single-card"
+bundle = "farseek_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/farseek.rs"
+authority_bin = "rav-farseek-pvp"
+materializer = "varieties/magic/scripts/materialize_farseek_task.py"
+scorer = "varieties/magic/scripts/score_farseek_pvp.py"
+review_scope = "Farseek full-game PvP search authority, typed non-Forest search candidates, private selection, tapped battlefield entry, library shuffle, deterministic replay, semantic mutations, candidate source contract, materialization, scorer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/farseek_card/README.md",
+  "adapters/harbor/bundles/farseek_card/instruction.md",
+  "adapters/harbor/bundles/farseek_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_farseek_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_farseek_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_farseek_pvp.rs",
+  "varieties/magic/session/src/lib.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/catalog.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/farseek.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-farseek-pvp/README.md",
+  "varieties/magic/tasks/rav-farseek-pvp/features.toml",
+  "varieties/magic/tasks/rav-farseek-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Farseek definition is outside its literal source contract"
+
+[mutation]
+find = "LibrarySearchDestination::BattlefieldTapped"
+replace = "LibrarySearchDestination::Battlefield"
+expected_diagnostic = "Farseek definition is outside its literal source contract"

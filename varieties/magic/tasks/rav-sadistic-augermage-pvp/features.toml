@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 103
+definition_id = "RAV-SADISTIC-AUGERMAGE"
+card_name = "Sadistic Augermage"
+printed_mana_cost = "{2}{B}"
+colors = ["black"]
+card_types = ["creature"]
+card_supertypes = []
+card_subtypes = ["Human", "Wizard"]
+keywords = []
+abilities = ["Mandatory source-death trigger; each player privately selects a card from their own hand, then places it on top of their own library"]
+source_authority = "RAV #103 printing record; Comprehensive Rules for dies triggers, mandatory triggered abilities, private choices, and library order"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no card image, scan, flavor text, or rules-text corpus"
+
+[[features]]
+id = "printed-black-creature-characteristics"
+summary = "Verify {2}{B}, black identity, creature type, and 3/1 base characteristics."
+trace_required = true
+
+[[features]]
+id = "mandatory-source-death-trigger"
+summary = "Verify that the trigger occurs when Sadistic Augermage itself dies and is mandatory."
+trace_required = true
+
+[[features]]
+id = "both-players-private-own-hand-choice"
+summary = "Verify APNAP-order choices are private, limited to each chooser's own hand, and both selections are retained until both players choose."
+trace_required = true
+
+[[features]]
+id = "each-selected-card-on-its-owner-library-top"
+summary = "Verify each chosen card becomes the top of its owner's library, no card is discarded, and unchosen cards and prior library cards remain in their expected zones and order."
+trace_required = true
+
+[[features]]
+id = "deterministic-trace-and-semantic-mutations"
+summary = "Verify deterministic replay and detection of wrong identity/body, missing or wrong trigger, an optional trigger, and a missing effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["603.2 Trigger events", "603.3 Triggered abilities on the stack", "608.2 Resolving spells and abilities", "400.2 Zones", "400.7 Zone changes", "401.2 Library order"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Ravnica: City of Guilds printing record"
+card = "Sadistic Augermage"
+collector_number = 103
+url = "https://avascry.com/printing/sadistic-augermage-rav"
+retained_data = "Card identity, cost, color, creature subtype, body, and triggered-ability characteristics"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

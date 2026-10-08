@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 279
+definition_id = "RAV-OVERGROWN-TOMB"
+card_name = "Overgrown Tomb"
+printed_mana_cost = ""
+colors = []
+mana_colors = ["green", "black"]
+card_types = ["land"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Optional two-life payment for untapped entry", "Tap to add green or black mana"]
+source_authority = "Public RAV identity and candidate-owned land-entry and mana bindings; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public identity and semantics needed by the trace"
+
+[[features]]
+id = "optional-two-life-land-entry"
+summary = "Paying exactly two life allows this land to enter untapped; declining the payment makes it enter tapped."
+trace_required = true
+
+[[features]]
+id = "green-black-mana-choice"
+summary = "The paid copy produces Green spent on Elves of Deep Shadow ({G}) and Black spent on Roofstalker Wight ({1}{B}); a Forest pays the generic pip."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A normal 60-card duel reaches a terminal result, reproduces its seeded event stream, and detects entry, mana-choice, and tap-cost mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.1 and 106.4 Mana production and payment", "118.4 Paying life", "305.1 and 305.4-305.6 Lands", "601 Casting spells", "605.1 Mana abilities", "614.1c and 614.12 Replacement effects modifying entry"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Overgrown Tomb"
+collector_number = 279
+url = "https://scryfall.com/card/rav/279/overgrown-tomb"
+retained_data = "Public card identity, optional life-payment entry behavior, and green/black mana ability needed by the trace"

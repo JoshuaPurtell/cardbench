@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 295
+definition_id = "RAV-SWAMP"
+card_name = "Swamp"
+printed_mana_cost = ""
+colors = []
+card_types = ["land"]
+power = 0
+toughness = 0
+keywords = []
+abilities = []
+source_authority = "RAV printed card identity and characteristics represented by the executable set definition; one unique identity across collector numbers 295–298"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-basic-type"
+summary = "Register the RAV Swamp as a basic land with the Swamp type line and its 4 RAV printings under one gameplay identity."
+trace_required = true
+
+[[features]]
+id = "intrinsic-black-mana"
+summary = "Play the Swamp, activate its typed intrinsic ability, produce one black mana, and use that mana to pay a legal spell cost."
+trace_required = true
+
+[[features]]
+id = "basic-land-deck-construction"
+summary = "Use any legal quantity of Swamp in a normal sixty-card constructed deck; basic lands are exempt from the ordinary four-copy limit."
+trace_required = true
+
+[[features]]
+id = "full-game-pvp"
+summary = "Complete a deterministic two-player constructed game after the Swamp supplies mana and the pilot wins through creature combat."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["100.2a and 100.2c Constructed decks and basic lands", "106.1 and 106.4 Mana production and payment", "117 Priority", "305.1 and 305.6 Playing lands and basic land types", "601.2 Casting spells", "605.1a and 605.3 Intrinsic mana abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

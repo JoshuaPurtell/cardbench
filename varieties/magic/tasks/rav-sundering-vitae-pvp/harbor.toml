@@ -1,0 +1,32 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sundering-vitae"
+definition_id = "RAV-SUNDERING-VITAE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sundering_vitae_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sundering_vitae.rs"
+authority_bin = "rav-sundering-vitae-pvp"
+materializer = "varieties/magic/scripts/materialize_sundering_vitae_task.py"
+scorer = "varieties/magic/scripts/score_sundering_vitae_pvp.py"
+review_scope = "RAV Sundering Vitae #185 definition and focused target regression; Convoke exact colored and generic payment; opponent artifact destruction, resolution, replay, combat terminal, semantic mutations, scorer/materializer isolation"
+review_files = [
+  "adapters/harbor/bundles/sundering_vitae_card/README.md",
+  "adapters/harbor/bundles/sundering_vitae_card/instruction.md",
+  "adapters/harbor/bundles/sundering_vitae_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_sundering_vitae_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_sundering_vitae_pvp.py",
+  "varieties/magic/session/src/bin/rav_sundering_vitae_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sundering_vitae.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/sundering_vitae_full_fidelity_red.rs",
+  "varieties/magic/tasks/rav-sundering-vitae-pvp/README.md",
+  "varieties/magic/tasks/rav-sundering-vitae-pvp/features.toml",
+  "varieties/magic/tasks/rav-sundering-vitae-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sundering Vitae definition differs from exact RAV #185 identity/cost/Convoke/destruction contract"
+
+[mutation]
+find = "Effect::DestroyTargetArtifactOrEnchantment"
+replace = ""
+expected_diagnostic = "Sundering Vitae definition differs from exact RAV #185 identity/cost/Convoke/destruction contract"

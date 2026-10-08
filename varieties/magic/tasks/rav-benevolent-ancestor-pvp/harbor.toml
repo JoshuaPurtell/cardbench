@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-benevolent-ancestor"
+definition_id = "RAV-BENEVOLENT-ANCESTOR"
+expansion = "RAV"
+variant = "single-card"
+bundle = "benevolent_ancestor_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/benevolent_ancestor.rs"
+authority_bin = "rav-benevolent-ancestor-pvp"
+materializer = "varieties/magic/scripts/materialize_benevolent_ancestor_task.py"
+scorer = "varieties/magic/scripts/score_benevolent_ancestor_pvp.py"
+review_scope = "Benevolent Ancestor RAV #3 identity and Defender, exact {2}{W} cast and 0/4 body, candidate-owned targeted tap ability and activated binding, opponent combat damage prevention, event order, deterministic full-game replay and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/benevolent_ancestor_card/README.md",
+  "adapters/harbor/bundles/benevolent_ancestor_card/instruction.md",
+  "adapters/harbor/bundles/benevolent_ancestor_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_benevolent_ancestor_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_benevolent_ancestor_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_benevolent_ancestor_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/benevolent_ancestor.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-benevolent-ancestor-pvp/README.md",
+  "varieties/magic/tasks/rav-benevolent-ancestor-pvp/features.toml",
+  "varieties/magic/tasks/rav-benevolent-ancestor-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Benevolent Ancestor definition is outside its literal source contract"
+
+[mutation]
+find = "amount: 1 }],"
+replace = "amount: 2 }],"
+expected_diagnostic = "Benevolent Ancestor activated ability is outside its literal source contract"

@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 34
+definition_id = "RAV-VETERAN-ARMORER"
+card_name = "Veteran Armorer"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = []
+abilities = ["other creatures you control get +0/+1"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-colored-casting"
+summary = "Cast Veteran Armorer through the normal stack for `{1}{W}` and verify its live 2/2 characteristics."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-static-binding"
+summary = "Resolve the Armorer and verify its candidate-owned static binding applies +0/+1 to a different creature controlled by its controller."
+trace_required = true
+
+[[features]]
+id = "other-creature-live-state"
+summary = "Cast Watchwolf first and capture its live 3/3 state; after Armorer resolves, verify that same object is 3/4 while Armorer remains 2/2."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-and-replay"
+summary = "Attack with both live creatures, record ordered cast and combat events, reach a terminal result, and reproduce the seeded game on replay."
+trace_required = true
+
+[[features]]
+id = "targeted-semantic-mutation-and-stub"
+summary = "Changing the static toughness modifier from +1 to +0, and a compile-valid +0/+0 stub, must reach and fail the Watchwolf live-state check."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and colored costs", "106.1 and 106.4 Mana and payment", "117 Priority", "208.1 and 613.4c Power/toughness characteristics and continuous effects", "302.1-302.2 Creature permanents and control", "508 Declaring attackers", "510 Combat damage", "601.2 Casting spells", "608.3a Resolving permanent spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Veteran Armorer"
+collector_number = 34
+url = "https://scryfall.com/card/rav/34/veteran-armorer"
+retained_data = "Public identity, mana cost, color, type, power, toughness, and the static modifier required by the trace"

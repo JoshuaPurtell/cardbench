@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-stone-seeder-hierophant-pvp"
+definition_id = "RAV-STONE-SEEDER-HIEROPHANT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "stone_seeder_hierophant_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/stone_seeder_hierophant.rs"
+authority_bin = "rav-stone-seeder-hierophant-pvp"
+materializer = "varieties/magic/scripts/materialize_stone_seeder_hierophant_task.py"
+scorer = "varieties/magic/scripts/score_stone_seeder_hierophant_pvp.py"
+review_scope = "Stone-Seeder Hierophant #184 printed green {2}{G}{G} 1/1 identity with Human Druid subtype metadata (not runtime-asserted), controller-land-entry source untap trigger, tap-to-untap-target-land ability, opponent-land exclusion, legal terminal full-game duel, exact event ordering, deterministic replay, semantic mutations, parse-valid side-effect source guard, public materialization, and zero-credit scoring"
+review_files = [
+  "adapters/harbor/bundles/stone_seeder_hierophant_card/README.md",
+  "adapters/harbor/bundles/stone_seeder_hierophant_card/instruction.md",
+  "adapters/harbor/bundles/stone_seeder_hierophant_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_stone_seeder_hierophant_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_stone_seeder_hierophant_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_stone_seeder_hierophant_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/stone_seeder_hierophant.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/stone_seeder_hierophant_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-stone-seeder-hierophant-pvp/README.md",
+  "varieties/magic/tasks/rav-stone-seeder-hierophant-pvp/source-note.md",
+  "varieties/magic/tasks/rav-stone-seeder-hierophant-pvp/features.toml",
+  "varieties/magic/tasks/rav-stone-seeder-hierophant-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Stone-Seeder Hierophant candidate or registry differs from the printed RAV contract"
+
+[mutation]
+find = "condition: TriggerCondition::ControlledLandEntersBattlefield"
+replace = "condition: TriggerCondition::LandEntersBattlefield"
+expected_diagnostic = "Stone-Seeder Hierophant candidate or registry differs from the printed RAV contract"

@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 68
+definition_id = "RAV-TATTERED-DRAKE"
+card_name = "Tattered Drake"
+printed_mana_cost = "{4}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = ["flying"]
+abilities = ["{B}: regenerate Tattered Drake"]
+source_authority = "RAV printed semantics represented by the candidate-owned definition and activated ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-creature-cast-and-entry"
+summary = "Pay the exact {4}{U} cost for Tattered Drake and check its live 2/2 blue creature characteristics and Flying after resolution."
+trace_required = true
+
+[[features]]
+id = "self-regeneration-response"
+summary = "When Char targets Tattered Drake, pay exactly {B} for its no-target self-regeneration ability and preserve source incarnation through resolution."
+trace_required = true
+
+[[features]]
+id = "regeneration-replaces-lethal-damage"
+summary = "Check that the regeneration shield is created and consumed as Char resolves, tapping Drake while leaving it alive on the battlefield."
+trace_required = true
+
+[[features]]
+id = "flying-combat-legality"
+summary = "Attack with live Flying and reject a ground Elves of Deep Shadow block attempt without changing game state before accepting empty blockers and dealing combat damage."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutants"
+summary = "Replay the shuffled full game deterministically and detect compiled wrong-color regeneration and Flying-removal mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colored Mana Costs", "117 Timing and Priority", "302 Creatures", "508 Declaring Attackers", "509 Declaring Blockers", "601.2 Casting Spells", "608.2 Resolving Spells and Abilities", "614.8 Regeneration Replacement Effects", "702.9 Flying", "701.15 Regeneration"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

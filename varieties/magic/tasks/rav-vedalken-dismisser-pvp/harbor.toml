@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-vedalken-dismisser"
+definition_id = "RAV-VEDALKEN-DISMISSER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "vedalken_dismisser_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vedalken_dismisser.rs"
+authority_bin = "rav-vedalken-dismisser-pvp"
+materializer = "varieties/magic/scripts/materialize_vedalken_dismisser_task.py"
+scorer = "varieties/magic/scripts/score_vedalken_dismisser_pvp.py"
+review_scope = "Vedalken Dismisser RAV #73 identity and {5}{U} cost, blue 2/2 Creature, mandatory ETB trigger and controller-only creature target choice, exact opposing object identity and owner-library-top move, library size/top evidence, trigger source incarnation, later Watchwolf combat, terminal PvP win, deterministic replay, five semantic gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/vedalken_dismisser_card/README.md",
+  "adapters/harbor/bundles/vedalken_dismisser_card/instruction.md",
+  "adapters/harbor/bundles/vedalken_dismisser_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_vedalken_dismisser_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_vedalken_dismisser_pvp.py",
+  "varieties/magic/session/src/bin/rav_vedalken_dismisser_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vedalken_dismisser.rs",
+  "varieties/magic/tasks/rav-vedalken-dismisser-pvp/README.md",
+  "varieties/magic/tasks/rav-vedalken-dismisser-pvp/features.toml",
+  "varieties/magic/tasks/rav-vedalken-dismisser-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Vedalken Dismisser candidate definition or mandatory ETB trigger differs from the RAV source contract"
+
+[mutation]
+find = "Effect::PutTargetCreatureOnOwnersLibraryTop"
+replace = "Effect::ReturnOpponentCreatureToHand"
+expected_diagnostic = "Vedalken Dismisser candidate definition or mandatory ETB trigger differs from the RAV source contract"

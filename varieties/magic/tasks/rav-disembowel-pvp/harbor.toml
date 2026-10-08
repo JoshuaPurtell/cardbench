@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-disembowel"
+definition_id = "RAV-DISEMBOWEL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "disembowel_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/disembowel.rs"
+authority_bin = "rav-disembowel-pvp"
+materializer = "varieties/magic/scripts/materialize_disembowel_task.py"
+scorer = "varieties/magic/scripts/score_disembowel_pvp.py"
+review_scope = "RAV Disembowel identity and candidate-owned definition; legal shuffled 60-card PvP; chosen X and exact {X}{B} payment; target whose mana value equals X; target destruction and owner graveyard move; deterministic replay; terminal duel win; exact-equality, destruction, and cost mutations; source-contract stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/disembowel_card/README.md",
+  "adapters/harbor/bundles/disembowel_card/instruction.md",
+  "adapters/harbor/bundles/disembowel_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_disembowel_task.py",
+  "varieties/magic/scripts/score_disembowel_pvp.py",
+  "varieties/magic/session/src/bin/rav_disembowel_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/disembowel.rs",
+  "varieties/magic/tasks/rav-disembowel-pvp/README.md",
+  "varieties/magic/tasks/rav-disembowel-pvp/features.toml",
+  "varieties/magic/tasks/rav-disembowel-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Disembowel candidate or registry differs from its RAV #85 feature contract"
+
+[mutation]
+find = "DestroyTargetCreatureWithManaValueEqualToChosenX"
+replace = "DestroyTargetCreatureWithManaValueAtMostChosenX"
+expected_diagnostic = "Disembowel candidate or registry differs from its RAV #85 feature contract"

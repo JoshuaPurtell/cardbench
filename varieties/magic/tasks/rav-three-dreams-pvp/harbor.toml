@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-three-dreams"
+definition_id = "RAV-THREE-DREAMS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "three_dreams_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/three_dreams.rs"
+authority_bin = "rav-three-dreams-pvp"
+materializer = "varieties/magic/scripts/materialize_three_dreams_task.py"
+scorer = "varieties/magic/scripts/score_three_dreams_pvp.py"
+review_scope = "Three Dreams full-game diagnostic card task, 291-name/306-printing denominator, RAV source contract and catalog, typed payment/cast/private Aura search/reveal/hand transfer/shuffle/combat event trust paths, deterministic replay, semantic controls, source-authority stubbing, authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/three_dreams_card/README.md",
+  "adapters/harbor/bundles/three_dreams_card/instruction.md",
+  "adapters/harbor/bundles/three_dreams_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_three_dreams_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_three_dreams_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_three_dreams_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/three_dreams.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-three-dreams-pvp/README.md",
+  "varieties/magic/tasks/rav-three-dreams-pvp/features.toml",
+  "varieties/magic/tasks/rav-three-dreams-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Three Dreams literal is outside the task source contract"
+
+[mutation]
+find = "maximum: 3"
+replace = "maximum: 2"
+expected_diagnostic = "Three Dreams literal is outside the task source contract"

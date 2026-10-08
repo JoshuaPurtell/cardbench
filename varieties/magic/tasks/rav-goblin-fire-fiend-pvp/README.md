@@ -1,0 +1,3 @@
+# Goblin Fire Fiend RAV card task
+
+Implement Goblin Fire Fiend (RAV #127), a `{3}{R}` red 1/1 creature with Haste, the blocking requirement that it must be blocked if able, and `{R}: +1/+0 until end of turn`. In the shuffled two-player trace, the Fiend is cast and attacks in the same turn. A live Lurking Informant blocks it as required; the Fiend pays red mana and resolves its pump ability before combat damage, becoming 2/1. Its 2 damage kills the 1/2 Informant while the Informant's 1 damage kills the 1/1 Fiend. Another combat later deals damage and the game reaches a seat-zero win. Six focused mutations cover Haste, the blocking requirement, pump amount, activation color, casting cost, and base power. Diagnostic reports credit no RAV coverage or Harbor reward.

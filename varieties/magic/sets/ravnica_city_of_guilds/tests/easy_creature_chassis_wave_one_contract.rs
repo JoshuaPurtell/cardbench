@@ -59,7 +59,7 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
-            "prevent-damage-from-red-sources"
+            "prevent-damage-by-this-source-to-red-creatures"
         ]
     );
 

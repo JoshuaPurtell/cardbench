@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 31
+definition_id = "RAV-SUPPRESSION-FIELD"
+card_name = "Suppression Field"
+printed_mana_cost = "{1}{W}"
+colors = ["white"]
+card_types = ["enchantment"]
+abilities = ["Nonmana activated abilities cost {2} more to activate"]
+source_authority = "RAV printing identity and characteristics; definition and activated-ability cost modifier are candidate-owned"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-enchantment-cast"
+summary = "Cast Suppression Field from the shuffled 60-card deck for exactly {1}{W} and verify its battlefield entry."
+trace_required = true
+
+[[features]]
+id = "live-nonmana-activation-tax"
+summary = "With Suppression Field live, seat one activates Dimir Guildmage's {3}{U} target-player-draw ability, pays {5}{U}, and the public cost receipt names the Field as the live source of the {2} generic increase."
+trace_required = true
+
+[[features]]
+id = "mana-ability-exemption"
+summary = "After the taxed ability resolves, seat one activates an Island mana ability while Suppression Field remains live; the mana ability is not taxed."
+trace_required = true
+
+[[features]]
+id = "targeted-draw-and-terminal-game"
+summary = "Verify one card moves from the target player's library to hand, then continue normal PvP turns to a seat-zero terminal win and deterministic replay."
+trace_required = true
+
+[[features]]
+id = "cost-modifier-mutations"
+summary = "Full-game mutations removing the live modifier or changing the generic increase from {2} must fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106 Mana", "117 Priority", "601.2 Casting spells and paying costs", "602 Activated abilities and costs", "605 Mana abilities", "608 Resolving spells and abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Suppression Field"
+collector_number = 31
+url = "https://scryfall.com/card/rav/31/suppression-field"
+retained_data = "Public card identity, mana cost, color, card type, and nonmana activated-ability cost-modifier operation needed by the trace"

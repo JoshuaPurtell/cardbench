@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 121
+definition_id = "RAV-EXCRUCIATOR"
+card_name = "Excruciator"
+printed_mana_cost = "{6}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 7
+toughness = 7
+keywords = ["damage can't be prevented"]
+abilities = []
+source_authority = "RAV printed identity, {6}{R}{R} cost, red 7/7 Creature type, and damage-cannot-be-prevented keyword represented by the candidate-owned definition and full-game combat trace"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-seven-seven-exact-cost"
+summary = "Cast Excruciator as a red 7/7 creature with exact cost {6}{R}{R}."
+trace_required = true
+
+[[features]]
+id = "unpreventable-damage-through-shield"
+summary = "Attack into a blocking Ordruun Commando after its one-point damage shield resolves; verify Excruciator deals seven damage, the prevention interaction does not reduce that packet, and no DamagePrevented receipt is emitted for Excruciator."
+trace_required = true
+
+[[features]]
+id = "blocked-creature-dies-and-game-ends"
+summary = "Verify the blocking Commando moves to its graveyard and continue the shuffled full game to a terminal pilot win with deterministic replay."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutants"
+summary = "Detect removal of the damage-cannot-be-prevented keyword, a printed-cost change, and a power change through the full-game authority."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["702.65: damage can't be prevented", "510.1: combat damage", "704.5: state-based actions", "601.2: casting creature spells", "508.1 and 509.1: combat declarations"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

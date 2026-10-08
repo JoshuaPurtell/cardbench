@@ -250,6 +250,14 @@ pub enum GameCommand {
         pay: bool,
         target: Option<TargetDto>,
     },
+    ResolveOptionalTriggeredAbilityWithManaPayment {
+        decision: DecisionRef,
+        source: ObjectRef,
+        ability: AbilityName,
+        pay: bool,
+        target: Option<TargetDto>,
+        mana_abilities: Vec<PaymentManaAbilityDto>,
+    },
     SubmitDecision {
         decision: DecisionRef,
         selection: DecisionSelectionDto,
@@ -289,6 +297,7 @@ impl GameCommand {
             | Self::ChooseTriggeredAbilityEffectObject { decision, .. }
             | Self::ChooseDamageReplacement { decision, .. }
             | Self::ResolveOptionalTriggeredAbility { decision, .. }
+            | Self::ResolveOptionalTriggeredAbilityWithManaPayment { decision, .. }
             | Self::SubmitDecision { decision, .. } => Some(*decision),
             _ => None,
         }
@@ -333,7 +342,8 @@ impl GameCommand {
                 CommandKind::ChooseTriggeredAbilityEffectObject
             }
             Self::ChooseDamageReplacement { .. } => CommandKind::ChooseDamageReplacement,
-            Self::ResolveOptionalTriggeredAbility { .. } => {
+            Self::ResolveOptionalTriggeredAbility { .. }
+            | Self::ResolveOptionalTriggeredAbilityWithManaPayment { .. } => {
                 CommandKind::ResolveOptionalTriggeredAbility
             }
             Self::SubmitDecision { .. } => CommandKind::SubmitDecision,

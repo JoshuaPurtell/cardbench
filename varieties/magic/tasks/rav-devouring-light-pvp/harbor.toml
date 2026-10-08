@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-devouring-light"
+definition_id = "RAV-DEVOURING-LIGHT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "devouring_light_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/devouring_light.rs"
+authority_bin = "rav-devouring-light-pvp"
+materializer = "varieties/magic/scripts/materialize_devouring_light_task.py"
+scorer = "varieties/magic/scripts/score_devouring_light_pvp.py"
+review_scope = "RAV Devouring Light identity, {1}{W}{W}, Convoke, two white convokers and remaining generic payment, attacking target at instant-speed cast, resolution to exile, full-game terminal result and deterministic replay, semantic mutants for missing Convoke and broad creature targeting, compile-valid stub rejection, and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/devouring_light_card/README.md",
+  "adapters/harbor/bundles/devouring_light_card/instruction.md",
+  "adapters/harbor/bundles/devouring_light_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_devouring_light_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_devouring_light_pvp.py",
+  "varieties/magic/session/src/bin/rav_devouring_light_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/devouring_light.rs",
+  "varieties/magic/tasks/rav-devouring-light-pvp/README.md",
+  "varieties/magic/tasks/rav-devouring-light-pvp/features.toml",
+  "varieties/magic/tasks/rav-devouring-light-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Devouring Light identity, {1}{W}{W}, Convoke, or attacking/blocking exile effect differs"
+
+[mutation]
+find = "keywords: vec![Keyword::Convoke]"
+replace = "keywords: vec![]"
+expected_diagnostic = "Devouring Light identity, {1}{W}{W}, Convoke, or attacking/blocking exile effect differs"

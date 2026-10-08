@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 22
+definition_id = "RAV-HUNTED-LAMMASU"
+card_name = "Hunted Lammasu"
+printed_mana_cost = "{2}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 5
+toughness = 5
+keywords = ["flying"]
+abilities = ["when this creature enters the battlefield, target opponent creates one black 4/4 Horror creature token"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition/trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-cast-and-body"
+summary = "Cast Hunted Lammasu for exact {2}{W}{W} payment and check its live white 5/5 Flying characteristics."
+trace_required = true
+
+[[features]]
+id = "opponent-targeted-horror-token"
+summary = "Resolve the mandatory ETB trigger with an opponent target and create one black 4/4 Horror creature token under that opponent's control."
+trace_required = true
+
+[[features]]
+id = "full-game-combat-terminal"
+summary = "Attack with the flying Hunted Lammasu in the shuffled duel and reach a terminal P0 combat win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full-game trace deterministically and detect gameplay mutations to Flying, ETB trigger presence, opponent-only targeting, Horror token identity, and mana cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 and 111 Permanents and tokens", "117 Timing and priority", "202.1-202.2 Colors and mana cost", "302.1 Creature characteristics", "601.2 Casting spells", "603.2 and 603.3 ETB trigger and target selection", "608.2 Resolving triggered abilities", "701.6 Creating tokens"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

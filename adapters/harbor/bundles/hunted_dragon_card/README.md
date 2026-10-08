@@ -1,0 +1,3 @@
+# Hunted Dragon task bundle
+
+Implement the candidate-owned Hunted Dragon definition and opponent-targeted Knight ETB trigger. The trusted authority parses and validates the exact candidate-source contract before invoking candidate functions, rejects a compile-valid injected side effect, and runs a deterministic 60-card duel. The trace checks the exact `{3}{R}{R}` payment, 6/6 Flying and Haste characteristics, three white 2/2 First Strike Knights created under the chosen opponent's control, token capture while both players remain in the game, same-turn combat from Haste, deterministic replay, semantic mutations, and a terminal win. This diagnostic task reports zero credit and zero reward.

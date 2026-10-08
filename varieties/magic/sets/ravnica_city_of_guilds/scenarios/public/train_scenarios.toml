@@ -4373,7 +4373,7 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 [[scenario]]
 id = "rav_guild_creature_chassis"
 seed = 0
-description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify their base P/T. Moroii's Flying and upkeep life-loss trigger have dedicated coverage; Loxodon Hierarch's printed behavior remains deliberately omitted."
+description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify their base P/T. Moroii's Flying and upkeep life-loss trigger have dedicated coverage; Loxodon Hierarch's printed abilities have a dedicated isolated PvP task."
 
 [[scenario.card]]
 label = "hierarch"
@@ -6148,13 +6148,19 @@ digest = "fnv1a64:76b6e8051ab6e560"
 [[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
 seed = 0
-description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify base P/T. Drake's target-bearing return behavior and Drift's Defender/Transmute behavior have separate focused contracts; the remaining bounded behaviors stay explicit."
+description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify base P/T. Resolve Drake's target-free choice by returning the preloaded battlefield enchantment; focused contracts cover opponent-owned and untargetable enchantments. Drift's Defender/Transmute behavior has separate focused contracts."
 
 [[scenario.card]]
 label = "familiar"
 owner = 0
 definition = "RAV-DRAKE-FAMILIAR"
 zone = "hand"
+
+[[scenario.card]]
+label = "familiar_enchantment"
+owner = 0
+definition = "RAV-DARK-HEART-OF-THE-WOOD"
+zone = "battlefield"
 
 [[scenario.card]]
 label = "drift"
@@ -6191,6 +6197,21 @@ player = 0
 [[scenario.action]]
 kind = "pass"
 player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 0
+card = "familiar"
+ability = "etb-return-any-enchantment-or-sacrifice-source"
+found = "familiar_enchantment"
 
 [[scenario.action]]
 kind = "cast"
@@ -6232,13 +6253,13 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["familiar:battlefield", "drift:battlefield", "usher:battlefield", "grozoth:battlefield"]
+zones = ["familiar:battlefield", "familiar_enchantment:hand", "drift:battlefield", "usher:battlefield", "grozoth:battlefield"]
 powers = ["familiar:2", "drift:0", "usher:2", "grozoth:9"]
 toughnesses = ["familiar:1", "drift:5", "usher:3", "grozoth:9"]
 mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
-event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved", "TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted", "CardMoved", "AbilityResolved"]
 digest = "fnv1a64:81e57f4f9dd76b89"
 [[scenario]]
 id = "rav_basic_land_type_lines"
@@ -7196,188 +7217,6 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved"]
 digest = "fnv1a64:4f064b3ff46abb4f"
-
-[[scenario]]
-id = "rav_twilight_drover_leave_and_spirit"
-seed = 108
-description = "Bounce another creature to stack Twilight Drover's optional counter trigger, accept it, then pay {2}{W} for a flying Spirit token."
-triggers = true
-
-[[scenario.card]]
-label = "drover"
-owner = 0
-definition = "RAV-TWILIGHT-DROVER"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "exiter"
-owner = 0
-definition = "RAV-WATCHWOLF"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "clutch"
-owner = 0
-definition = "RAV-CLUTCH-OF-THE-UNDERCITY"
-zone = "hand"
-
-[[scenario.card]]
-label = "island"
-owner = 0
-definition = "RAV-ISLAND"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "island2"
-owner = 0
-definition = "RAV-ISLAND"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "swamp1"
-owner = 0
-definition = "RAV-SWAMP"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "swamp2"
-owner = 0
-definition = "RAV-SWAMP"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "plains1"
-owner = 0
-definition = "RAV-PLAINS"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "plains2"
-owner = 0
-definition = "RAV-PLAINS"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "plains3"
-owner = 0
-definition = "RAV-PLAINS"
-zone = "battlefield"
-
-[[scenario.action]]
-kind = "begin_game"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "island"
-color = "blue"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "island2"
-color = "blue"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "swamp1"
-color = "black"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "swamp2"
-color = "black"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "plains1"
-color = "white"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "plains2"
-color = "white"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "plains3"
-color = "white"
-
-[[scenario.action]]
-kind = "cast"
-player = 0
-card = "clutch"
-target = "permanent:exiter"
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "resolve_optional_trigger"
-player = 0
-card = "drover"
-ability = "another-creature-leaves-plus-one-counter"
-pay = true
-
-[[scenario.action]]
-kind = "activate_ability"
-player = 0
-card = "drover"
-ability = "create-flying-spirit"
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[scenario.expected]
-zones = ["drover:battlefield", "exiter:hand", "clutch:graveyard", "island:battlefield", "island2:battlefield", "swamp1:battlefield", "swamp2:battlefield", "plains1:battlefield", "plains2:battlefield", "plains3:battlefield"]
-powers = ["drover:2"]
-toughnesses = ["drover:2"]
-token_count = 1
-stack_size = 0
-priority = 0
-mana = ["0:blue:0", "0:black:0", "0:white:0"]
-event_markers = ["CardMoved", "TriggeredAbilityStacked", "CounterPlaced", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:e4348d63ac48e351"
 
 [[scenario]]
 id = "rav_keening_banshee_etb_modifier"
@@ -9346,84 +9185,6 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:9366feebbf6d7203"
 
 [[scenario]]
-id = "rav_sadistic_augermage_death_discard"
-seed = 0
-triggers = true
-description = "When another creature dies, Sadistic Augermage offers its controller a public may-trigger choice; accepting it opens each affected player's private discard choice with explicit discard and graveyard receipts."
-
-[[scenario.card]]
-label = "augermage"
-owner = 0
-definition = "RAV-SADISTIC-AUGERMAGE"
-zone = "battlefield"
-entered_turn = 0
-
-[[scenario.card]]
-label = "victim"
-owner = 1
-definition = "RAV-GOLGARI-GRAVE-TROLL"
-zone = "battlefield"
-entered_turn = 0
-
-[[scenario.card]]
-label = "p0_discard"
-owner = 0
-definition = "RAV-SWAMP"
-zone = "hand"
-
-[[scenario.card]]
-label = "p0_keep"
-owner = 0
-definition = "RAV-WATCHWOLF"
-zone = "hand"
-
-[[scenario.card]]
-label = "p1_discard"
-owner = 1
-definition = "RAV-ISLAND"
-zone = "hand"
-
-[[scenario.action]]
-kind = "begin_game"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "resolve_optional_trigger"
-player = 0
-card = "augermage"
-ability = "another-creature-dies-each-player-discards"
-pay = true
-
-[[scenario.action]]
-kind = "choose_trigger_effect_object"
-player = 0
-card = "augermage"
-ability = "another-creature-dies-each-player-discards"
-found = "p0_discard"
-
-[[scenario.action]]
-kind = "choose_trigger_effect_object"
-player = 1
-card = "augermage"
-ability = "another-creature-dies-each-player-discards"
-found = "p1_discard"
-
-[scenario.expected]
-zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_discard:graveyard", "victim:graveyard"]
-stack_size = 0
-priority = 0
-event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "PolicyMoveSubmitted", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:256360b695d4ae28"
-
-[[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
 seed = 128
 description = "Retain Dimir House Guard's historical immediate Transmute fixture for deterministic public parity, then reject a nonblack, nonartifact creature's block against static Fear. Direct Rust contracts separately exercise both the private stack search and selected-creature sacrifice regeneration."
@@ -11032,7 +10793,7 @@ digest = "fnv1a64:62ecf18957e84982"
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"
 seed = 147
-description = "Resolve Empty the Catacombs through serial policy-submitted public graveyard creature choices, then return both selected cards to hand."
+description = "Resolve Empty the Catacombs and return every creature card from each player's own graveyard without a card-selection choice."
 
 [[scenario.card]]
 label = "catacombs"
@@ -11070,23 +10831,13 @@ player = 0
 kind = "pass"
 player = 1
 
-[[scenario.action]]
-kind = "choose_public_graveyard_creature"
-player = 0
-found = "first"
-
-[[scenario.action]]
-kind = "choose_public_graveyard_creature"
-player = 1
-found = "second"
-
 [scenario.expected]
 zones = ["catacombs:graveyard", "first:hand", "second:hand"]
 stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:a654869b340a87e2"
+digest = "fnv1a64:cc7ad8c384894e57"
 
 [[scenario]]
 id = "rav_nullmage_shepherd_four_creature_removal"
@@ -11209,7 +10960,7 @@ digest = "fnv1a64:fde48d0afcdb514a"
 id = "rav_stone_seeder_hierophant_landfall_untap"
 seed = 150
 triggers = true
-description = "Tap Stone-Seeder Hierophant through its target-land activation, then play a land and resolve its all-land-entry untap trigger through the stack."
+description = "Tap Stone-Seeder Hierophant through its target-land activation, then play a land under its controller's control and resolve the resulting untap trigger through the stack."
 
 [[scenario.card]]
 label = "hierophant"
@@ -12121,119 +11872,6 @@ stack_size = 0
 priority = 0
 event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "GlobalCombatDamagePreventionCreated", "AbilityResolved"]
 digest = "fnv1a64:78c904f7c4329189"
-
-[[scenario]]
-id = "rav_galvanic_arc_attached_tap_damage"
-seed = 172
-description = "Resolve Galvanic Arc onto an older creature, then activate the attachment-granted tap ability through the ordinary stack and priority window to deal three damage to a selected player."
-
-[[scenario.card]]
-label = "arc"
-owner = 0
-definition = "RAV-GALVANIC-ARC"
-zone = "hand"
-
-[[scenario.card]]
-label = "target"
-owner = 0
-definition = "RAV-WATCHWOLF"
-zone = "battlefield"
-entered_turn = 0
-
-[[scenario.card]]
-label = "mountain1"
-owner = 0
-definition = "RAV-MOUNTAIN"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "mountain2"
-owner = 0
-definition = "RAV-MOUNTAIN"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "mountain3"
-owner = 0
-definition = "RAV-MOUNTAIN"
-zone = "battlefield"
-
-[[scenario.action]]
-kind = "begin_game"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "mountain1"
-color = "red"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "mountain2"
-color = "red"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "mountain3"
-color = "red"
-
-[[scenario.action]]
-kind = "cast"
-player = 0
-card = "arc"
-target = "permanent:target"
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "activate_ability"
-player = 0
-card = "target"
-ability = "attached-tap-deal-three-to-player-or-creature"
-target = "player:1"
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[scenario.expected]
-life = [20, 17]
-zones = ["arc:battlefield", "target:battlefield"]
-tapped = ["target:true"]
-stack_size = 0
-priority = 0
-mana = ["0:red:0"]
-event_markers = ["SpellCast", "AttachmentEstablishedWithoutContinuousEffect", "AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
-digest = "fnv1a64:61db41ce6d78089e"
 
 [[scenario]]
 id = "rav_flame_fusillade_temporary_tap_damage"

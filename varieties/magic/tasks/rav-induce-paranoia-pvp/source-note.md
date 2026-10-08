@@ -1,0 +1,7 @@
+# Induce Paranoia source note
+
+This task follows [`RAV_PVP_SOURCE_CONTRACT.md`](../rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md): the original Ravnica: City of Guilds printing controls public identity and mechanics; current Oracle is consulted only to interpret rules questions. The public RAV record is [Induce Paranoia, RAV #56](https://aetherhub.com/Card/RAV/Induce%20Paranoia/56). Retained facts are its `{2}{U}{U}` cost, blue instant type and color, target-spell counter operation, conditional black-mana branch, and use of the targeted spell's mana value to determine the number of cards moved from that spell controller's library.
+
+Current Oracle wording at [mtg.wtf](https://www.mtg.wtf/card/rav/56/Induce-Paranoia) uses “mills X cards” and “mana value”; the RAV printing describes moving the top X cards into the graveyard and refers to converted mana cost. The target spell still determines X, and the black-mana-spent condition is unchanged. The authority records exact target spell identity, the actual mana colors paid for Induce Paranoia, its counter receipt, the target owner's top-library order before resolution, exact resulting zone moves, and the no-black control branch.
+
+The task retains only those public identity facts and CardBench-authored semantic summaries. It stores no scan, art, flavor text, upstream response payload, or card-rules prose corpus. Rules baseline: *Magic: The Gathering Comprehensive Rules*, effective 2026-08-07; task cutoff 2026-09-24.

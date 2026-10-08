@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 41
+definition_id = "RAV-CONVOLUTE"
+card_name = "Convolute"
+printed_mana_cost = "{2}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = []
+abilities = ["counter target spell unless its controller pays {4}"]
+source_authority = "CardBench-authored semantic summary of RAV printed identity, characteristics, and target-spell payment effect"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-and-targeted-cast"
+summary = "Cast Convolute as a blue instant for {2}{U}, targeting the exact opposing spell on the stack in a legal response window."
+trace_required = true
+
+[[features]]
+id = "controller-owned-resolution-payment"
+summary = "Separate full-game traces exercise both choices at resolution: a target controller explicitly declines {4} and another target controller explicitly pays {4} using four listed mana abilities."
+trace_required = true
+
+[[features]]
+id = "counter-provenance-and-zone-cleanup"
+summary = "The decline trace records Convolute countering only the chosen spell and moving it to its owner's graveyard; the pay trace proves the spell resolves and enters the battlefield instead."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the same shuffled 60-card game to a seat-zero Watchwolf combat win and require event-identical replay for the selected seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-detection"
+summary = "Reject a changed four-mana payment, changed blue spell identity, or unconditional counter effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106 Mana", "117 Priority", "115 Targets", "601.2 Casting spells", "608 Resolving spells", "701.5 Countering", "118 Paying costs", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

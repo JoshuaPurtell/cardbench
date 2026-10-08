@@ -1,0 +1,41 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-vitu-ghazi"
+definition_id = "RAV-VITU-GHAZI"
+expansion = "RAV"
+variant = "single-card"
+bundle = "vitu_ghazi_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vitu_ghazi.rs"
+authority_bin = "rav-vitu-ghazi-pvp"
+materializer = "varieties/magic/scripts/materialize_vitu_ghazi_task.py"
+scorer = "varieties/magic/scripts/score_vitu_ghazi_pvp.py"
+review_scope = "Vitu-Ghazi, the City-Tree diagnostic full-game task; 291-name/306-printing denominator; candidate-owned definition and both activated bindings; colorless mana output; distinct-copy Saproling activation, colored payment and tap cost; token state; combat and terminal result; deterministic replay; compiled semantic mutants; typed session projection; source contract, authority, scorer, materializer and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/vitu_ghazi_card/README.md",
+  "adapters/harbor/bundles/vitu_ghazi_card/instruction.md",
+  "adapters/harbor/bundles/vitu_ghazi_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/scripts/materialize_vitu_ghazi_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_vitu_ghazi_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_vitu_ghazi_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/vitu_ghazi.rs",
+  "varieties/magic/tasks/rav-set-pvp/README.md",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-vitu-ghazi-pvp/README.md",
+  "varieties/magic/tasks/rav-vitu-ghazi-pvp/features.toml",
+  "varieties/magic/tasks/rav-vitu-ghazi-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Vitu-Ghazi printed identity or characteristics differ"
+
+[mutation]
+find = "amount: 1"
+replace = "amount: 2"
+expected_diagnostic = "Vitu-Ghazi colorless mana ability differs from its RAV identity"

@@ -1,0 +1,7 @@
+# RAV Centaur Safeguard single-card diagnostic
+
+This isolated task targets Centaur Safeguard (RAV collector #244), a green/white 3/1 creature with two hybrid mana symbols and an optional dies-trigger life gain. The legal constructed trace casts the submitted card from a 60-card Selesnya deck with four Safeguard slots, then attacks into Elves of Deep Shadow from a 60-card Golgari deck. Combat damage kills Safeguard; typed receipts prove its graveyard move precedes the exact source-incarnation dies trigger. The controller accepts the optional choice while Safeguard remains in the graveyard and gains exactly three life before ability resolution.
+
+The trace replays the same seed in two legal branches: the controller accepts the optional trigger and gains three life, then declines it and gains no life from that ability. Both branches report the full RAV denominator of 291 card identities and 306 printings and award no credit or reward. An internal semantic control removes the optional dies binding; a compiled toughness mutant and compile-valid stub are rejected independently. Independent review and a real candidate trial remain separate qualification gates.
+
+The rules baseline is the Wizards Comprehensive Rules effective August 7, 2026, at the September 23, 2026 cutoff. The target file is `src/cards/centaur_safeguard.rs`; its source boundary is a declarative `CardDefinition` and candidate-owned `triggered_ability()` binding. The optional triggered ability is verified through the public event projection and both full-game choice branches.

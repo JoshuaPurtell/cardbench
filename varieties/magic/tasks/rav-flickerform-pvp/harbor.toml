@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-flickerform"
+definition_id = "RAV-FLICKERFORM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "flickerform_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flickerform.rs"
+authority_bin = "rav-flickerform-pvp"
+materializer = "varieties/magic/scripts/materialize_flickerform_task.py"
+scorer = "varieties/magic/scripts/score_flickerform_pvp.py"
+review_scope = "Flickerform RAV #18 identity and {1}{W} cost, Creature Aura attachment, second attached Aura, {2}{W}{W} instant-speed activation, exact linked creature/Aura exile group, end-step timing, stable object and new-incarnation identities, legal Aura return and +3/+3 reattachment, combat and terminal PvP win, deterministic replay, three semantic mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/flickerform_card/README.md",
+  "adapters/harbor/bundles/flickerform_card/instruction.md",
+  "adapters/harbor/bundles/flickerform_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_flickerform_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_flickerform_pvp.py",
+  "varieties/magic/session/src/bin/rav_flickerform_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flickerform.rs",
+  "varieties/magic/tasks/rav-flickerform-pvp/README.md",
+  "varieties/magic/tasks/rav-flickerform-pvp/features.toml",
+  "varieties/magic/tasks/rav-flickerform-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Flickerform candidate definition or activated binding is not delegated by the RAV registry"
+
+[mutation]
+find = "mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),"
+replace = "mana_cost: ManaCost::with_colors(1, [Color::White, Color::White]),"
+expected_diagnostic = "Flickerform candidate definition or activated binding is not delegated by the RAV registry"

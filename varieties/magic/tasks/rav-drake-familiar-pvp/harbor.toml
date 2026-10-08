@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-drake-familiar"
+definition_id = "RAV-DRAKE-FAMILIAR"
+expansion = "RAV"
+variant = "single-card"
+bundle = "drake_familiar_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/drake_familiar.rs"
+authority_bin = "rav-drake-familiar-pvp"
+materializer = "varieties/magic/scripts/materialize_drake_familiar_task.py"
+scorer = "varieties/magic/scripts/score_drake_familiar_pvp.py"
+review_scope = "Drake Familiar RAV #44 exact {1}{U} blue 2/1 Drake with Flying; RAV FAQ and 2005 ruling establish a mandatory target-free ETB resolution choice to return any battlefield enchantment, including opponent-owned and untargetable enchantments, to its owner's hand or sacrifice the exact live source; ordinary response priority before the resolution-time choice; owner-indexed hand movement; decline-with-eligible, no-eligible, and opponent-owned branches; source and AST contract with syntactically parsed side-effect rejection before candidate function calls (not a compiled fixture); full legal deterministic PvP game, semantic mutations, scorer, materializer, Harbor bundle, scenario reconciliation, and required RAV/engine/session/provenance review"
+review_files = [
+  "adapters/harbor/bundles/drake_familiar_card/README.md",
+  "adapters/harbor/bundles/drake_familiar_card/instruction.md",
+  "adapters/harbor/bundles/drake_familiar_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_drake_familiar_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_drake_familiar_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_drake_familiar_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/drake_familiar.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/drake_familiar_etb_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/drake_familiar_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/drake_familiar_manifest_merge_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/scenarios.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/easy_creature_chassis_wave_five_contract.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/tasks/rav-drake-familiar-pvp/README.md",
+  "varieties/magic/tasks/rav-drake-familiar-pvp/features.toml",
+  "varieties/magic/tasks/rav-drake-familiar-pvp/features.toml",
+  "varieties/magic/tasks/rav-drake-familiar-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Drake Familiar candidate definition or trigger is outside its literal source and AST contract"
+
+[mutation]
+find = "Effect::ReturnAnyEnchantmentOrSacrificeSource"
+replace = "Effect::SacrificeControllerCreature"
+expected_diagnostic = "Drake Familiar candidate definition or trigger is outside its literal source and AST contract"

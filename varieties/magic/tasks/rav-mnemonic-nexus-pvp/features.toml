@@ -1,0 +1,66 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 59
+definition_id = "RAV-MNEMONIC-NEXUS"
+card_name = "Mnemonic Nexus"
+printed_mana_cost = "{3}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+abilities = ["Each player shuffles their own graveyard into their own library"]
+source_authority = "Original RAV printing identity and tested mechanics control under RAV_PVP_SOURCE_CONTRACT.md; Oracle wording is consulted only to reconcile the historical pronoun."
+oracle_reconciliation = "The RAV printed wording says each player shuffles his or her graveyard into his or her library; current Oracle uses the same owner-relative operation with updated pronouns."
+public_identity_record = "https://scryfall.com/card/rav/59/mnemonic-nexus"
+model_limitations = "The supported instant, exact {3}{U} payment, owner-relative zone movement, and per-player shuffles are represented by the engine effect."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-and-exact-payment"
+summary = "Cast Mnemonic Nexus at instant speed from a shuffled legal deck and pay exactly four mana including its blue symbol."
+trace_required = true
+
+[[features]]
+id = "each-player-own-graveyard"
+summary = "At casting, both players have a distinct Rain of Embers in their own graveyards; every card in each graveyard moves to that owner's library."
+trace_required = true
+
+[[features]]
+id = "both-library-shuffles"
+summary = "Observe a library shuffle for seat zero and seat one after the corresponding owner-relative graveyard recovery."
+trace_required = true
+
+[[features]]
+id = "resolving-instant-not-shuffled"
+summary = "Confirm Mnemonic Nexus is absent from the graveyard contents moved by its own effect and reaches its owner's graveyard only after resolving."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-deterministic-replay"
+summary = "Continue the same legal 60-card PvP game through combat to a normal terminal pilot win and replay the ordered event trace deterministically."
+trace_required = true
+
+[[features]]
+id = "literal-source-guard-and-mutations"
+summary = "Reject wrong cost, wrong color, and missing-shuffle-effect variants before granting diagnostic success."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Priority and instant timing", "202.1-202.2 Mana cost and color", "400.7 Zone changes and new objects", "601.2 Casting a spell", "608.2 Resolving spells", "701.20 Shuffle"]
+url = "https://magic.wizards.com/en/rules"
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Mnemonic Nexus"
+collector_number = 59
+url = "https://cardshop-serra.com/mtg/products/detail/84101"
+retained_data = "Printed card identity, blue {3}{U} Instant, and player-relative graveyard-to-library shuffle operation"
+
+[[source_references]]
+source = "Current Oracle wording consulted for historical-pronoun reconciliation"
+card = "Mnemonic Nexus"
+url = "https://mtg.wtf/card/rav/59/Mnemonic-Nexus"
+retained_data = "Current wording preserves owner-relative movement and records that the spell itself is put into its graveyard after resolution"

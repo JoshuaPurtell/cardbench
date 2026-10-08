@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 271
+definition_id = "RAV-SPECTRAL-SEARCHLIGHT"
+card_name = "Spectral Searchlight"
+printed_mana_cost = "{3}"
+colors = []
+mana_colors = []
+card_types = ["artifact"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Target player chooses one colored mana after the artifact's tap activation resolves"]
+source_authority = "Public RAV identity and candidate-owned activated ability; semantic summaries authored by CardBench"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public identity and semantics needed by the trace"
+
+[[features]]
+id = "target-player-mana-choice"
+summary = "The tap activation targets a player, waits through priority, and the target chooses one of five colored mana to receive."
+trace_required = true
+
+[[features]]
+id = "mana-recipient-and-color-provenance"
+summary = "Separate activations target the pilot and opponent; each exact target chooses and receives the recorded color, while the controller cannot answer for the opponent."
+trace_required = true
+
+[[features]]
+id = "full-game-cast-replay-and-mutations"
+summary = "A legal 60-card duel casts the artifact and a supported creature, reaches a terminal result, reproduces its seeded event stream, and detects ability-semantic mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1 and 106.4 Mana production and payment", "117.3 and 117.4 Priority", "301.1 and 301.5 Artifacts", "602.1-602.2 Activated abilities", "608.2-608.3 Resolving spells and abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Spectral Searchlight"
+collector_number = 271
+url = "https://scryfall.com/card/rav/271/spectral-searchlight"
+retained_data = "Public identity and tap-target-player-chosen-mana semantics used by the trace"

@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-HUNTED-HORROR"
+set_code = "RAV"
+collector_number = 90
+card_name = "Hunted Horror"
+printed_mana_cost = "{B}{B}"
+colors = ["black"]
+card_types = ["creature"]
+subtypes = ["Horror"]
+power = 7
+toughness = 7
+keywords = ["trample"]
+abilities = ["when this creature enters the battlefield, target opponent creates two green 3/3 Centaur creature tokens with protection from black"]
+source_authority = "Original RAV #90 printing controls identity and tested semantics under RAV_PVP_SOURCE_CONTRACT.md; current Oracle wording is used only to interpret modern terminology. Horror is retained as printed identity but is not asserted by the current CardDefinition model."
+oracle_reconciliation = "RAV uses legacy comes-into-play and put-into-play wording; current Oracle uses enters and creates. The trigger, target opponent, token count and characteristics, and protection from black are unchanged."
+public_identity_record = "https://www.mtg.wtf/card/rav/90"
+model_limitations = "CardDefinition represents Creature but has no creature subtype field; Horror is retained public identity and is not asserted by the gameplay trace. The Centaur token subtype is represented and checked separately."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-creature-cast-and-trample"
+summary = "Cast the black 7/7 Horror for exactly {B}{B}; check its live Trample keyword and ordered combat assignment of lethal damage to Watchwolf plus excess damage to its controller. The Horror subtype is retained as identity but is not modeled or asserted by CardDefinition."
+trace_required = true
+
+[[features]]
+id = "opponent-centaur-etb"
+summary = "Record exactly one target-selection policy receipt from the trigger controller, bound to Hunted Horror's source and controller, and target only the opposing player. Create exactly two green 3/3 Centaur creature tokens with Protection from Black under that opponent's control."
+trace_required = true
+
+[[features]]
+id = "protection-from-black-block-boundary"
+summary = "Probe a Centaur block of the black Horror, require the rules engine to reject it without changing state, then continue the legal game with the Watchwolf block."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the full constructed duel deterministically; reject mutations to the body, Trample, ETB trigger, opponent-only target, Centaur protection/count, and exact black mana cost; and reject a compile-valid source mutation that exits successfully before invoking candidate functions."
+trace_required = true
+
+[[features]]
+id = "candidate-source-side-effect-guard"
+summary = "Parse and compare the exact normalized candidate AST before calling any candidate function; a compile-valid injected process exit must be rejected before candidate execution or game/report generation."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 and 111 Permanents and Tokens", "117 Timing and Priority", "202.1-202.2 Colors and Mana Cost", "302 Creatures", "601.2 Casting Spells", "603.2 and 603.3 Trigger Events and Target Selection", "608.2 Resolving Spells and Abilities", "702.16 Protection", "702.19 Trample", "701.6 Creating Tokens"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Hunted Horror"
+collector_number = 90
+url = "https://www.mtg.wtf/card/rav/90"
+retained_data = "Public identity, {B}{B} cost, black Creature — Horror type line, 7/7 body, Trample, and the opponent-targeted Centaur token ability with Protection from Black"
+
+[[source_references]]
+source = "Current Oracle wording, consulted for interpretation"
+card = "Hunted Horror"
+url = "https://www.mtg.wtf/card/rav/90"
+retained_data = "Legacy comes-into-play / put-into-play terms are modernized to enters / creates; no gameplay-changing difference in the tested branches"

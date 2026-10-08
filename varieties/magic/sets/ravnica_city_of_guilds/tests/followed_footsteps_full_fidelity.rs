@@ -44,9 +44,9 @@ fn advance_to_precombat_main(game: &mut Game) {
     }
 }
 
-fn advance_to_next_controller_upkeep(game: &mut Game, controller: PlayerId) {
+fn advance_to_next_player_upkeep(game: &mut Game, player: PlayerId) {
     for _ in 0..96 {
-        if game.active_player == controller && game.step == Step::Upkeep {
+        if game.active_player == player && game.step == Step::Upkeep {
             return;
         }
         match game.step {
@@ -80,19 +80,20 @@ fn advance_to_next_controller_upkeep(game: &mut Game, controller: PlayerId) {
             _ => pass_pair(game),
         }
     }
-    panic!("fixture failed to reach controller upkeep");
+    panic!("fixture failed to reach the requested upkeep");
 }
 
 #[test]
 #[allow(clippy::too_many_lines)] // The complete entry/upkeep/token trace is one public contract.
-fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upkeep() {
-    let controller = PlayerId(0);
+fn followed_footsteps_triggers_on_its_own_upkeep_not_the_enchanted_creatures() {
+    let aura_controller = PlayerId(0);
+    let creature_controller = PlayerId(1);
     let mut game = game_with_rav_bindings();
     let creature = game
-        .put_on_battlefield(controller, "RAV-WATCHWOLF")
+        .put_on_battlefield(creature_controller, "RAV-WATCHWOLF")
         .expect("creature setup");
     let footsteps = game
-        .add_card(controller, "RAV-FOLLOWED-FOOTSTEPS", Zone::Hand)
+        .add_card(aura_controller, "RAV-FOLLOWED-FOOTSTEPS", Zone::Hand)
         .expect("Aura setup");
     for player in [PlayerId(0), PlayerId(1)] {
         for _ in 0..3 {
@@ -102,18 +103,18 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
     }
     let islands = (0..5)
         .map(|_| {
-            game.put_on_battlefield(controller, "RAV-ISLAND")
+            game.put_on_battlefield(aura_controller, "RAV-ISLAND")
                 .expect("blue mana source setup")
         })
         .collect::<Vec<_>>();
 
     advance_to_precombat_main(&mut game);
     for island in islands {
-        game.activate_mana_ability(controller, island, Color::Blue)
+        game.activate_mana_ability(aura_controller, island, Color::Blue)
             .expect("Island produces blue mana");
     }
     game.cast_spell(
-        controller,
+        aura_controller,
         CastRequest {
             card: footsteps,
             targets: vec![Target::Permanent(creature)],
@@ -121,7 +122,7 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
             payment_mana_abilities: vec![],
         },
     )
-    .expect("Aura casts targeting the creature");
+    .expect("Aura casts targeting the opponent's creature");
     pass_pair(&mut game);
     assert_eq!(game.zone_of(footsteps), Some(Zone::Battlefield));
     assert_eq!(
@@ -130,18 +131,33 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
             .attached_to,
         Some(creature)
     );
+    assert_eq!(
+        game.controller_of(creature).expect("creature controller"),
+        creature_controller
+    );
 
     game.clear_event_log();
-    advance_to_next_controller_upkeep(&mut game, controller);
-    assert!(game.event_log.iter().any(|event| matches!(
-        event,
-        GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == footsteps
-                && *ability == "attached-creature-controller-upkeep-token-copy"
-    )));
+    advance_to_next_player_upkeep(&mut game, aura_controller);
+    let triggers = game
+        .event_log
+        .iter()
+        .filter(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { controller, source, ability, .. }
+                    if *controller == aura_controller
+                        && *source == footsteps
+                        && *ability == "aura-controller-upkeep-token-copy"
+            )
+        })
+        .count();
+    assert_eq!(
+        triggers, 1,
+        "the Aura triggers on its own controller's upkeep, not the enchanted creature controller's"
+    );
     pass_pair(&mut game);
 
-    let token = game.players[controller.0]
+    let token = game.players[aura_controller.0]
         .battlefield
         .iter()
         .copied()
@@ -151,13 +167,17 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
                     .object(*card)
                     .is_ok_and(|object| object.token.is_some())
         })
-        .expect("upkeep trigger creates one token");
+        .expect("upkeep trigger creates one token under the Aura controller's control");
     assert_eq!(
         game.object(token)
             .expect("token remains live")
             .effective_definition(),
         Some("RAV-WATCHWOLF"),
         "the token retains layer-one definition values rather than the Aura's identity"
+    );
+    assert_eq!(
+        game.controller_of(token).expect("token controller"),
+        aura_controller
     );
     assert_eq!(
         game.characteristics(token)
@@ -168,7 +188,7 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
     let created = game
         .event_log
         .iter()
-        .position(|event| matches!(event, GameEvent::TokenCreated { player, token: created } if *player == controller && *created == token))
+        .position(|event| matches!(event, GameEvent::TokenCreated { player, token: created } if *player == aura_controller && *created == token))
         .expect("token creation receipt");
     let copied = game
         .event_log
@@ -178,7 +198,7 @@ fn followed_footsteps_copies_its_exact_attached_creature_at_that_controllers_upk
     let resolved = game
         .event_log
         .iter()
-        .position(|event| matches!(event, GameEvent::AbilityResolved { source, ability, .. } if *source == footsteps && *ability == "attached-creature-controller-upkeep-token-copy"))
+        .position(|event| matches!(event, GameEvent::AbilityResolved { source, ability, .. } if *source == footsteps && *ability == "aura-controller-upkeep-token-copy"))
         .expect("upkeep ability resolution receipt");
     assert!(created < copied && copied < resolved);
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-FOLLOWED-FOOTSTEPS"));
@@ -229,7 +249,7 @@ fn followed_footsteps_copied_legend_requires_controller_retention_choice() {
     pass_pair(&mut game);
 
     game.clear_event_log();
-    advance_to_next_controller_upkeep(&mut game, controller);
+    advance_to_next_player_upkeep(&mut game, controller);
     pass_pair(&mut game);
     let copied = game
         .event_log

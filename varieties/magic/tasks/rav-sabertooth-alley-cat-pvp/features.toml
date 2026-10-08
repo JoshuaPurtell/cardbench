@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 140
+definition_id = "RAV-SABERTOOTH-ALLEY-CAT"
+card_name = "Sabertooth Alley Cat"
+printed_mana_cost = "{1}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+abilities = ["Mountain-dependent blocking restriction"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-creature-exact-cast"
+summary = "Cast the red 2/1 creature from the shuffled library and record its exact generic, red, and red payment."
+trace_required = true
+
+[[features]]
+id = "mountain-block-restriction"
+summary = "A block attempt without a Mountain is rejected atomically, then a legal block is declared after a Mountain enters under the controller's control."
+trace_required = true
+
+[[features]]
+id = "combat-damage-and-zone-transitions"
+summary = "The Cat blocks a War-Torch Goblin; simultaneous combat damage moves both 1-toughness creatures to their owners' graveyards."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the shuffled legal 60-card duel to a clean seat-zero win and reproduce the ordered event log for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Removing the Mountain restriction, changing the printed cost, or changing the Cat's power must make the gameplay oracle fail."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["109.5 Objects and controllers", "302.4 Power and toughness", "302.6 Creature blocking restrictions", "305.6 Basic land types", "509.1 Declaring blockers", "510.1-510.2 Combat damage", "601.2 Casting spells", "608.2 Resolving spells", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"

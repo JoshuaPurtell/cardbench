@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 214
+definition_id = "RAV-LOXODON-HIERARCH"
+card_name = "Loxodon Hierarch"
+printed_mana_cost = "{2}{G}{W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+printed_subtypes = ["Elephant", "Cleric"]
+runtime_subtypes_asserted = false
+power = 4
+toughness = 4
+keywords = []
+abilities = ["When Loxodon Hierarch comes into play, you gain 4 life.", "{G}{W}, Sacrifice Loxodon Hierarch: Regenerate each creature you control."]
+source_authority = "RAV #214 printed identity, entry trigger, and source-sacrifice team regeneration ability; see source-note.md for current Oracle wording reconciliation and subtype-model limitation"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-colored-cast-and-etb-life"
+summary = "Cast a {2}{G}{W} 4/4 Loxodon Hierarch from a shuffled 60-card deck; its mandatory entry ability resolves and gains exactly 4 life."
+trace_required = true
+
+[[features]]
+id = "paid-sacrifice-activation"
+summary = "After the opponent casts Char at a controlled Watchwolf, pay one Green and one White, sacrifice the Hierarch as the activation cost, and resolve its ability."
+trace_required = true
+
+[[features]]
+id = "controller-creatures-regenerate"
+summary = "At resolution, each then-controlled creature gets its own regeneration shield; no opponent creature gets one, and lethal Char damage consumes exactly the targeted Watchwolf shield."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "The legal full-game duel ends in a Player 0 win, replays deterministically, and detects an omitted/wrong entry trigger, wrong activation cost/effect, missing binding, and parse-valid side-effect injection."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105 and 202: player and card characteristics", "106.1 and 106.4: mana production and payment", "117: priority and timing", "601.2 and 608.3a: casting and resolving a creature spell", "603.6: enters-the-battlefield triggers", "608.2: resolving triggered and activated abilities", "701.19: regeneration", "614.8: regeneration replacement effects", "704.5g: lethal damage state-based action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing record"
+card = "Loxodon Hierarch"
+collector_number = 214
+url = "https://scryfall.com/card/rav/214/loxodon-hierarch"
+retained_data = "Public card identity, mana cost, colors, Elephant Cleric subtype line, 4/4 body, entry trigger, and activated ability"
+
+[[source_references]]
+source = "Wizards Gatherer search"
+card = "Loxodon Hierarch"
+collector_number = 214
+url = "https://gatherer.wizards.com/Pages/Search/Default.aspx?name=+[Loxodon]+[Hierarch]"
+retained_data = "Public card identity and official card record"
+
+[source_reconciliation]
+printed_wording = "When Loxodon Hierarch comes into play, you gain 4 life. {G}{W}, Sacrifice Loxodon Hierarch: Regenerate each creature you control."
+oracle_wording = "When this creature enters, you gain 4 life. {G}{W}, Sacrifice this creature: Regenerate each creature you control."
+semantic_difference = "Terminology only: the battlefield-entry event and source reference use updated wording; effects and costs are unchanged."
+subtype_limit = "RAV printing is Creature — Elephant Cleric; CardDefinition currently exposes card types but not subtypes. Runtime identity is therefore Creature only, while source metadata retains both subtypes."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace follows the RAV printed source contract, reconciled to current Oracle wording without substituting later text for the printing."

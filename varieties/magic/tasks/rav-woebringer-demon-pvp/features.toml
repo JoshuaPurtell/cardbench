@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 113
+definition_id = "RAV-WOEBRINGER-DEMON"
+card_name = "Woebringer Demon"
+printed_mana_cost = "{3}{B}{B}"
+colors = ["black"]
+card_types = ["creature"]
+power = 4
+toughness = 4
+keywords = ["flying"]
+abilities = ["each-upkeep-active-player-sacrifice-creature"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-base-characteristics"
+summary = "Cast RAV Woebringer Demon for exact {3}{B}{B} in a shuffled two-player 60-card duel; verify the black creature identity, 4/4 base characteristics, and Flying."
+trace_required = true
+
+[[features]]
+id = "each-active-upkeep-choice"
+summary = "At separate opponent and controller upkeeps, stack the same Demon trigger and open the mandatory creature choice for that upkeep's active player. That player selects a creature they control; record the choice completion, exact sacrifice, graveyard move, and ability resolution in order."
+trace_required = true
+
+[[features]]
+id = "flying-combat-and-terminal-pvp"
+summary = "Attack with the resolved Demon, continue the full match through the upkeep choices, and reach a terminal seat-zero win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay"
+summary = "Repeat the complete shuffled duel with the same seed and compare the ordered event log."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Detect changed printed cost or base stats, removed Flying, and removal of the any-upkeep sacrifice trigger."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.1 and 601.2: creature characteristics and casting", "117: priority", "503.1 and 603.2-603.3: upkeep triggers", "608: triggered ability resolution", "701.17: sacrifice", "704: state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

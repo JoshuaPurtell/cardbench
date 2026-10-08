@@ -72,15 +72,24 @@ fn protection_still_prevents_non_targeting_aura_entry() {
 fn attachment_keyword_fixture(keyword: Keyword) -> Game {
     let mut creature = definition(CREATURE, CardType::Creature, vec![]);
     creature.keywords.push(keyword);
-    let mut aura = definition(AURA, CardType::Enchantment, vec![Effect::AttachSourceToTarget {
-        target: TargetRequirement::Creature, changes: vec![],
-    }]);
+    let mut aura = definition(
+        AURA,
+        CardType::Enchantment,
+        vec![Effect::AttachSourceToTarget {
+            target: TargetRequirement::Creature,
+            changes: vec![],
+        }],
+    );
     aura.colors.insert(cardbench_magic_engine::Color::Red);
     let mut game = Game::new([creature, aura], 2).unwrap();
     game.register_attachment_bindings([AttachmentBinding {
-        card_definition: AURA, kind: AttachmentKind::Aura,
-        target: TargetRequirement::Creature, changes: vec![], granted_activated_abilities: vec![],
-    }]).unwrap();
+        card_definition: AURA,
+        kind: AttachmentKind::Aura,
+        target: TargetRequirement::Creature,
+        changes: vec![],
+        granted_activated_abilities: vec![],
+    }])
+    .unwrap();
     game
 }
 

@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-bathe-in-light"
+definition_id = "RAV-BATHE-IN-LIGHT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "bathe_in_light_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/bathe_in_light.rs"
+authority_bin = "rav-bathe-in-light-pvp"
+materializer = "varieties/magic/scripts/materialize_bathe_in_light_task.py"
+scorer = "varieties/magic/scripts/score_bathe_in_light_pvp.py"
+review_scope = "RAV Bathe in Light identity and {1}{W} instant characteristics; chosen-color creature target; Radiance recipient set across both controllers; nonmatching and colorless exclusions; protection target legality; terminal shuffled PvP trace; semantic mutations; isolated candidate workspace and Harbor reference scoring"
+review_files = [
+  "adapters/harbor/bundles/bathe_in_light_card/README.md",
+  "adapters/harbor/bundles/bathe_in_light_card/instruction.md",
+  "adapters/harbor/bundles/bathe_in_light_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_bathe_in_light_task.py",
+  "varieties/magic/scripts/score_bathe_in_light_pvp.py",
+  "varieties/magic/session/src/bin/rav_bathe_in_light_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/bathe_in_light.rs",
+  "varieties/magic/tasks/rav-bathe-in-light-pvp/README.md",
+  "varieties/magic/tasks/rav-bathe-in-light-pvp/features.toml",
+  "varieties/magic/tasks/rav-bathe-in-light-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Bathe in Light definition differs from its RAV identity"
+
+[mutation]
+find = "RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn"
+replace = "AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn"
+expected_diagnostic = "candidate Bathe in Light definition differs from its RAV identity"

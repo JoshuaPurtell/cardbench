@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 8
+definition_id = "RAV-CONCERTED-EFFORT"
+card_name = "Concerted Effort"
+printed_mana_cost = "{2}{W}{W}"
+colors = ["white"]
+mana_colors = []
+card_types = ["enchantment"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["At the beginning of each upkeep, share selected creature keywords among creatures you control until end of turn"]
+source_authority = "Public RAV card identity and candidate-owned trigger semantics; rules summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public card identity and semantics needed by the task"
+
+[[features]]
+id = "six-keyword-families"
+summary = "The upkeep effect is restricted to Flying, First Strike, Double Strike, Landwalk, Protection, and Trample, preserving exact Landwalk types and Protection colors."
+trace_required = true
+
+[[features]]
+id = "different-creature-and-controller-snapshot"
+summary = "A creature receives a keyword only when another creature controlled by the same player has it at ability resolution; a creature cannot share a keyword with itself."
+trace_required = true
+
+[[features]]
+id = "temporary-upkeep-grants"
+summary = "The shared keyword instances are installed as temporary ability-layer effects through the current turn and expire at cleanup."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A shuffled 60-card duel casts the enchantment and representative RAV keyword providers, replays a bounded passing seed deterministically, reaches a terminal result, and detects trigger and family mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302 Creatures", "303 Enchantments", "603 Triggered abilities", "608 Resolving spells and abilities", "611 Continuous effects", "613 Ability layers", "702 Keyword abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Concerted Effort"
+collector_number = 8
+url = "https://scryfall.com/card/rav/8/concerted-effort"
+retained_data = "Public card identity and keyword-sharing behavior needed by the trace"

@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-privileged-position"
+definition_id = "RAV-PRIVILEGED-POSITION"
+expansion = "RAV"
+variant = "single-card"
+bundle = "privileged_position_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/privileged_position.rs"
+authority_bin = "rav-privileged-position-pvp"
+materializer = "varieties/magic/scripts/materialize_privileged_position_task.py"
+scorer = "varieties/magic/scripts/score_privileged_position_pvp.py"
+review_scope = "RAV #251 Privileged Position identity and hybrid cost; opponent-only Hexproof targeting protection on other controlled permanents; opponent Putrefy rejection before payment or mutation; controller Gather Courage legality on the same permanent; complete terminal game and replay; source guard, injected side-effect rejection, semantic mutations, and zero-credit diagnostic scoring"
+review_files = [
+  "adapters/harbor/bundles/privileged_position_card/README.md",
+  "adapters/harbor/bundles/privileged_position_card/instruction.md",
+  "adapters/harbor/bundles/privileged_position_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_privileged_position_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_privileged_position_pvp.py",
+  "varieties/magic/session/src/bin/rav_privileged_position_pvp.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/privileged_position.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/privileged_position_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-privileged-position-pvp/README.md",
+  "varieties/magic/tasks/rav-privileged-position-pvp/features.toml",
+  "varieties/magic/tasks/rav-privileged-position-pvp/harbor.toml",
+  "varieties/magic/tasks/rav-privileged-position-pvp/source-note.md",
+]
+stub_expected_diagnostic = "Privileged Position identity or opponent-only Hexproof binding differs from RAV #251"
+
+[mutation]
+find = "Keyword::Hexproof"
+replace = "Keyword::Shroud"
+expected_diagnostic = "Privileged Position identity or opponent-only Hexproof binding differs from RAV #251"

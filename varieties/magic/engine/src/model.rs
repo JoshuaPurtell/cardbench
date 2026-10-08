@@ -366,6 +366,10 @@ pub enum TriggerCondition {
     /// control. The observer is independent from the entering Aura, so its
     /// source/controller are sampled while both permanents are live.
     ControlledAuraEntersBattlefield,
+    /// An Aura became attached to this exact source permanent. The source is
+    /// the enchanted permanent, not the Aura's controller, and attachment
+    /// changes are observed even when the Aura entered under another player.
+    AuraBecomesAttachedToSource,
     /// A land entered the battlefield through a represented normal zone
     /// transition. Unlike `EntersBattlefield`, this condition observes every
     /// qualifying land entry rather than only the permanent that entered.
@@ -435,10 +439,19 @@ pub enum TriggerCondition {
     ReceivesDamage,
     /// The source changed from the battlefield to its graveyard.
     Dies,
+    /// A creature damaged by this exact source battlefield incarnation this
+    /// turn was put into a graveyard from the battlefield. The engine retains
+    /// both damage-source and recipient incarnations, then samples the live
+    /// observer before a simultaneous death batch moves any member.
+    DamagedCreatureBySourceDiesThisTurn,
     /// A different creature left the battlefield through any represented zone
     /// transition. Unlike `AnotherCreatureDies`, this also observes bounce,
     /// exile, and other non-graveyard departures.
     AnotherCreatureLeavesBattlefield,
+    /// A different creature token left the battlefield through any represented
+    /// zone transition. The token check is made before its departure or
+    /// cessation, so tokens that cease to exist are observed as well.
+    AnotherCreatureTokenLeavesBattlefield,
     /// A different creature was put into a graveyard from the battlefield.
     /// The source is captured before the state-based-action batch removes
     /// either object, so simultaneous deaths retain their normal historical
@@ -899,8 +912,9 @@ pub struct DamageReplacementEffectBinding {
 /// One currently applicable way to replace a prospective damage event.
 ///
 /// This intentionally names only the bounded damage replacement substrate:
-/// source-bound amount changes, combat prevention, target-specific shields,
-/// permanent-local shields/protection, and the existing redirection effect.
+/// source-bound amount changes, combat and creature-source prevention,
+/// target-specific shields, permanent-local shields/protection, and the
+/// existing redirection effect.
 /// The identity is fully serializable and is revalidated when the affected
 /// player submits it, so a policy cannot apply a stale or fabricated
 /// replacement.
@@ -935,6 +949,10 @@ pub enum DamageReplacementChoice {
     /// can have left the battlefield because the record is independent after
     /// resolution; `id` remains the unique, revalidated record identity.
     CombatDamagePrevention { id: u64, source: ObjectId },
+    /// Prevent this creature source's current damage packet under one live
+    /// end-of-turn global record, then give that record's controller life
+    /// equal to the amount it actually prevented.
+    CreatureDamagePrevention { id: u64, source: ObjectId },
     /// Redirect all of the bounded prospective event from `protected` to the
     /// already-selected destination.
     Redirect {
@@ -1080,9 +1098,10 @@ pub enum CastPaymentManaAbility {
 /// no-priority payment window, so the submitted list is executed atomically
 /// with the eventual selected mana spend rather than becoming ordinary policy
 /// actions between stack instructions.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ResolutionPaymentManaAbility {
     Bound(ManaAbilityActivation),
+    BoundWithBundleChoice(ManaAbilityBundleChoiceActivation),
     IntrinsicLand(BasicLandManaAbilityActivation),
 }
 
@@ -1474,6 +1493,10 @@ pub enum Keyword {
     /// The target-legality boundary enforces this at selection and resolution;
     /// it intentionally does not affect non-targeting effects.
     Shroud,
+    /// Spells and abilities controlled by this permanent's opponents cannot
+    /// choose it as a target. Its controller's spells and abilities may still
+    /// target it, and non-targeting effects are unaffected.
+    Hexproof,
     /// This creature can't be blocked while the defending player controls the
     /// named basic land type.
     Mountainwalk,
@@ -1496,6 +1519,9 @@ pub enum Keyword {
     /// Damage dealt by a source of the named color is prevented when it would
     /// be dealt to this permanent.
     PreventDamageFromColor(Color),
+    /// Damage dealt by this source is prevented when it would be dealt to a
+    /// creature of the named color.
+    PreventDamageToCreaturesOfColor(Color),
     /// Damage dealt to this creature by a source controlled by the same
     /// player is prevented. Static source effects grant this to their
     /// controller's current creatures; it is checked at the prospective
@@ -1979,6 +2005,10 @@ pub enum Effect {
     /// decision boundary. Every resulting discard and zone move remains an
     /// explicit event-log receipt.
     DiscardOneCardEachPlayer,
+    /// Each living player privately selects one card from their hand. After
+    /// every choice is submitted, the selected cards move to the tops of
+    /// their owners' libraries as one no-priority resolution batch.
+    PutOneHandCardOnLibraryTopEachPlayer,
     /// Each living player preserves up to three currently controlled
     /// permanents, then sacrifices every other permanent they control. Every
     /// selection is public and serial, but no player receives priority before
@@ -2231,7 +2261,9 @@ pub enum Effect {
     /// and creatures controlled by every living player.
     GainLifeForEachCreature,
     GainLifeForEachControlledCreature,
-    UntapControllerCreaturesIfManaColorSpent { color: Color },
+    UntapControllerCreaturesIfManaColorSpent {
+        color: Color,
+    },
     /// Gain life equal to the number of creature cards currently in the
     /// resolving controller's graveyard. This is a resolution-time zone
     /// count, distinct from a battlefield creature count.
@@ -2389,12 +2421,25 @@ pub enum Effect {
         target: TargetRequirement,
         changes: Vec<ContinuousChange>,
     },
+    /// Attach this resolving Aura to a target that was tapped when its spell
+    /// was cast. The tapped restriction is checked only at the cast boundary;
+    /// it is deliberately absent from stack target legality and attachment
+    /// resolution, since untapping the target does not invalidate the Aura.
+    AttachSourceToTappedTarget {
+        target: TargetRequirement,
+        changes: Vec<ContinuousChange>,
+    },
     /// Return the permanent currently attached to this resolving Aura source
     /// to its owner's hand. The attachment endpoint is read at resolution
     /// from the source's exact battlefield incarnation; a departed, returned,
     /// or unattached source therefore cannot affect a later object merely
     /// because it retains the same stable object id.
     ReturnSourceAttachedPermanentToHand,
+    /// Return the permanent enchanted by this exact resolving Aura incarnation
+    /// and every Aura attached to that exact permanent incarnation to their
+    /// respective owners' hands. The attachment group is captured before any
+    /// of its members change zones.
+    ReturnSourceAttachedPermanentAndAurasToOwnersHands,
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -2545,6 +2590,11 @@ pub enum Effect {
     /// temporary prevention effect without treating each combatant as a
     /// hidden target choice.
     PreventAllCombatDamageUntilEndOfTurn,
+    /// Prevent every damage packet from a creature source through the current
+    /// turn. The effect's controller gains life equal to the amount this
+    /// particular replacement actually prevents. The source may leave its
+    /// zone after resolution; the record is independent until cleanup.
+    PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn,
     /// Put one regeneration replacement shield on a targeted creature. The
     /// shield is consumed only by the next destruction event; it does not
     /// prevent damage, sacrifice, or a zero-toughness state-based action.
@@ -2682,6 +2732,10 @@ pub enum Effect {
     /// resolves. The choice is retained on the stack rather than inferred
     /// from mana spent or a deterministic policy fallback.
     AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn,
+    /// Grant the cast-time chosen color's protection to a legal creature
+    /// target and each other battlefield creature sharing one of its current
+    /// colors. Radiance may affect creatures controlled by either player.
+    RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn,
     /// Replace one targeted creature's complete color set with the explicit
     /// card color selected while this spell was cast.  This is deliberately
     /// distinct from adding a color: later layer-five effects still apply in
@@ -2832,6 +2886,11 @@ pub enum Effect {
     /// normal target-incarnation and zone-transition path keeps this separate
     /// from a permanent bounce that also changes a player's life total.
     ReturnTargetEnchantmentToOwnersHand,
+    /// On resolution, the controller may return any battlefield enchantment
+    /// to its owner's hand. If they decline or none are present, sacrifice
+    /// this source if the captured source incarnation is still on the battlefield.
+    /// This is a target-free enters-the-battlefield trigger instruction.
+    ReturnAnyEnchantmentOrSacrificeSource,
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
@@ -2851,6 +2910,10 @@ pub enum Effect {
     /// owner's hand. The selection is a target-free public-zone operation;
     /// a policy layer may replace the deterministic choice later.
     ReturnOneCreatureCardFromEachGraveyardToHand,
+    /// Return every creature card from each living player's own graveyard to
+    /// that card owner's hand. This is a target-free simultaneous zone move;
+    /// there is no card-selection decision as part of the effect.
+    ReturnAllCreatureCardsFromEachGraveyardToHand,
     /// Marker bound to an any-player creature-cast trigger. It materializes
     /// into the captured card-name instruction below before the trigger is
     /// stacked and never resolves directly.
@@ -3092,7 +3155,9 @@ impl Effect {
         match self {
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX => mana_value <= i16::from(x),
             Self::DestroyTargetCreatureWithManaValueEqualToChosenX => mana_value == i16::from(x),
-            Self::TargetedBundle { effects, .. } => effects.iter().all(|effect| effect.chosen_x_allows_mana_value(mana_value, x)),
+            Self::TargetedBundle { effects, .. } => effects
+                .iter()
+                .all(|effect| effect.chosen_x_allows_mana_value(mana_value, x)),
             _ => true,
         }
     }
@@ -3108,6 +3173,7 @@ impl Effect {
         matches!(
             self,
             Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
+                | Self::RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn
                 | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
         )
     }
@@ -3133,7 +3199,8 @@ impl Effect {
             Self::TargetedBundle { target, .. }
             | Self::DealDamage { target, .. }
             | Self::DealDamageEqualToAttackingCreatures { target }
-            | Self::AttachSourceToTarget { target, .. } => Some(*target),
+            | Self::AttachSourceToTarget { target, .. }
+            | Self::AttachSourceToTappedTarget { target, .. } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
             | Self::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
@@ -3144,6 +3211,7 @@ impl Effect {
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
             | Self::RadianceAddKeywordUntilEndOfTurn { .. }
+            | Self::RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
             | Self::RequireTargetCreatureBlockSourceUntilEndOfTurn
@@ -3276,10 +3344,12 @@ impl Effect {
             | Self::LoseLifeControllerForCountersOnSource { .. }
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
+            | Self::PutOneHandCardOnLibraryTopEachPlayer
             | Self::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest
             | Self::DiscardCombatDamagePlayer { .. }
             | Self::DiscardCapturedPlayer { .. }
             | Self::SacrificeControllerCreature
+            | Self::ReturnAnyEnchantmentOrSacrificeSource
             | Self::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }
             | Self::SacrificeUpkeepPlayerCreature
             | Self::SacrificeCapturedPlayerCreature { .. }
@@ -3327,6 +3397,7 @@ impl Effect {
             | Self::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat
             | Self::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
+            | Self::ReturnAllCreatureCardsFromEachGraveyardToHand
             | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
             | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
             | Self::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand
@@ -3337,6 +3408,7 @@ impl Effect {
             | Self::ReturnAnotherControlledPermanentSharingEnteredCardTypes
             | Self::ReturnAnotherControlledPermanentSharingCardTypes { .. }
             | Self::ReturnSourceAttachedPermanentToHand
+            | Self::ReturnSourceAttachedPermanentAndAurasToOwnersHands
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ExileUpToTargetGraveyardCards { .. }
@@ -3355,6 +3427,7 @@ impl Effect {
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
             | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
             | Self::PreventAllCombatDamageUntilEndOfTurn
+            | Self::PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn
             | Self::RegenerateSource
             | Self::RegenerateControllerCreatures
             | Self::UntapSource
@@ -3438,6 +3511,7 @@ impl Effect {
                 | Self::AddPlusOneCounterToTarget
                 | Self::AddCountersToTarget { .. }
                 | Self::RemoveCountersFromTarget { .. }
+                | Self::RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn
                 | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
                 | Self::TapTargetCreature
                 | Self::UntapTargetLand
@@ -3866,6 +3940,13 @@ pub enum ContinuousChange {
         power_per_creature: i16,
         toughness_per_creature: i16,
     },
+    /// A timestamped layer-seven modifier that scales by the number of other
+    /// creatures controlled by the continuous effect's source controller.
+    /// The recipient is excluded even when it is controlled by another player.
+    ModifyPowerToughnessForEachOtherCreatureControlledBySource {
+        power_per_creature: i16,
+        toughness_per_creature: i16,
+    },
     /// A static characteristic-defining effect that sets the source's power
     /// and toughness to the live number of creatures controlled by that
     /// permanent's controller. It is registered as immutable expansion data,
@@ -3946,6 +4027,7 @@ impl ContinuousChange {
             | Self::SetPowerToughness { .. }
             | Self::SetPowerToughnessToPlayerGraveyardCreatureCardCount { .. }
             | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
+            | Self::ModifyPowerToughnessForEachOtherCreatureControlledBySource { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. }
             | Self::OtherControlledCreaturesOfColorModifyPowerToughness { .. }
@@ -4029,6 +4111,20 @@ pub struct AttachmentBinding {
 pub struct EntryCopyBinding {
     pub card_definition: &'static str,
     pub copyable_type: CardType,
+}
+
+/// Immutable expansion data for an Equipment that may enter the battlefield
+/// already attached to a legal permanent. The eligible endpoint comes from
+/// the source's [`AttachmentBinding`], so entry choices share the same
+/// controller/type/protection rules as ordinary Equip while remaining
+/// explicitly non-targeting.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EntryAttachmentBinding {
+    pub card_definition: &'static str,
+    /// Whether the controller may decline to attach when at least one legal
+    /// endpoint exists. An empty candidate set always means the Equipment
+    /// enters unattached.
+    pub may_decline: bool,
 }
 
 /// Immutable expansion data for a static continuous effect. The effect is
@@ -4359,6 +4455,9 @@ pub enum DecisionKind {
     TriggeredAbilityOrder,
     /// The affected player orders applicable quantity replacements.
     Replacement,
+    /// A player may replace this individual draw by applying one eligible
+    /// Dredge ability from their graveyard.
+    DredgeReplacement,
     /// The controller of a targeted spell must explicitly pay or decline an
     /// "unless that spell's controller pays" resolution-time mana cost.
     CounterUnlessPaysMana,
@@ -4421,6 +4520,11 @@ pub enum DecisionKind {
     /// battlefield.  This is a replacement-style no-priority boundary, not
     /// a spell target selected while casting.
     PermanentEntryCopySource,
+    /// The controller of a resolving Equipment spell may choose a legal
+    /// attachment endpoint, or decline when its binding permits, before the
+    /// Equipment reaches the battlefield. This is an as-enters choice, not a
+    /// target or a triggered ability.
+    PermanentEntryAttachment,
     /// A pending copied Aura must choose one legal attachment target as it
     /// enters. The Aura has not yet reached the battlefield, so no orphaned
     /// attachment can leak through a state-based-action boundary.
@@ -4558,7 +4662,18 @@ pub enum TriggeredEffectObjectDecisionKind {
         remaining_players: Vec<PlayerId>,
         selected: Vec<(PlayerId, ObjectId)>,
     },
+    PutHandCardOnLibraryTopEachPlayer {
+        processed_players: Vec<PlayerId>,
+        remaining_players: Vec<PlayerId>,
+        selected: Vec<(PlayerId, ObjectId)>,
+    },
     SacrificeControllerCreature,
+    /// The source controller may return any battlefield enchantment to its
+    /// owner's hand; declining or having no option sacrifices the exact
+    /// entering source incarnation if it is still on the battlefield.
+    ReturnAnyEnchantmentOrSacrificeSource {
+        source_incarnation: u64,
+    },
     /// Every remaining opponent chooses one controlled creature. Exact
     /// selections remain public and serial while the triggering ability stays
     /// on the stack; no priority window exists between responses.
@@ -4635,6 +4750,31 @@ pub enum DecisionContinuation {
         commander: ObjectId,
         incarnation: u64,
         amount: u8,
+    },
+    /// A spell or ability draw is suspended while its recipient chooses
+    /// whether to apply one of the Dredge abilities in their graveyard.
+    /// `commander_stack_draws` retains any draws still owed by this exact
+    /// instruction; resumption starts at its saved stack cursor.
+    SpellDredgeReplacement {
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+        optional_trigger: Option<(bool, Option<Target>)>,
+        counter_payment: Option<bool>,
+        counter_discard: Option<bool>,
+    },
+    /// A dredged Commander receives the usual command-zone replacement
+    /// choice, then the suspended spell draw sequence continues.
+    SpellCommanderDredgeReplacement {
+        stack: StackObjectId,
+        effect_index: usize,
+        player: PlayerId,
+        commander: ObjectId,
+        incarnation: u64,
+        amount: u8,
+        optional_trigger: Option<(bool, Option<Target>)>,
+        counter_payment: Option<bool>,
+        counter_discard: Option<bool>,
     },
     CommanderActivationReplacement {
         commander: ObjectId,
@@ -5035,6 +5175,17 @@ pub enum DecisionContinuation {
         entrant_incarnation: u64,
         controller: PlayerId,
         copy: EntryCopySnapshot,
+        attachment_definition: &'static str,
+    },
+    /// Resumes a resolving Equipment spell after a controller-owned,
+    /// non-targeting as-enters attachment choice. The selected endpoint is
+    /// revalidated against the typed attachment binding and exact permanent
+    /// spell before the Equipment enters.
+    PermanentEntryAttachment {
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
         attachment_definition: &'static str,
     },
     /// Captures one exact same-controller, same-name legendary group at the
@@ -6490,9 +6641,34 @@ pub enum GameEvent {
     GlobalCombatDamagePreventionExpired {
         source: ObjectId,
     },
+    /// A resolving spell or ability installed an independent end-of-turn
+    /// replacement for all damage dealt by creature sources. `id` ties later
+    /// damage and expiry receipts to this exact effect instance.
+    GlobalCreatureDamagePreventionCreated {
+        id: u64,
+        source: ObjectId,
+        controller: PlayerId,
+        expires_turn: u32,
+    },
+    /// One creature-source damage packet was prevented by a global effect,
+    /// and the effect's controller gained exactly the prevented amount.
+    CreatureDamagePrevented {
+        replacement_id: u64,
+        source: ObjectId,
+        prevented_by: ObjectId,
+        controller: PlayerId,
+        target: Target,
+        amount: i32,
+    },
+    /// A global creature-damage prevention record expired during cleanup.
+    GlobalCreatureDamagePreventionExpired {
+        id: u64,
+        source: ObjectId,
+        controller: PlayerId,
+    },
     LifeGained {
         player: PlayerId,
-        amount: i16,
+        amount: i32,
     },
     TokenCreated {
         player: PlayerId,

@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card_task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-incite-hysteria"
+definition_id = "RAV-INCITE-HYSTERIA"
+expansion = "RAV"
+variant = "single-card"
+bundle = "incite_hysteria_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/incite_hysteria.rs"
+authority_bin = "rav-incite-hysteria-pvp"
+materializer = "varieties/magic/scripts/materialize_incite_hysteria_task.py"
+scorer = "varieties/magic/scripts/score_incite_hysteria_pvp.py"
+review_scope = "Incite Hysteria RAV #132 red {2}{R} Sorcery identity and Radiance CannotBlock effect; exact three-mana payment with one red; shuffled 60-card duel; target and shared-color red creature cannot block; unrelated green creature retains legal blocking; rejected target block leaves state unchanged; ordered engine events; terminal P0 win; deterministic replay; Radiance-scope, keyword, and cost gameplay mutations; candidate source, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/incite_hysteria_card/README.md",
+  "adapters/harbor/bundles/incite_hysteria_card/instruction.md",
+  "adapters/harbor/bundles/incite_hysteria_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_incite_hysteria_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_incite_hysteria_pvp.py",
+  "varieties/magic/session/src/bin/rav_incite_hysteria_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/incite_hysteria.rs",
+  "varieties/magic/tasks/rav-incite-hysteria-pvp/README.md",
+  "varieties/magic/tasks/rav-incite-hysteria-pvp/features.toml",
+  "varieties/magic/tasks/rav-incite-hysteria-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Incite Hysteria candidate definition differs from the exact RAV #132 source contract"
+
+[mutation]
+find = "keyword: Keyword::CannotBlock,"
+replace = "keyword: Keyword::Haste,"
+expected_diagnostic = "Incite Hysteria candidate definition differs from the exact RAV #132 source contract"

@@ -1,0 +1,5 @@
+# Viashino Fangtail RAV card task
+
+Implement the candidate-owned Viashino Fangtail definition and activated-ability binding for RAV #148. The reference authority runs a shuffled 60-card two-player game: it casts the red 3/3 for `{2}{R}{R}`, then uses the creature’s stack-backed tap ability on the opponent’s Elves of Deep Shadow after summoning sickness ends. The trace verifies the source taps, one damage is dealt to that exact creature, lethal damage triggers a state-based action, and the Elf moves to its graveyard while Fangtail remains a 3/3 on the battlefield.
+
+Fangtail later attacks, deals three combat damage, and the ordinary game ends in seat zero’s win. The reference checks the ordered creature cast/payment/resolution, activated-ability resolution and target damage, graveyard movement, later combat, and terminal events. Mutations to the one-damage amount, tap cost, player-or-creature target boundary, and `{2}{R}{R}` casting cost must each fail the trace. Diagnostic reports award no RAV credit or Harbor reward.

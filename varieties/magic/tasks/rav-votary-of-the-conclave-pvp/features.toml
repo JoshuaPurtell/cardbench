@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 35
+definition_id = "RAV-VOTARY-OF-THE-CONCLAVE"
+card_name = "Votary of the Conclave"
+printed_mana_cost = "{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["{G}: regenerate target creature"]
+source_authority = "RAV printed semantics represented by the candidate-owned card definition and activated ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-cast-and-entry"
+summary = "Pay exactly {W} to cast Votary of the Conclave and check its live white 1/1 creature characteristics on the battlefield."
+trace_required = true
+
+[[features]]
+id = "targeted-green-regeneration"
+summary = "In response to Brainspoil targeting Votary, pay exactly {G} to activate the stack-backed ability with Votary as a legal creature target."
+trace_required = true
+
+[[features]]
+id = "regeneration-replaces-destruction"
+summary = "Check the source-and-target regeneration shield is created and consumed, Votary becomes tapped but stays on the battlefield, and no destruction event removes it when Brainspoil resolves."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-control"
+summary = "Replay the shuffled full game deterministically and detect a compiled mutant that changes the regeneration cost from green to black."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colored Mana Costs", "117 Timing and Priority", "302 Creatures", "601.2 Casting Spells", "608.2 Resolving Spells and Abilities", "701.15 Regeneration", "614.8 Regeneration Replacement Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

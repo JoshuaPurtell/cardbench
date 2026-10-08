@@ -1,0 +1,5 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/drift_of_phantasms.rs` as a declarative `CardDefinition` constructor. Preserve the RAV #46 blue `{2}{U}` 0/5 Creature, Defender, Flying, and Transmute `{1}{U}{U}`.
+
+The reference game casts a Drift, then activates Transmute from a second copy in hand at sorcery timing. Discard that exact source, privately select and reveal a different Drift of the same mana value from the library, put it into hand, and shuffle. The opponent attacks with a flying Snapping Drake; the pilot's Drift legally blocks it. Defender must keep Drift out of the pilot's attacker declarations. Continue the full shuffled duel to a normal seat-zero win.
+
+Keep the module literal-only. The authority checks exact normalized source and AST before candidate calls, rejects a compile-valid injected side-effect function, and detects changes to the printed identity, Defender, Flying, and Transmute. The printed Spirit subtype is identity documentation only; the current model does not represent creature subtypes. Do not add files.

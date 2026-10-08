@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-boros-fury-shield"
+definition_id = "RAV-BOROS-FURY-SHIELD"
+expansion = "RAV"
+variant = "single-card"
+bundle = "boros_fury_shield_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/boros_fury_shield.rs"
+authority_bin = "rav-boros-fury-shield-pvp"
+materializer = "varieties/magic/scripts/materialize_boros_fury_shield_task.py"
+scorer = "varieties/magic/scripts/score_boros_fury_shield_pvp.py"
+review_scope = "Boros Fury-Shield exact payment colors, target creature, conditional red-spend damage, combat prevention state and packet, RAV catalog identity, source contract, candidate materialization, trusted full-game authority, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/boros_fury_shield_card/README.md",
+  "adapters/harbor/bundles/boros_fury_shield_card/instruction.md",
+  "adapters/harbor/bundles/boros_fury_shield_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/deck_match.rs",
+  "varieties/magic/scripts/materialize_boros_fury_shield_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_boros_fury_shield_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_boros_fury_shield_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/boros_fury_shield.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-boros-fury-shield-pvp/README.md",
+  "varieties/magic/tasks/rav-boros-fury-shield-pvp/features.toml",
+  "varieties/magic/tasks/rav-boros-fury-shield-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Boros Fury-Shield definition is outside its literal source contract"
+
+[mutation]
+find = "damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Red)"
+replace = "damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Green)"
+expected_diagnostic = "Boros Fury-Shield definition is outside its literal source contract"

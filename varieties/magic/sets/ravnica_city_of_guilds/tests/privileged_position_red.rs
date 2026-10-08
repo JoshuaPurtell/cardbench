@@ -1,4 +1,4 @@
-//! Red discovery contract for Privileged Position's other-permanent Shroud.
+//! Red discovery contract for Privileged Position's other-permanent Hexproof.
 
 use std::collections::BTreeSet;
 
@@ -26,7 +26,7 @@ fn privileged_position_game() -> Game {
 }
 
 #[test]
-fn privileged_position_requires_other_controlled_permanent_shroud() {
+fn privileged_position_requires_other_controlled_permanent_hexproof() {
     let definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-PRIVILEGED-POSITION")
@@ -66,12 +66,12 @@ fn privileged_position_requires_other_controlled_permanent_shroud() {
     assert!(
         definition
             .supported_rules
-            .contains(&"other-controlled-permanents-have-shroud")
+            .contains(&"other-controlled-permanents-have-hexproof")
     );
 }
 
 #[test]
-fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_itself() {
+fn privileged_position_blocks_opponent_targeting_its_other_controlled_permanents_but_not_itself() {
     let mut game = privileged_position_game();
     let position = game
         .put_on_battlefield(PlayerId(0), "RAV-PRIVILEGED-POSITION")
@@ -97,15 +97,15 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
         game.characteristics(protected)
             .expect("protected ally remains live")
             .keywords
-            .contains(&Keyword::Shroud),
-        "the static effect applies in layer six to other controlled permanents"
+            .contains(&Keyword::Hexproof),
+        "the static effect gives Hexproof to other controlled permanents"
     );
     assert!(
         !game
             .characteristics(position)
             .expect("source remains live")
             .keywords
-            .contains(&Keyword::Shroud),
+            .contains(&Keyword::Hexproof),
         "the static effect excludes its source"
     );
 
@@ -121,7 +121,7 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
             payment_mana_abilities: vec![],
         },
     )
-    .expect_err("Shroud makes the allied creature an illegal target before cost payment");
+    .expect_err("Hexproof makes the opponent's target illegal before cost payment");
     assert_eq!(game.zone_of(last_gasp), Some(Zone::Hand));
     assert!(game.stack.is_empty());
     assert_eq!(game.canonical_event_log(), events_before_rejection);
@@ -140,7 +140,7 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
             payment_mana_abilities: vec![],
         },
     )
-    .expect("the source itself is not Shrouded and remains a legal target");
+    .expect("the source itself is excluded from this Hexproof effect and remains a legal target");
     game.pass_priority(PlayerId(1)).expect("caster passes");
     game.pass_priority(PlayerId(0))
         .expect("targeted enchantment spell resolves");
@@ -152,5 +152,5 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
     )));
     eprintln!("Privileged Position trace={:?}", game.canonical_event_log());
     game.validate_invariants()
-        .expect("Shroud targeting boundary preserves state-machine invariants");
+        .expect("Hexproof targeting boundary preserves state-machine invariants");
 }

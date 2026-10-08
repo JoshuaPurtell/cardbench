@@ -1,0 +1,66 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 251
+definition_id = "RAV-PRIVILEGED-POSITION"
+card_name = "Privileged Position"
+printed_mana_cost = "{2}{G/W}{G/W}{G/W}"
+colors = ["green", "white"]
+card_types = ["enchantment"]
+subtypes = []
+keywords = []
+abilities = ["Other permanents you control can't be the targets of spells or abilities your opponents control."]
+source_authority = "RAV #251 original printing controls identity and opponent-only targeting protection; current Oracle hexproof wording is used only to reconcile terminology"
+oracle_reconciliation = "The original RAV text prohibits opponents from targeting other permanents you control. Current Oracle says those permanents have hexproof, which retains the opponent-only restriction. Shroud is not equivalent because it also prohibits the controller from targeting the permanent."
+model_limitations = "The engine represents the printed opponent-only restriction as Hexproof and applies source-aware target legality during both cast and resolution. The authority checks opponent rejection and controller targeting on the same protected permanent."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary grounded in the RAV printing and current Oracle interpretation; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-hybrid-cost-and-enchantment-identity"
+summary = "Preserve the RAV #251 {2}{G/W}{G/W}{G/W} Enchantment identity and the exact green-white color identity."
+trace_required = true
+
+[[features]]
+id = "opponent-targeting-protection-on-other-permanents"
+summary = "While Privileged Position is on the battlefield, prevent opponents from targeting another permanent its controller controls; do not protect the Position itself through this ability."
+trace_required = true
+
+[[features]]
+id = "opponent-cast-rejected-atomically"
+summary = "Have the opponent attempt to cast Putrefy targeting the pilot's protected Watchwolf. Reject the illegal target before spell payment, stack mutation, hand movement, or other state change."
+trace_required = true
+
+[[features]]
+id = "controller-may-target-protected-permanent"
+summary = "The pilot can legally cast Gather Courage targeting the same protected Watchwolf, distinguishing the printed opponent-only restriction from Shroud."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal-replay-and-mutations"
+summary = "Continue a shuffled two-player duel to a normal seat-zero win, replay deterministically, detect removal or broadening of protection, and detect printed-cost/identity mutations."
+trace_required = true
+
+[[features]]
+id = "pre-call-literal-source-guard"
+summary = "Check the candidate module's normalized source and literal AST before calling candidate functions; reject a compile-valid injected side effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and choosing targets", "702.11 Hexproof", "702.18 Shroud", "113.6 Static abilities"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing and catalog identity"
+card = "Privileged Position"
+collector_number = 251
+url = "https://www.nobleknight.com/P/2147379155/Privileged-Position-R"
+retained_data = "RAV printing identity, {2}{G/W}{G/W}{G/W} cost, Enchantment type, and opponent-only targeting restriction for other permanents its controller controls"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Follow the shared RAV source contract: printed RAV facts control, with Oracle used only to interpret the hexproof terminology update."

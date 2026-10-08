@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 66
+definition_id = "RAV-STASIS-CELL"
+card_name = "Stasis Cell"
+printed_mana_cost = "{4}{U}"
+colors = ["blue"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["enchanted creature can't attack or block", "{3}{U}: attach Stasis Cell to target creature"]
+source_authority = "RAV printed semantics: Aura attachment prevents attacks and blocks only; the reattachment ability requires three generic and one blue mana"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-aura-identity-and-cast"
+summary = "Cast the blue {4}{U} Aura in a legal shuffled 60-card duel and target a creature as it resolves."
+trace_required = true
+
+[[features]]
+id = "attack-and-block-restriction-only"
+summary = "The attached creature receives CannotAttackOrBlock while retaining its nonmana activated abilities; the trace records the surviving activated ability resolving."
+trace_required = true
+
+[[features]]
+id = "colored-reattachment"
+summary = "Activate the Aura's unrestricted-speed target-creature reattachment ability, pay exactly {3}{U}, and verify its attachment and restriction move to the selected creature."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Complete the same 60-card PvP match to a terminal pilot win, reproduce the trace deterministically, and detect mutations to the attack/block restriction, nonmana-ability availability, blue reattachment cost, and attachment effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Auras", "601.2 Casting spells", "602.2 Activating abilities", "608.2 Resolving spells and abilities", "613 Continuous effects", "508 Declare Attackers", "509 Declare Blockers"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Stasis Cell"
+collector_number = 66
+url = "https://scryfall.com/card/rav/66/stasis-cell"
+retained_data = "Public card identity, mana cost, blue color, Enchantment — Aura type line, attack/block restriction, and {3}{U} reattachment operation"

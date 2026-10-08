@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-ethereal-usher"
+definition_id = "RAV-ETHEREAL-USHER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "ethereal_usher_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ethereal_usher.rs"
+authority_bin = "rav-ethereal-usher-pvp"
+materializer = "varieties/magic/scripts/materialize_ethereal_usher_task.py"
+scorer = "varieties/magic/scripts/score_ethereal_usher_pvp.py"
+review_scope = "RAV #47 source identity and Oracle reconciliation; printed {5}{U} blue 2/3 Creature — Spirit with unblockable tap ability and Transmute {1}{U}{U}; explicit Spirit subtype model boundary; canonical normalized-source and literal AST validation before candidate calls; compile-valid injected side-effect rejection; legal deterministic full-game PvP; exact target, mana payment, tap, unblockable, attempted-block rejection, and effect expiry; sorcery-timed private Transmute search/reveal/hand/shuffle; mutation sensitivity; scorer/materializer and Harbor bundle; 291-name/306-printing catalog denominator; RAV source contract; engine events/state and session projection; RAV registry and provenance"
+review_files = [
+  "adapters/harbor/bundles/ethereal_usher_card/README.md",
+  "adapters/harbor/bundles/ethereal_usher_card/instruction.md",
+  "adapters/harbor/bundles/ethereal_usher_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_ethereal_usher_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_ethereal_usher_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_ethereal_usher_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/ethereal_usher.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-ethereal-usher-pvp/README.md",
+  "varieties/magic/tasks/rav-ethereal-usher-pvp/source-note.md",
+  "varieties/magic/tasks/rav-ethereal-usher-pvp/features.toml",
+  "varieties/magic/tasks/rav-ethereal-usher-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Ethereal Usher candidate AST differs from the pinned RAV source contract"
+
+[mutation]
+find = "keyword: Keyword::Unblockable"
+replace = "keyword: Keyword::CannotBlock"
+expected_diagnostic = "Ethereal Usher candidate AST differs from the pinned RAV source contract"

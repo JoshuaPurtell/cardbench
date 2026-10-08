@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-dowsing-shaman"
+definition_id = "RAV-DOWSING-SHAMAN"
+expansion = "RAV"
+variant = "single-card"
+bundle = "dowsing_shaman_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dowsing_shaman.rs"
+authority_bin = "rav-dowsing-shaman-pvp"
+materializer = "varieties/magic/scripts/materialize_dowsing_shaman_task.py"
+scorer = "varieties/magic/scripts/score_dowsing_shaman_pvp.py"
+review_scope = "Dowsing Shaman RAV identity and {4}{G} cost, 3/4 characteristics, Aura attachment and death setup, controller-owned graveyard target, {2}{G} tap activation, exact target incarnation and zone movement, full-game result, deterministic replay, six semantic mutants, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/dowsing_shaman_card/README.md",
+  "adapters/harbor/bundles/dowsing_shaman_card/instruction.md",
+  "adapters/harbor/bundles/dowsing_shaman_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_dowsing_shaman_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_dowsing_shaman_pvp.py",
+  "varieties/magic/session/src/bin/rav_dowsing_shaman_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/dowsing_shaman.rs",
+  "varieties/magic/tasks/rav-dowsing-shaman-pvp/README.md",
+  "varieties/magic/tasks/rav-dowsing-shaman-pvp/features.toml",
+  "varieties/magic/tasks/rav-dowsing-shaman-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Dowsing Shaman candidate definition or ability is outside its literal source contract"
+
+[mutation]
+find = "mana_cost: ManaCost::with_colors(2, [Color::Green])"
+replace = "mana_cost: ManaCost::with_colors(1, [Color::Green])"
+expected_diagnostic = "Dowsing Shaman candidate definition or ability is outside its literal source contract"

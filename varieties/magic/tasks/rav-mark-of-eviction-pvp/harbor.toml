@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-mark-of-eviction"
+definition_id = "RAV-MARK-OF-EVICTION"
+expansion = "RAV"
+variant = "single-card"
+bundle = "mark_of_eviction_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mark_of_eviction.rs"
+authority_bin = "rav-mark-of-eviction-pvp"
+materializer = "varieties/magic/scripts/materialize_mark_of_eviction_task.py"
+scorer = "varieties/magic/scripts/score_mark_of_eviction_pvp.py"
+review_scope = "RAV Mark of Eviction identity and candidate-owned definition/trigger; legal shuffled 60-card PvP; exact {U} payment; creature target and Aura attachment; no trigger during opponent upkeep; return during Aura controller's upkeep; enchanted creature and every attached Aura move to their respective owners' hands with owner-view receipts; deterministic replay; terminal duel win; attachment, trigger, condition, return-group, and cost gameplay mutations; source-contract stub rejection; and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/mark_of_eviction_card/README.md",
+  "adapters/harbor/bundles/mark_of_eviction_card/instruction.md",
+  "adapters/harbor/bundles/mark_of_eviction_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_mark_of_eviction_task.py",
+  "varieties/magic/scripts/score_mark_of_eviction_pvp.py",
+  "varieties/magic/session/src/bin/rav_mark_of_eviction_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mark_of_eviction.rs",
+  "varieties/magic/tasks/rav-mark-of-eviction-pvp/README.md",
+  "varieties/magic/tasks/rav-mark-of-eviction-pvp/features.toml",
+  "varieties/magic/tasks/rav-mark-of-eviction-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Mark of Eviction candidate definition differs from its feature contract"
+
+[mutation]
+find = "ReturnSourceAttachedPermanentAndAurasToOwnersHands"
+replace = "ReturnSourceAttachedPermanentToHand"
+expected_diagnostic = "Mark of Eviction candidate definition differs from its feature contract"

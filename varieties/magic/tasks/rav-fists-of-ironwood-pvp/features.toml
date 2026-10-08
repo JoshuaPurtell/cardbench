@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 164
+definition_id = "RAV-FISTS-OF-IRONWOOD"
+card_name = "Fists of Ironwood"
+printed_mana_cost = "{1}{G}"
+colors = ["green"]
+card_types = ["enchantment"]
+keywords = []
+abilities = ["Enchant creature; enchanted creature has Trample", "Mandatory enter-the-battlefield trigger creates two green 1/1 Saprolings"]
+source_authority = "RAV printed identity, cost, color, Enchantment Aura type, Creature enchant restriction, Trample attachment effect, and mandatory two-Saproling ETB trigger represented by candidate-owned definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-aura"
+summary = "Resolve the green {1}{G} Enchantment Aura and legally attach it to a Creature."
+trace_required = true
+
+[[features]]
+id = "attached-creature-gains-trample"
+summary = "Verify the exact enchanted creature has live Trample when declared as an attacker."
+trace_required = true
+
+[[features]]
+id = "mandatory-etb-two-saprolings"
+summary = "Resolve the mandatory ETB trigger from the exact Aura incarnation and create exactly two green 1/1 Saproling creatures."
+trace_required = true
+
+[[features]]
+id = "blocked-trample-damage"
+summary = "Block the enchanted Watchwolf and verify one lethal damage to the Elf and two excess Trample damage to the defending player."
+trace_required = true
+
+[[features]]
+id = "deterministic-terminal-game-and-mutants"
+summary = "Continue the match to a terminal result, replay deterministically, and detect removed-trigger, removed-Trample, and wrong-token-count mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "303.4 Auras", "302.1 Creatures", "601.2 Casting spells", "603.2 and 603.3 Triggered abilities", "608.2 Resolving spells and abilities", "110 and 111 Tokens", "702.19 Trample", "510.1-510.2 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 24
+definition_id = "RAV-LIGHT-OF-SANCTION"
+card_name = "Light of Sanction"
+printed_mana_cost = "{1}{W}{W}"
+colors = ["white"]
+mana_colors = []
+card_types = ["enchantment"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Prevent damage to creatures you control from sources you control"]
+source_authority = "Public RAV identity and candidate-owned static prevention binding; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public card identity and semantics needed by the trace"
+
+[[features]]
+id = "controlled-source-damage-prevention"
+summary = "Prevent all damage that would be dealt to creatures controlled by the Light's controller by sources that same player controls."
+trace_required = true
+
+[[features]]
+id = "opponent-source-damage-remains"
+summary = "Damage from an opponent-controlled source is not prevented by Light of Sanction and can be lethal to a controlled creature."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A shuffled legal 60-card duel reaches a terminal result, replays deterministically, and detects static-binding removal, incorrect binding scope, and a wrong prevention keyword."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["120 Damage", "614 Replacement and prevention effects", "604 Static abilities", "611 Continuous effects", "601 Casting spells", "510 Combat damage", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Light of Sanction"
+collector_number = 24
+url = "https://scryfall.com/card/rav/24/light-of-sanction"
+retained_data = "Public card identity and friendly-source damage prevention behavior needed by the trace"

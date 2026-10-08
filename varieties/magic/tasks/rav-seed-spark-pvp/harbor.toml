@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-seed-spark"
+definition_id = "RAV-SEED-SPARK"
+expansion = "RAV"
+variant = "single-card"
+bundle = "seed_spark_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/seed_spark.rs"
+authority_bin = "rav-seed-spark-pvp"
+materializer = "varieties/magic/scripts/materialize_seed_spark_task.py"
+scorer = "varieties/magic/scripts/score_seed_spark_pvp.py"
+review_scope = "Seed Spark RAV #30 identity and {3}{W} cost, exact opposing artifact target, destruction source and graveyard move, ordered creation and characteristics of both Saprolings, later token combat, terminal PvP win, deterministic replay, five gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/seed_spark_card/README.md",
+  "adapters/harbor/bundles/seed_spark_card/instruction.md",
+  "adapters/harbor/bundles/seed_spark_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_seed_spark_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_seed_spark_pvp.py",
+  "varieties/magic/session/src/bin/rav_seed_spark_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/seed_spark.rs",
+  "varieties/magic/tasks/rav-seed-spark-pvp/README.md",
+  "varieties/magic/tasks/rav-seed-spark-pvp/features.toml",
+  "varieties/magic/tasks/rav-seed-spark-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Seed Spark candidate or registry differs from the exact RAV #30 identity and ordered instructions"
+
+[mutation]
+find = "count: 2"
+replace = "count: 1"
+expected_diagnostic = "Seed Spark candidate or registry differs from the exact RAV #30 identity and ordered instructions"

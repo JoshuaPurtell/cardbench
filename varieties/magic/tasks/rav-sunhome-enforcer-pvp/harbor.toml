@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sunhome-enforcer"
+definition_id = "RAV-SUNHOME-ENFORCER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sunhome_enforcer_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sunhome_enforcer.rs"
+authority_bin = "rav-sunhome-enforcer-pvp"
+materializer = "varieties/magic/scripts/materialize_sunhome_enforcer_task.py"
+scorer = "varieties/magic/scripts/score_sunhome_enforcer_pvp.py"
+review_scope = "RAV Sunhome Enforcer printing identity and candidate-owned DealsDamage binding; actual red/white/two-generic payment; combat damage, per-packet triggered life gain and ordered events; live permanent and terminal game; deterministic replay; source mutation and compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/sunhome_enforcer_card/README.md",
+  "adapters/harbor/bundles/sunhome_enforcer_card/instruction.md",
+  "adapters/harbor/bundles/sunhome_enforcer_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_sunhome_enforcer_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_sunhome_enforcer_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_sunhome_enforcer_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sunhome_enforcer.rs",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-sunhome-enforcer-pvp/README.md",
+  "varieties/magic/tasks/rav-sunhome-enforcer-pvp/features.toml",
+  "varieties/magic/tasks/rav-sunhome-enforcer-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sunhome Enforcer did not gain life equal to its committed damage"
+
+[mutation]
+find = "Effect::GainLifeControllerFromSourceDamage"
+replace = "Effect::GainLifeController { amount: 1 }"
+expected_diagnostic = "Sunhome Enforcer did not gain life equal to its committed damage"

@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 11
+definition_id = "RAV-CONCLAVES-BLESSING"
+card_name = "Conclave's Blessing"
+printed_mana_cost = "{3}{W}"
+colors = ["white"]
+card_types = ["enchantment"]
+keywords = ["Convoke"]
+abilities = ["Aura enchant creature; enchanted creature gets +0/+2 for each other creature controlled by the Aura's controller"]
+source_authority = "CardBench-authored semantic summary and candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-aura-convoke-casting"
+summary = "Cast the white {3}{W} Aura with three distinct controlled creatures paying generic Convoke symbols and one white mana paid from the pool."
+trace_required = true
+
+[[features]]
+id = "aura-controller-relative-other-creatures"
+summary = "Attach the Aura to an opposing creature and derive +0/+2 for each other creature controlled by the Aura's controller, including across control boundaries."
+trace_required = true
+
+[[features]]
+id = "full-game-combat-and-terminal"
+summary = "Continue the shuffled two-player game through legal combat to a terminal P0 win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay deterministically and reject in-game mutations to the modifier, counted controller, attachment, mana cost, and Convoke keyword."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Auras", "601.2 Casting spells", "702.50 Convoke", "613.4c Power/toughness effects", "704 State-based actions", "510 Combat"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

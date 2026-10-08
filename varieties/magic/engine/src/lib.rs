@@ -6,17 +6,17 @@
 
 #![forbid(unsafe_code)]
 
+mod commander;
 mod game;
 mod model;
-mod commander;
 pub use commander::{CommanderCardRules, CommanderCatalog, CommanderDeck, CommanderDeckError};
 
 pub use game::{
     ActivatedAbilityStackView, CardView, CastRequest, ConvokeContribution, ConvokePayment,
     DamageReplacementChoiceView, DefenderChoice, Game, GameView, LibrarySearchChoiceView,
-    PendingDecisionView, PolicyAction, PrivateLibraryChoiceView, RevealedLibraryTopView,
-    RulesError, TeamId, TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
-    LondonPregame, MulliganChoice, PregameEvent, PregamePrompt,
+    LondonPregame, MulliganChoice, PendingDecisionView, PolicyAction, PregameEvent, PregamePrompt,
+    PrivateLibraryChoiceView, RevealedLibraryTopView, RulesError, TeamId, TransmuteSearchView,
+    TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
@@ -34,7 +34,8 @@ pub use model::{
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckEntry, DeckList, DeckRules, DeckValidationError, DelayedAction,
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect,
-    EntryCharacteristicOverride, EntryCoinFlipBinding, EntryCopyBinding, EntryCopySnapshot,
+    EntryAttachmentBinding, EntryCharacteristicOverride, EntryCoinFlipBinding, EntryCopyBinding,
+    EntryCopySnapshot,
     ExiledSpellCopyMember, GameEvent, GeneralizedAbilityActivation,
     GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
     HandCardSnapshot, HybridManaSymbol, Keyword, LandEntryBinding, Layer,

@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-boros-garrison"
+definition_id = "RAV-BOROS-GARRISON"
+expansion = "RAV"
+variant = "single-card"
+bundle = "boros_garrison_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/boros_garrison.rs"
+authority_bin = "rav-boros-garrison-pvp"
+materializer = "varieties/magic/scripts/materialize_boros_garrison_task.py"
+scorer = "varieties/magic/scripts/score_boros_garrison_pvp.py"
+review_scope = "RAV catalog denominator and Boros Garrison #275 identity; candidate-owned definition and entry, mana, and trigger bindings; tapped land entry; controlled-land trigger target and owner-hand movement; exact red-white bundle; Skyknight cast payment and attack; terminal shuffled PvP win; ordered projected events; deterministic replay; gameplay mutations; compile-valid starter rejection; isolated workspace; zero credit/reward"
+review_files = [
+  "adapters/harbor/bundles/boros_garrison_card/README.md",
+  "adapters/harbor/bundles/boros_garrison_card/instruction.md",
+  "adapters/harbor/bundles/boros_garrison_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_boros_garrison_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_boros_garrison_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_boros_garrison_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/boros_garrison.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-boros-garrison-pvp/README.md",
+  "varieties/magic/tasks/rav-boros-garrison-pvp/features.toml",
+  "varieties/magic/tasks/rav-boros-garrison-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Boros Garrison candidate or registry differs from RAV #275 contract: tapped-entry binding, red-white mana ability, mandatory controlled-land return trigger"
+
+[mutation]
+find = "TargetRequirement::ControlledLand"
+replace = "TargetRequirement::ControlledCreature"
+expected_diagnostic = "Boros Garrison candidate or registry differs from RAV #275 contract: mandatory controlled-land return trigger"

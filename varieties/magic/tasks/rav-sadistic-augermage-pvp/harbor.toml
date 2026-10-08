@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sadistic-augermage-pvp"
+definition_id = "RAV-SADISTIC-AUGERMAGE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sadistic_augermage_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sadistic_augermage.rs"
+authority_bin = "rav-sadistic-augermage-pvp"
+materializer = "varieties/magic/scripts/materialize_sadistic_augermage_task.py"
+scorer = "varieties/magic/scripts/score_sadistic_augermage_pvp.py"
+review_scope = "RAV #103 black {2}{B} 3/1 Human Wizard; mandatory source-death trigger; APNAP private hand choices restricted to each chooser's own cards; selected objects reach their owners' library tops after both choices; no discard; deterministic trace and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/sadistic_augermage_card/README.md",
+  "adapters/harbor/bundles/sadistic_augermage_card/instruction.md",
+  "adapters/harbor/bundles/sadistic_augermage_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_sadistic_augermage_task.py",
+  "varieties/magic/scripts/score_sadistic_augermage_pvp.py",
+  "varieties/magic/session/src/bin/rav_sadistic_augermage_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sadistic_augermage.rs",
+  "varieties/magic/tasks/rav-sadistic-augermage-pvp/README.md",
+  "varieties/magic/tasks/rav-sadistic-augermage-pvp/source-note.md",
+  "varieties/magic/tasks/rav-sadistic-augermage-pvp/features.toml",
+  "varieties/magic/tasks/rav-sadistic-augermage-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Sadistic Augermage source differs from the pinned declarative module contract"
+
+[mutation]
+find = "power: Some(3),"
+replace = "power: Some(4),"
+expected_diagnostic = "Sadistic Augermage source differs from the pinned declarative module contract"

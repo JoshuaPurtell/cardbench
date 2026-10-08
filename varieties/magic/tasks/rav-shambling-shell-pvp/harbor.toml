@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-shambling-shell"
+definition_id = "RAV-SHAMBLING-SHELL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "shambling_shell_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/shambling_shell.rs"
+authority_bin = "rav-shambling-shell-pvp"
+materializer = "varieties/magic/scripts/materialize_shambling_shell_task.py"
+scorer = "varieties/magic/scripts/score_shambling_shell_pvp.py"
+review_scope = "RAV #230 printed identity and Oracle reconciliation; Creature — Plant Zombie subtypes retained but not asserted because CardDefinition has no creature-subtype representation; exact black-green {1}{B}{G} 3/1 and Dredge 3; candidate-owned self-sacrifice activated ability; exact sacrifice-as-cost, target, and +1/+1 counter event; exact three-card Dredge draw replacement and same-object return; legal deterministic terminal PvP and replay; semantic mutation sensitivity and pre-call literal-source AST guard; compile-valid side-effect candidate rejection; scorer/materializer/Harbor bundle; 291-name/306-printing catalog denominator; RAV source contract; engine events/state and session projection; set registry and provenance"
+review_files = [
+  "adapters/harbor/bundles/shambling_shell_card/README.md",
+  "adapters/harbor/bundles/shambling_shell_card/instruction.md",
+  "adapters/harbor/bundles/shambling_shell_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_shambling_shell_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_shambling_shell_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_shambling_shell_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/shambling_shell.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-shambling-shell-pvp/README.md",
+  "varieties/magic/tasks/rav-shambling-shell-pvp/source-note.md",
+  "varieties/magic/tasks/rav-shambling-shell-pvp/features.toml",
+  "varieties/magic/tasks/rav-shambling-shell-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Shambling Shell normalized source differs from its exact literal contract"
+
+[mutation]
+find = "Keyword::Dredge(3)"
+replace = "Keyword::Dredge(2)"
+expected_diagnostic = "Shambling Shell normalized source differs from its exact literal contract"

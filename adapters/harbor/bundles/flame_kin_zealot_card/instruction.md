@@ -1,0 +1,5 @@
+# Implement Flame-Kin Zealot
+
+Implement RAV Flame-Kin Zealot (#206) in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/flame_kin_zealot.rs` with `definition()` and `triggered_ability()`. The original printing is a red-white `{1}{R}{R}{W}` 2/2 Creature. Its mandatory, target-free enters-the-battlefield trigger gives creatures you control +1/+1 and Haste until end of turn.
+
+The task preserves the RAV printing as the semantic authority. Its older “comes into play” wording and current Oracle's “enters” wording refer to the same event. The full-game authority checks the effect at resolution, the Zealot's own characteristics and same-turn attack, and the unchanged opposing creature. It then continues to a terminal result with deterministic replay and source/behavior mutations. The normalized source and AST guard must run before either candidate function; a compile-valid injected `std::process::exit(0)` must be rejected before execution. The task is diagnostic and awards zero credit and reward.

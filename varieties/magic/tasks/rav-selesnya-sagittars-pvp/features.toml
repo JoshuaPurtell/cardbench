@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 229
+definition_id = "RAV-SELESNYA-SAGITTARS"
+card_name = "Selesnya Sagittars"
+printed_mana_cost = "{3}{G}{W}"
+colors = ["green", "white"]
+card_types = ["creature"]
+power = 2
+toughness = 5
+keywords = ["reach"]
+abilities = ["{T}: Selesnya Sagittars deals 1 damage to target attacking or blocking creature"]
+source_authority = "RAV printed card identity and characteristics, Reach, and the tap-to-damage attacking-or-blocking-creature ability represented by the candidate-owned definition and activated-ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-white-2-5-reach"
+summary = "Resolve a green-white 2/5 creature for exactly {3}{G}{W}; verify its live Reach keyword."
+trace_required = true
+
+[[features]]
+id = "reach-flying-block"
+summary = "Legally block an attacking flying Courier Hawk with Selesnya Sagittars through Reach, then verify both combat-damage packets and the Hawk's lethal-damage move."
+trace_required = true
+
+[[features]]
+id = "tap-damage-attacking-creature"
+summary = "During the same combat, pay the tap cost to target an attacking Elves of Deep Shadow, resolve one damage, and verify it dies before combat damage."
+trace_required = true
+
+[[features]]
+id = "target-boundary-and-terminal-game"
+summary = "Reject a noncombat creature as a target without changing game state, then finish the legal shuffled match through later Watchwolf combat."
+trace_required = true
+
+[[features]]
+id = "replay-and-semantic-controls"
+summary = "Replay the shuffled full game deterministically and detect compiled gameplay mutants removing damage, the tap cost, Reach, or the attacking/blocking target boundary."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 color identity and mana costs", "117 Priority", "302.6 summoning sickness and tap costs", "508 Attacking", "509 Blockers", "601.2 Casting spells", "602.1-602.2 Activated abilities and costs", "608.2 Resolving abilities", "702.17 Reach", "120.3 Damage", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Selesnya Sagittars"
+collector_number = 229
+url = "https://scryfall.com/card/rav/229/selesnya-sagittars"
+retained_data = "Public card identity, mana cost, colors, creature type, power/toughness, Reach, and tap activated ability targeting a creature in combat"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

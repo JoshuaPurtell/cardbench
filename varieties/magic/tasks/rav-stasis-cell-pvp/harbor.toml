@@ -1,0 +1,50 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-stasis-cell-pvp"
+definition_id = "RAV-STASIS-CELL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "stasis_cell_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/stasis_cell.rs"
+authority_bin = "rav-stasis-cell-pvp"
+materializer = "varieties/magic/scripts/materialize_stasis_cell_task.py"
+scorer = "varieties/magic/scripts/score_stasis_cell_pvp.py"
+review_scope = "RAV #66 blue {4}{U} Stasis Cell Aura identity; printed creature-only attachment; only CannotAttackOrBlock modification; retained nonmana activated abilities; unrestricted-speed target-creature reattachment with exact {3}{U} payment; old/new target incarnations and attachment event ordering; full-game legal shuffled 60-card PvP and terminal pilot win; deterministic replay; attack/block, suppression, colored-cost and missing-reattachment mutations; exact normalized source and AST validation before candidate calls; compile-valid side-effect injection rejected pre-call; source reconciliation from incorrect prior inline definition/activation; catalog and DATA_PROVENANCE; public materializer/scorer/stub and expected trusted-stub rejection"
+review_files = [
+  "adapters/harbor/bundles/stasis_cell_card/README.md",
+  "adapters/harbor/bundles/stasis_cell_card/instruction.md",
+  "adapters/harbor/bundles/stasis_cell_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_stasis_cell_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_stasis_cell_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_stasis_cell_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/stasis_cell.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/stasis_cell_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/stasis_junktroller_manifest_merge_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-stasis-cell-pvp/README.md",
+  "varieties/magic/tasks/rav-stasis-cell-pvp/source-note.md",
+  "varieties/magic/tasks/rav-stasis-cell-pvp/features.toml",
+  "varieties/magic/tasks/rav-stasis-cell-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Stasis Cell source differs from the pinned literal module"
+
+[mutation]
+find = "ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock)"
+replace = "ContinuousChange::SuppressNonManaActivatedAbilities"
+expected_diagnostic = "Stasis Cell source differs from the pinned literal module"

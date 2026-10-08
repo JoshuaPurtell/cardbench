@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 110
+definition_id = "RAV-UNDERCITY-SHADE"
+card_name = "Undercity Shade"
+printed_mana_cost = "{4}{B}"
+colors = ["black"]
+card_types = ["creature"]
+printed_subtypes = ["Shade"]
+runtime_subtypes_asserted = false
+power = 1
+toughness = 1
+keywords = ["Fear"]
+abilities = ["Black mana gives this creature +1/+1 until end of turn."]
+source_authority = "Original RAV #110 identity and printed Fear/self-pump behavior; current Oracle interpretation does not replace the printed source contract; Shade subtype is not modeled at runtime"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-cast-and-base-characteristics"
+summary = "Cast the black {4}{B} Undercity Shade from an ordinary shuffled 60-card deck and capture its exact payment and 1/1 battlefield entry."
+trace_required = true
+
+[[features]]
+id = "fear-blocking-restriction"
+summary = "A live nonblack, nonartifact Watchwolf cannot block the Shade; the illegal declaration is rejected atomically, then the defender records the legal empty-blocker declaration."
+trace_required = true
+
+[[features]]
+id = "black-mana-self-pump"
+summary = "Pay {B} for the non-targeted self-pump, resolve it through the stack, verify the 2/2 state and combat damage, then observe the effect expire at cleanup and restore the 1/1 base stats."
+trace_required = true
+
+[[features]]
+id = "terminal-game-replay-and-mutation"
+summary = "Replay a terminal legal PvP win deterministically; reject a semantic mutation that removes black-only evasion and a parse-valid side-effecting source before candidate factory calls; check exact cast, activation, combat, cleanup, and terminal ordering."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2: black identity and colored payment", "106.1 and 106.4: mana production and payment", "117: priority and activated abilities", "302.1-302.6: creature permanents and combat", "508: declaring attackers", "509.1: declaring blockers and evasion restrictions", "601.2 and 608.3a: casting and resolving creature spells", "602.1-602.2: activated-ability costs and stack resolution", "611.2a and 613: until-end-of-turn continuous effects", "702.36: Fear"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original RAV #110 printing record"
+card = "Undercity Shade"
+collector_number = 110
+url = "https://www.cardmarket.com/en/Magic/Products/Singles/Ravnica-City-of-Guilds/Undercity-Shade"
+retained_data = "Public card identity, collector number, {4}{B} black cost, Creature/Shade classification, 1/1 body, Fear, and black-mana self-pump behavior"
+
+[[source_references]]
+source = "Current Oracle card record"
+card = "Undercity Shade"
+collector_number = 110
+url = "https://scryfall.com/card/rav/110/undercity-shade"
+retained_data = "Current wording consulted for comparison only; no art or full text payload retained"
+
+[source_reconciliation]
+printed_wording = "RAV printing uses Fear with a reminder identifying artifact creatures and black creatures as eligible blockers; its pump refers to Undercity Shade by name."
+oracle_wording = "Current records use Fear and retain the same black-only/artifact blocker exception and black-mana self-pump."
+semantic_difference = "No gameplay change identified. The card-name self-reference is equivalent to the current self-reference form."
+subtype_limit = "RAV printing is Creature — Shade; CardDefinition models card types but not creature subtypes. Shade is retained in public metadata and is not runtime-asserted."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace follows the original RAV printed source contract and uses the current Comprehensive Rules edition effective by the cutoff."

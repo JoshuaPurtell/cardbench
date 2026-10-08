@@ -18,7 +18,7 @@ fn searing_meditation_requires_its_life_gain_trigger() {
     assert_eq!(meditation.name, "Searing Meditation");
     assert_eq!(
         meditation.mana_cost,
-        ManaCost::with_colors(1, [Color::Red, Color::White])
+        ManaCost::with_colors(2, [Color::Red, Color::White])
     );
     assert_eq!(
         meditation.card_types,

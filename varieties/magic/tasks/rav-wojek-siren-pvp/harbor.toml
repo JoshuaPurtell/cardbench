@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-wojek-siren"
+definition_id = "RAV-WOJEK-SIREN"
+expansion = "RAV"
+variant = "single-card"
+bundle = "wojek_siren_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wojek_siren.rs"
+authority_bin = "rav-wojek-siren-pvp"
+materializer = "varieties/magic/scripts/materialize_wojek_siren_task.py"
+scorer = "varieties/magic/scripts/score_wojek_siren_pvp.py"
+review_scope = "RAV Wojek Siren identity and {W} instant casting, creature target announcement, Radiance recipient-set semantics, temporary layer-seven P/T changes, untouched nonsharing creature, full-game combat win, source syntax, mutations, deterministic materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/wojek_siren_card/README.md",
+  "adapters/harbor/bundles/wojek_siren_card/instruction.md",
+  "adapters/harbor/bundles/wojek_siren_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_wojek_siren_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_wojek_siren_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_wojek_siren_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/wojek_siren.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-wojek-siren-pvp/README.md",
+  "varieties/magic/tasks/rav-wojek-siren-pvp/features.toml",
+  "varieties/magic/tasks/rav-wojek-siren-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Wojek Siren definition differs from its RAV identity"
+
+[mutation]
+find = "Effect::RadianceModifyPtUntilEndOfTurn"
+replace = "Effect::ModifyTargetPtUntilEndOfTurn"
+expected_diagnostic = "candidate Wojek Siren definition differs from its RAV identity"

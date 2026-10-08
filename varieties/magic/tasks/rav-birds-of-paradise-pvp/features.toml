@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 153
+definition_id = "RAV-BIRDS-OF-PARADISE"
+card_name = "Birds of Paradise"
+printed_mana_cost = "{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 0
+toughness = 1
+keywords = ["flying"]
+abilities = ["tap: add one mana of any color"]
+source_authority = "CardBench-authored semantic summary of RAV printing identity and ability"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-cast-and-entry"
+summary = "Cast Birds of Paradise for one green mana in an ordinary shuffled two-player game and observe its spell resolve onto the battlefield."
+trace_required = true
+
+[[features]]
+id = "flying-zero-one-characteristics"
+summary = "Check the live 0/1 characteristics and Flying keyword through the engine's characteristic layer."
+trace_required = true
+
+[[features]]
+id = "tap-for-chosen-white-mana"
+summary = "Tap Birds of Paradise during Watchwolf's casting payment, choose white from the five Magic colors, and observe exactly one white mana added."
+trace_required = true
+
+[[features]]
+id = "typed-two-color-payment-and-terminal-game"
+summary = "Pay Watchwolf's green-white cost using the chosen white mana and a typed Forest activation, then continue to a terminal combat win."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutations"
+summary = "Replay the complete game deterministically and detect wrong cost, power, Flying, color choices, or tap-cost behavior."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "202.1-202.2 Mana symbols and color", "302.1-302.6 Creature characteristics", "601.2 Casting spells and paying costs", "605.1a and 605.3 Activated mana abilities", "510 Combat damage"]
+url = "https://magic.wizards.com/en/rules"
+
+[[source_references]]
+source = "RAV printing"
+card = "Birds of Paradise"
+collector_number = 153
+url = "https://scryfall.com/card/rav/153/birds-of-paradise"
+retained_data = "Public card identity, cost, colors, creature characteristics, Flying, and mana ability summary needed for the authority"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The task follows the RAV implementation's frozen rules edition."

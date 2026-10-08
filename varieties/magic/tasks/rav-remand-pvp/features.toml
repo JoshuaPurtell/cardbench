@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 63
+definition_id = "RAV-REMAND"
+card_name = "Remand"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+power = "none"
+toughness = "none"
+keywords = []
+abilities = ["counter-target-spell-to-owners-hand", "draw-controller-one-card"]
+source_authority = "RAV printed card identity and functional branches already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-cast-payment"
+summary = "Cast the blue {1}{U} instant through the ordinary spell stack and priority lifecycle with an explicit colored payment receipt."
+trace_required = true
+
+[[features]]
+id = "exact-opposing-spell-target"
+summary = "In response to seat one's Watchwolf, seat zero's Remand targets that exact physical spell object while it is on the stack."
+trace_required = true
+
+[[features]]
+id = "countered-spell-owner-hand"
+summary = "Remand counters only the selected spell and moves the countered card to its owner's hand rather than its graveyard or battlefield."
+trace_required = true
+
+[[features]]
+id = "controller-draw-after-counter"
+summary = "After returning the target spell, Remand moves the top card of its controller's library into that controller's hand."
+trace_required = true
+
+[[features]]
+id = "terminal-game-and-replay"
+summary = "Continue the shuffled constructed game to a legal seat-zero combat win and require event-identical replay for the selected seed."
+trace_required = true
+
+[[features]]
+id = "semantic-gameplay-mutations"
+summary = "Gameplay assertions detect a graveyard destination, a missing draw, or a missing counter instruction."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Priority", "601.2 Casting Spells", "608.2b-608.3 Resolving Spells", "701.5 Countering", "121.2a Drawing Cards", "510 Combat Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the source-contract cutoff are in scope."

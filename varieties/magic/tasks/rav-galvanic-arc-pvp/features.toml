@@ -1,0 +1,54 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 126
+definition_id = "RAV-GALVANIC-ARC"
+card_name = "Galvanic Arc"
+printed_mana_cost = "{2}{R}"
+colors = ["red"]
+card_types = ["enchantment"]
+card_subtypes = ["aura"]
+keywords = []
+abilities = ["Enchant creature", "When Galvanic Arc enters the battlefield, it deals 3 damage to target creature or player", "Enchanted creature has first strike"]
+source_authority = "RAV printed identity, {2}{R} cost, Aura/Enchant creature identity, mandatory ETB 3 damage to target creature or player, and attached First Strike; engine card type omits the Aura subtype"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-aura-exact-cast-and-attachment"
+summary = "Cast the exact {2}{R} Aura and attach it to the exact controlled creature; verify Aura identity, attachment target, and source/target ownership."
+trace_required = true
+
+[[features]]
+id = "mandatory-etb-three-damage-player-or-creature"
+summary = "Stack the mandatory ETB trigger, choose the opposing Watchwolf as its legal creature target, deal exactly 3 damage, and move that object to its owner's graveyard before combat."
+trace_required = true
+
+[[features]]
+id = "attached-first-strike-combat-and-full-game"
+summary = "Derive First Strike only on the enchanted creature, then prove the FirstStrikeCombatDamage step removes the opposing blocker before normal combat damage and finish the shuffled duel."
+trace_required = true
+
+[[features]]
+id = "replay-pinned-source-and-mutations"
+summary = "Require identical full-game replay, source/AST validation before candidate calls, compile-valid injected-side-effect rejection, and gameplay detection for damage, trigger, attachment keyword, and mana-cost mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["303.4 Auras", "117 Timing and priority", "601.2 Casting spells", "603.2-603.3 Triggered abilities and target selection", "608.2 Resolving spells and abilities", "702.7 First Strike", "704 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Galvanic Arc"
+collector_number = 126
+url = "https://scryfall.com/card/rav/126/galvanic-arc"
+retained_data = "Public identity, {2}{R}, red Enchantment — Aura, Enchant creature, ETB 3 damage to target creature or player, and attached First Strike; current Oracle wording uses any target"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -22,7 +22,7 @@ fn dromad_purebred_requires_its_received_damage_trigger_for_full_fidelity() {
 }
 
 #[test]
-fn dromad_purebred_gains_one_life_after_receiving_damage() {
+fn dromad_purebred_gains_life_equal_to_damage_received() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
@@ -64,7 +64,7 @@ fn dromad_purebred_gains_one_life_after_receiving_damage() {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == dromad && *ability == "damage-gain-one-life"
+            if *source == dromad && *ability == "damage-gain-life-from-source-damage"
     )));
     assert_eq!(game.player(PlayerId(0)).expect("player exists").life, 20);
     game.pass_priority(PlayerId(0))

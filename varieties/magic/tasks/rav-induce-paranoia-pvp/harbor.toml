@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-induce-paranoia"
+definition_id = "RAV-INDUCE-PARANOIA"
+expansion = "RAV"
+variant = "single-card"
+bundle = "induce_paranoia_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/induce_paranoia.rs"
+authority_bin = "rav-induce-paranoia-pvp"
+materializer = "varieties/magic/scripts/materialize_induce_paranoia_task.py"
+scorer = "varieties/magic/scripts/score_induce_paranoia_pvp.py"
+review_scope = "RAV #56 identity, {2}{U}{U} blue instant cost and Oracle reconciliation; legal target-spell response; exact physical target counter and terminal movement; actual black-mana-spent branch and mana-value 3 mill of the exact target controller's three top library objects; no-black control with no mill; terminal PvP and deterministic replay; semantic mutations and pre-call normalized-source plus literal-AST guard; compile-valid side-effect rejection; candidate isolation, scorer, materializer, Harbor bundle, catalog denominator, RAV source contract, engine event/state source, session projection, RAV registry, and provenance"
+review_files = [
+  "adapters/harbor/bundles/induce_paranoia_card/README.md",
+  "adapters/harbor/bundles/induce_paranoia_card/instruction.md",
+  "adapters/harbor/bundles/induce_paranoia_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_induce_paranoia_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_induce_paranoia_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_induce_paranoia_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/induce_paranoia.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-induce-paranoia-pvp/README.md",
+  "varieties/magic/tasks/rav-induce-paranoia-pvp/source-note.md",
+  "varieties/magic/tasks/rav-induce-paranoia-pvp/features.toml",
+  "varieties/magic/tasks/rav-induce-paranoia-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Induce Paranoia normalized source differs from its exact literal contract"
+
+[mutation]
+find = "color: Color::Black,"
+replace = "color: Color::Green,"
+expected_diagnostic = "Induce Paranoia normalized source differs from its exact literal contract"

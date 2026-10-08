@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 165
+definition_id = "RAV-GATHER-COURAGE"
+card_name = "Gather Courage"
+printed_mana_cost = "{G}"
+colors = ["green"]
+card_types = ["instant"]
+abilities = ["Convoke", "Target creature gets +2/+2 until end of turn"]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-convoke-payment"
+summary = "Cast Gather Courage from a shuffled library and tap an untapped Elves of Deep Shadow, contributing green to pay the exact green symbol."
+trace_required = true
+
+[[features]]
+id = "targeted-plus-two-resolution"
+summary = "Cast during the post-attacker-declaration priority window, resolve the target-bound +2/+2 effect, and observe the attacking Watchwolf as 5/5 before blockers."
+trace_required = true
+
+[[features]]
+id = "combat-result-changed"
+summary = "The defending Watchwolf blocks the targeted attacker; the attacker deals five damage, survives the blocker’s three damage, and the blocker dies."
+trace_required = true
+
+[[features]]
+id = "semantic-and-cost-mutations"
+summary = "Reference mutations to the +2/+2 amount, Convoke keyword, and exact green cost each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["106.6 Mana spent to cast a spell", "117 Priority", "601.2 Casting spells and paying costs", "608.2-608.3 Resolving spells", "613.4 Layer 7 power and toughness modifiers", "702.50 Convoke", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Gather Courage"
+collector_number = 165
+url = "https://scryfall.com/card/rav/165/gather-courage"
+retained_data = "Public card identity, mana cost, color, type, Convoke, and targeted +2/+2 operation needed by the trace"

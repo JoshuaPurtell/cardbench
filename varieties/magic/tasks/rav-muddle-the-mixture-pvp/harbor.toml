@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-muddle-the-mixture"
+definition_id = "RAV-MUDDLE-THE-MIXTURE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "muddle_the_mixture_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/muddle_the_mixture.rs"
+authority_bin = "rav-muddle-the-mixture-pvp"
+materializer = "varieties/magic/scripts/materialize_muddle_the_mixture_task.py"
+scorer = "varieties/magic/scripts/score_muddle_the_mixture_pvp.py"
+review_scope = "RAV #60 Muddle the Mixture identity and original/Oracle Transmute wording; exact {U}{U} Instant and Counter target instant or sorcery semantics; exact {1}{U}{U} Transmute with sorcery timing, discard, private matching-mana-value search, reveal, hand movement and library shuffle; same-object cast to counter an opponent-owned Rain of Embers spell without resolving it; source/target zone moves, terminal PvP combat win, deterministic replay, five semantic gameplay mutations, normalized literal AST validation before candidate calls, compile-valid side-effect injection rejection, zero reward/credit, scorer/materializer and public task bundle"
+review_files = [
+  "adapters/harbor/bundles/muddle_the_mixture_card/README.md",
+  "adapters/harbor/bundles/muddle_the_mixture_card/instruction.md",
+  "adapters/harbor/bundles/muddle_the_mixture_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_muddle_the_mixture_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_muddle_the_mixture_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_muddle_the_mixture_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/muddle_the_mixture.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/muddle_the_mixture_full_fidelity_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/muddle_the_mixture_manifest_merge_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_muddle_gather_seeds_contract.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-muddle-the-mixture-pvp/README.md",
+  "varieties/magic/tasks/rav-muddle-the-mixture-pvp/source-note.md",
+  "varieties/magic/tasks/rav-muddle-the-mixture-pvp/features.toml",
+  "varieties/magic/tasks/rav-muddle-the-mixture-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Muddle source AST differs from the pinned RAV literal source contract"
+
+[mutation]
+find = "Effect::CounterTargetInstantOrSorcerySpell"
+replace = "Effect::CounterTargetSpell"
+expected_diagnostic = "Muddle source AST differs from the pinned RAV literal source contract"

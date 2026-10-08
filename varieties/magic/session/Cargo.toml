@@ -16,6 +16,7 @@ cardbench-magic-protocol = { path = "../protocol" }
 cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+syn = { version = "2.0", features = ["full"] }
 
 [lib]
 name = "cardbench_magic_session"
@@ -28,3 +29,819 @@ path = "src/bin/rav_campaign_stats.rs"
 [[bin]]
 name = "rav-match-review"
 path = "src/bin/rav_match_review.rs"
+
+[[bin]]
+name = "rav-char-pvp"
+path = "src/bin/rav_char_pvp.rs"
+
+[[bin]]
+name = "rav-lightning-helix-pvp"
+path = "src/bin/rav_lightning_helix_pvp.rs"
+
+[[bin]]
+name = "rav-watchwolf-pvp"
+path = "src/bin/rav_watchwolf_pvp.rs"
+
+[[bin]]
+name = "rav-snapping-drake-pvp"
+path = "src/bin/rav_snapping_drake_pvp.rs"
+
+[[bin]]
+name = "rav-courier-hawk-pvp"
+path = "src/bin/rav_courier_hawk_pvp.rs"
+
+[[bin]]
+name = "rav-skyknight-legionnaire-pvp"
+path = "src/bin/rav_skyknight_legionnaire_pvp.rs"
+
+[[bin]]
+name = "rav-nightguard-patrol-pvp"
+path = "src/bin/rav_nightguard_patrol_pvp.rs"
+
+[[bin]]
+name = "rav-selesnya-evangel-pvp"
+path = "src/bin/rav_selesnya_evangel_pvp.rs"
+
+[[bin]]
+name = "rav-boros-recruit-pvp"
+path = "src/bin/rav_boros_recruit_pvp.rs"
+
+[[bin]]
+name = "rav-boros-guildmage-pvp"
+path = "src/bin/rav_boros_guildmage_pvp.rs"
+
+[[bin]]
+name = "rav-boros-fury-shield-pvp"
+path = "src/bin/rav_boros_fury_shield_pvp.rs"
+
+[[bin]]
+name = "rav-boros-swiftblade-pvp"
+path = "src/bin/rav_boros_swiftblade_pvp.rs"
+
+[[bin]]
+name = "rav-goblin-spelunkers-pvp"
+path = "src/bin/rav_goblin_spelunkers_pvp.rs"
+
+[[bin]]
+name = "rav-centaur-safeguard-pvp"
+path = "src/bin/rav_centaur_safeguard_pvp.rs"
+
+[[bin]]
+name = "rav-goliath-spider-pvp"
+path = "src/bin/rav_goliath_spider_pvp.rs"
+
+[[bin]]
+name = "rav-glass-golem-pvp"
+path = "src/bin/rav_glass_golem_pvp.rs"
+
+[[bin]]
+name = "rav-screeching-griffin-pvp"
+path = "src/bin/rav_screeching_griffin_pvp.rs"
+
+[[bin]]
+name = "rav-gather-courage-pvp"
+path = "src/bin/rav_gather_courage_pvp.rs"
+
+[[bin]]
+name = "rav-fiery-conclusion-pvp"
+path = "src/bin/rav_fiery_conclusion_pvp.rs"
+
+[[bin]]
+name = "rav-dromad-purebred-pvp"
+path = "src/bin/rav_dromad_purebred_pvp.rs"
+
+[[bin]]
+name = "rav-dizzy-spell-pvp"
+path = "src/bin/rav_dizzy_spell_pvp.rs"
+
+[[bin]]
+name = "rav-terraformer-pvp"
+path = "src/bin/rav_terraformer_pvp.rs"
+
+[[bin]]
+name = "rav-disembowel-pvp"
+path = "src/bin/rav_disembowel_pvp.rs"
+
+[[bin]]
+name = "rav-moroii-pvp"
+path = "src/bin/rav_moroii_pvp.rs"
+
+[[bin]]
+name = "rav-woebringer-demon-pvp"
+path = "src/bin/rav_woebringer_demon_pvp.rs"
+
+[[bin]]
+name = "rav-peregrine-mask-pvp"
+path = "src/bin/rav_peregrine_mask_pvp.rs"
+
+[[bin]]
+name = "rav-boros-garrison-pvp"
+path = "src/bin/rav_boros_garrison_pvp.rs"
+
+[[bin]]
+name = "rav-dimir-aqueduct-pvp"
+path = "src/bin/rav_dimir_aqueduct_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-rot-farm-pvp"
+path = "src/bin/rav_golgari_rot_farm_pvp.rs"
+
+[[bin]]
+name = "rav-selesnya-sanctuary-pvp"
+path = "src/bin/rav_selesnya_sanctuary_pvp.rs"
+
+[[bin]]
+name = "rav-peel-from-reality-pvp"
+path = "src/bin/rav_peel_from_reality_pvp.rs"
+
+[[bin]]
+name = "rav-greater-mossdog-pvp"
+path = "src/bin/rav_greater_mossdog_pvp.rs"
+
+[[bin]]
+name = "rav-grayscaled-gharial-pvp"
+path = "src/bin/rav_grayscaled_gharial_pvp.rs"
+
+[[bin]]
+name = "rav-elvish-skysweeper-pvp"
+path = "src/bin/rav_elvish_skysweeper_pvp.rs"
+
+[[bin]]
+name = "rav-wizened-snitches-pvp"
+path = "src/bin/rav_wizened_snitches_pvp.rs"
+
+[[bin]]
+name = "rav-excruciator-pvp"
+path = "src/bin/rav_excruciator_pvp.rs"
+
+[[bin]]
+name = "rav-mark-of-eviction-pvp"
+path = "src/bin/rav_mark_of_eviction_pvp.rs"
+
+[[bin]]
+name = "rav-incite-hysteria-pvp"
+path = "src/bin/rav_incite_hysteria_pvp.rs"
+
+[[bin]]
+name = "rav-remand-pvp"
+path = "src/bin/rav_remand_pvp.rs"
+
+[[bin]]
+name = "rav-conclave-equenaut-pvp"
+path = "src/bin/rav_conclave_equenaut_pvp.rs"
+
+[[bin]]
+name = "rav-sparkmage-apprentice-pvp"
+path = "src/bin/rav_sparkmage_apprentice_pvp.rs"
+
+[[bin]]
+name = "rav-boros-signet-pvp"
+path = "src/bin/rav_boros_signet_pvp.rs"
+
+[[bin]]
+name = "rav-civic-wayfinder-pvp"
+path = "src/bin/rav_civic_wayfinder_pvp.rs"
+
+[[bin]]
+name = "rav-rally-the-righteous-pvp"
+path = "src/bin/rav_rally_the_righteous_pvp.rs"
+
+[[bin]]
+name = "rav-selesnya-signet-pvp"
+path = "src/bin/rav_selesnya_signet_pvp.rs"
+
+[[bin]]
+name = "rav-carven-caryatid-pvp"
+path = "src/bin/rav_carven_caryatid_pvp.rs"
+
+[[bin]]
+name = "rav-viashino-fangtail-pvp"
+path = "src/bin/rav_viashino_fangtail_pvp.rs"
+
+[[bin]]
+name = "rav-dimir-signet-pvp"
+path = "src/bin/rav_dimir_signet_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-signet-pvp"
+path = "src/bin/rav_golgari_signet_pvp.rs"
+
+[[bin]]
+name = "rav-selesnya-sagittars-pvp"
+path = "src/bin/rav_selesnya_sagittars_pvp.rs"
+
+[[bin]]
+name = "rav-ordruun-commando-pvp"
+path = "src/bin/rav_ordruun_commando_pvp.rs"
+
+[[bin]]
+name = "rav-zephyr-spirit-pvp"
+path = "src/bin/rav_zephyr_spirit_pvp.rs"
+
+[[bin]]
+name = "rav-scion-of-the-wild-pvp"
+path = "src/bin/rav_scion_of_the_wild_pvp.rs"
+
+[[bin]]
+name = "rav-searing-meditation-pvp"
+path = "src/bin/rav_searing_meditation_pvp.rs"
+
+[[bin]]
+name = "rav-thundersong-trumpeter-pvp"
+path = "src/bin/rav_thundersong_trumpeter_pvp.rs"
+
+[[bin]]
+name = "rav-sunhome-fortress-of-the-legion-pvp"
+path = "src/bin/rav_sunhome_fortress_of_the_legion_pvp.rs"
+
+[[bin]]
+name = "rav-ursapine-pvp"
+path = "src/bin/rav_ursapine_pvp.rs"
+
+[[bin]]
+name = "rav-temple-garden-pvp"
+path = "src/bin/rav_temple_garden_pvp.rs"
+
+[[bin]]
+name = "rav-dogpile-pvp"
+path = "src/bin/rav_dogpile_pvp.rs"
+
+[[bin]]
+name = "rav-autochthon-wurm-pvp"
+path = "src/bin/rav_autochthon_wurm_pvp.rs"
+
+[[bin]]
+name = "rav-dryads-caress-pvp"
+path = "src/bin/rav_dryads_caress_pvp.rs"
+
+[[bin]]
+name = "rav-spectral-searchlight-pvp"
+path = "src/bin/rav_spectral_searchlight_pvp.rs"
+
+[[bin]]
+name = "rav-carrion-howler-pvp"
+path = "src/bin/rav_carrion_howler_pvp.rs"
+
+[[bin]]
+name = "rav-war-torch-goblin-pvp"
+path = "src/bin/rav_war_torch_goblin_pvp.rs"
+
+[[bin]]
+name = "rav-votary-of-the-conclave-pvp"
+path = "src/bin/rav_votary_of_the_conclave_pvp.rs"
+
+[[bin]]
+name = "rav-last-gasp-pvp"
+path = "src/bin/rav_last_gasp_pvp.rs"
+
+[[bin]]
+name = "rav-sunhome-enforcer-pvp"
+path = "src/bin/rav_sunhome_enforcer_pvp.rs"
+
+[[bin]]
+name = "rav-roofstalker-wight-pvp"
+path = "src/bin/rav_roofstalker_wight_pvp.rs"
+
+[[bin]]
+name = "rav-hunted-troll-pvp"
+path = "src/bin/rav_hunted_troll_pvp.rs"
+
+[[bin]]
+name = "rav-rain-of-embers-pvp"
+path = "src/bin/rav_rain_of_embers_pvp.rs"
+
+[[bin]]
+name = "rav-veteran-armorer-pvp"
+path = "src/bin/rav_veteran_armorer_pvp.rs"
+
+[[bin]]
+name = "rav-transluminant-pvp"
+path = "src/bin/rav_transluminant_pvp.rs"
+
+[[bin]]
+name = "rav-infectious-host-pvp"
+path = "src/bin/rav_infectious_host_pvp.rs"
+
+[[bin]]
+name = "rav-goblin-fire-fiend-pvp"
+path = "src/bin/rav_goblin_fire_fiend_pvp.rs"
+
+[[bin]]
+name = "rav-viashino-slasher-pvp"
+path = "src/bin/rav_viashino_slasher_pvp.rs"
+
+[[bin]]
+name = "rav-tattered-drake-pvp"
+path = "src/bin/rav_tattered_drake_pvp.rs"
+
+[[bin]]
+name = "rav-sell-sword-brute-pvp"
+path = "src/bin/rav_sell_sword_brute_pvp.rs"
+
+[[bin]]
+name = "rav-sewerdreg-pvp"
+path = "src/bin/rav_sewerdreg_pvp.rs"
+
+[[bin]]
+name = "rav-surveilling-sprite-pvp"
+path = "src/bin/rav_surveilling_sprite_pvp.rs"
+
+[[bin]]
+name = "rav-conclave-phalanx-pvp"
+path = "src/bin/rav_conclave_phalanx_pvp.rs"
+
+[[bin]]
+name = "rav-frenzied-goblin-pvp"
+path = "src/bin/rav_frenzied_goblin_pvp.rs"
+
+[[bin]]
+name = "rav-barbarian-riftcutter-pvp"
+path = "src/bin/rav_barbarian_riftcutter_pvp.rs"
+
+[[bin]]
+name = "rav-guardian-of-vitu-ghazi-pvp"
+path = "src/bin/rav_guardian_of_vitu_ghazi_pvp.rs"
+
+[[bin]]
+name = "rav-vitu-ghazi-pvp"
+path = "src/bin/rav_vitu_ghazi_pvp.rs"
+
+[[bin]]
+name = "rav-forest-pvp"
+path = "src/bin/rav_forest_pvp.rs"
+
+[[bin]]
+name = "rav-benevolent-ancestor-pvp"
+path = "src/bin/rav_benevolent_ancestor_pvp.rs"
+
+[[bin]]
+name = "rav-leashling-pvp"
+path = "src/bin/rav_leashling_pvp.rs"
+
+[[bin]]
+name = "rav-plains-pvp"
+path = "src/bin/rav_plains_pvp.rs"
+
+[[bin]]
+name = "rav-island-pvp"
+path = "src/bin/rav_island_pvp.rs"
+
+[[bin]]
+name = "rav-swamp-pvp"
+path = "src/bin/rav_swamp_pvp.rs"
+
+[[bin]]
+name = "rav-mountain-pvp"
+path = "src/bin/rav_mountain_pvp.rs"
+
+[[bin]]
+name = "rav-torpid-moloch-pvp"
+path = "src/bin/rav_torpid_moloch_pvp.rs"
+
+[[bin]]
+name = "rav-loxodon-gatekeeper-pvp"
+path = "src/bin/rav_loxodon_gatekeeper_pvp.rs"
+
+[[bin]]
+name = "rav-greater-forgeling-pvp"
+path = "src/bin/rav_greater_forgeling_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-rotwurm-pvp"
+path = "src/bin/rav_golgari_rotwurm_pvp.rs"
+
+[[bin]]
+name = "rav-smash-pvp"
+path = "src/bin/rav_smash_pvp.rs"
+
+[[bin]]
+name = "rav-birds-of-paradise-pvp"
+path = "src/bin/rav_birds_of_paradise_pvp.rs"
+
+[[bin]]
+name = "rav-glimpse-the-unthinkable-pvp"
+path = "src/bin/rav_glimpse_the_unthinkable_pvp.rs"
+
+[[bin]]
+name = "rav-seismic-spike-pvp"
+path = "src/bin/rav_seismic_spike_pvp.rs"
+
+[[bin]]
+name = "rav-siege-wurm-pvp"
+path = "src/bin/rav_siege_wurm_pvp.rs"
+
+[[bin]]
+name = "rav-sabertooth-alley-cat-pvp"
+path = "src/bin/rav_sabertooth_alley_cat_pvp.rs"
+
+[[bin]]
+name = "rav-sandsower-pvp"
+path = "src/bin/rav_sandsower_pvp.rs"
+
+[[bin]]
+name = "rav-caregiver-pvp"
+path = "src/bin/rav_caregiver_pvp.rs"
+
+[[bin]]
+name = "rav-recollect-pvp"
+path = "src/bin/rav_recollect_pvp.rs"
+
+[[bin]]
+name = "rav-wojek-siren-pvp"
+path = "src/bin/rav_wojek_siren_pvp.rs"
+
+[[bin]]
+name = "rav-elves-of-deep-shadow-pvp"
+path = "src/bin/rav_elves_of_deep_shadow_pvp.rs"
+
+[[bin]]
+name = "rav-duskmantle-house-of-shadow-pvp"
+path = "src/bin/rav_duskmantle_house_of_shadow_pvp.rs"
+
+[[bin]]
+name = "rav-cyclopean-snare-pvp"
+path = "src/bin/rav_cyclopean_snare_pvp.rs"
+
+[[bin]]
+name = "rav-flow-of-ideas-pvp"
+path = "src/bin/rav_flow_of_ideas_pvp.rs"
+
+[[bin]]
+name = "rav-convolute-pvp"
+path = "src/bin/rav_convolute_pvp.rs"
+
+[[bin]]
+name = "rav-wojek-embermage-pvp"
+path = "src/bin/rav_wojek_embermage_pvp.rs"
+
+[[bin]]
+name = "rav-wojek-apothecary-pvp"
+path = "src/bin/rav_wojek_apothecary_pvp.rs"
+
+[[bin]]
+name = "rav-telling-time-pvp"
+path = "src/bin/rav_telling_time_pvp.rs"
+
+[[bin]]
+name = "rav-scatter-the-seeds-pvp"
+path = "src/bin/rav_scatter_the_seeds_pvp.rs"
+
+[[bin]]
+name = "rav-oathsworn-giant-pvp"
+path = "src/bin/rav_oathsworn_giant_pvp.rs"
+
+[[bin]]
+name = "rav-blazing-archon-pvp"
+path = "src/bin/rav_blazing_archon_pvp.rs"
+
+[[bin]]
+name = "rav-bathe-in-light-pvp"
+path = "src/bin/rav_bathe_in_light_pvp.rs"
+
+[[bin]]
+name = "rav-devouring-light-pvp"
+path = "src/bin/rav_devouring_light_pvp.rs"
+
+[[bin]]
+name = "rav-chant-of-vitu-ghazi-pvp"
+path = "src/bin/rav_chant_of_vitu_ghazi_pvp.rs"
+
+[[bin]]
+name = "rav-farseek-pvp"
+path = "src/bin/rav_farseek_pvp.rs"
+
+[[bin]]
+name = "rav-festival-of-the-guildpact-pvp"
+path = "src/bin/rav_festival_of_the_guildpact_pvp.rs"
+
+[[bin]]
+name = "rav-auratouched-mage-pvp"
+path = "src/bin/rav_auratouched_mage_pvp.rs"
+
+[[bin]]
+name = "rav-three-dreams-pvp"
+path = "src/bin/rav_three_dreams_pvp.rs"
+
+[[bin]]
+name = "rav-flight-of-fancy-pvp"
+path = "src/bin/rav_flight_of_fancy_pvp.rs"
+
+[[bin]]
+name = "rav-fists-of-ironwood-pvp"
+path = "src/bin/rav_fists_of_ironwood_pvp.rs"
+
+[[bin]]
+name = "rav-compulsive-research-pvp"
+path = "src/bin/rav_compulsive_research_pvp.rs"
+
+[[bin]]
+name = "rav-quickchange-pvp"
+path = "src/bin/rav_quickchange_pvp.rs"
+
+[[bin]]
+name = "rav-clinging-darkness-pvp"
+path = "src/bin/rav_clinging_darkness_pvp.rs"
+
+[[bin]]
+name = "rav-seeds-of-strength-pvp"
+path = "src/bin/rav_seeds_of_strength_pvp.rs"
+
+[[bin]]
+name = "rav-faiths-fetters-pvp"
+path = "src/bin/rav_faiths_fetters_pvp.rs"
+
+[[bin]]
+name = "rav-gate-hound-pvp"
+path = "src/bin/rav_gate_hound_pvp.rs"
+
+[[bin]]
+name = "rav-cerulean-sphinx-pvp"
+path = "src/bin/rav_cerulean_sphinx_pvp.rs"
+
+[[bin]]
+name = "rav-flickerform-pvp"
+path = "src/bin/rav_flickerform_pvp.rs"
+
+[[bin]]
+name = "rav-conclaves-blessing-pvp"
+path = "src/bin/rav_conclaves_blessing_pvp.rs"
+
+[[bin]]
+name = "rav-belltower-sphinx-pvp"
+path = "src/bin/rav_belltower_sphinx_pvp.rs"
+
+[[bin]]
+name = "rav-seed-spark-pvp"
+path = "src/bin/rav_seed_spark_pvp.rs"
+
+[[bin]]
+name = "rav-hunted-lammasu-pvp"
+path = "src/bin/rav_hunted_lammasu_pvp.rs"
+
+[[bin]]
+name = "rav-divebomber-griffin-pvp"
+path = "src/bin/rav_divebomber_griffin_pvp.rs"
+
+[[bin]]
+name = "rav-vedalken-entrancer-pvp"
+path = "src/bin/rav_vedalken_entrancer_pvp.rs"
+
+[[bin]]
+name = "rav-suppression-field-pvp"
+path = "src/bin/rav_suppression_field_pvp.rs"
+
+[[bin]]
+name = "rav-putrefy-pvp"
+path = "src/bin/rav_putrefy_pvp.rs"
+
+[[bin]]
+name = "rav-vedalken-dismisser-pvp"
+path = "src/bin/rav_vedalken_dismisser_pvp.rs"
+
+[[bin]]
+name = "rav-leave-no-trace-pvp"
+path = "src/bin/rav_leave_no_trace_pvp.rs"
+
+[[bin]]
+name = "rav-keening-banshee-pvp"
+path = "src/bin/rav_keening_banshee_pvp.rs"
+
+[[bin]]
+name = "rav-surge-of-zeal-pvp"
+path = "src/bin/rav_surge_of_zeal_pvp.rs"
+
+[[bin]]
+name = "rav-cleansing-beam-pvp"
+path = "src/bin/rav_cleansing_beam_pvp.rs"
+
+[[bin]]
+name = "rav-watery-grave-pvp"
+path = "src/bin/rav_watery_grave_pvp.rs"
+
+[[bin]]
+name = "rav-sacred-foundry-pvp"
+path = "src/bin/rav_sacred_foundry_pvp.rs"
+
+[[bin]]
+name = "rav-overgrown-tomb-pvp"
+path = "src/bin/rav_overgrown_tomb_pvp.rs"
+
+[[bin]]
+name = "rav-mortipede-pvp"
+path = "src/bin/rav_mortipede_pvp.rs"
+
+[[bin]]
+name = "rav-bottled-cloister-pvp"
+path = "src/bin/rav_bottled_cloister_pvp.rs"
+
+[[bin]]
+name = "rav-bramble-elemental-pvp"
+path = "src/bin/rav_bramble_elemental_pvp.rs"
+
+[[bin]]
+name = "rav-ivy-dancer-pvp"
+path = "src/bin/rav_ivy_dancer_pvp.rs"
+
+[[bin]]
+name = "rav-coalhauler-swine-pvp"
+path = "src/bin/rav_coalhauler_swine_pvp.rs"
+
+[[bin]]
+name = "rav-light-of-sanction-pvp"
+path = "src/bin/rav_light_of_sanction_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-germination-pvp"
+path = "src/bin/rav_golgari_germination_pvp.rs"
+
+[[bin]]
+name = "rav-dark-heart-of-the-wood-pvp"
+path = "src/bin/rav_dark_heart_of_the_wood_pvp.rs"
+
+[[bin]]
+name = "rav-shadow-of-doubt-pvp"
+path = "src/bin/rav_shadow_of_doubt_pvp.rs"
+
+[[bin]]
+name = "rav-sundering-vitae-pvp"
+path = "src/bin/rav_sundering_vitae_pvp.rs"
+
+[[bin]]
+name = "rav-concerted-effort-pvp"
+path = "src/bin/rav_concerted_effort_pvp.rs"
+
+[[bin]]
+name = "rav-dowsing-shaman-pvp"
+path = "src/bin/rav_dowsing_shaman_pvp.rs"
+
+[[bin]]
+name = "rav-vigor-mortis-pvp"
+path = "src/bin/rav_vigor_mortis_pvp.rs"
+
+[[bin]]
+name = "rav-vinelasher-kudzu-pvp"
+path = "src/bin/rav_vinelasher_kudzu_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-brownscale-pvp"
+path = "src/bin/rav_golgari_brownscale_pvp.rs"
+
+[[bin]]
+name = "rav-golgari-thug-pvp"
+path = "src/bin/rav_golgari_thug_pvp.rs"
+
+[[bin]]
+name = "rav-blockbuster-pvp"
+path = "src/bin/rav_blockbuster_pvp.rs"
+
+[[bin]]
+name = "rav-tidewater-minion-pvp"
+path = "src/bin/rav_tidewater_minion_pvp.rs"
+
+[[bin]]
+name = "rav-stone-seeder-hierophant-pvp"
+path = "src/bin/rav_stone_seeder_hierophant_pvp.rs"
+
+[[bin]]
+name = "rav-undercity-shade-pvp"
+path = "src/bin/rav_undercity_shade_pvp.rs"
+
+[[bin]]
+name = "rav-darkblast-pvp"
+path = "src/bin/rav_darkblast_pvp.rs"
+
+[[bin]]
+name = "rav-muddle-the-mixture-pvp"
+path = "src/bin/rav_muddle_the_mixture_pvp.rs"
+
+[[bin]]
+name = "rav-grifters-blade-pvp"
+path = "src/bin/rav_grifters_blade_pvp.rs"
+
+[[bin]]
+name = "rav-ethereal-usher-pvp"
+path = "src/bin/rav_ethereal_usher_pvp.rs"
+
+[[bin]]
+name = "rav-galvanic-arc-pvp"
+path = "src/bin/rav_galvanic_arc_pvp.rs"
+
+[[bin]]
+name = "rav-hunted-horror-pvp"
+path = "src/bin/rav_hunted_horror_pvp.rs"
+
+[[bin]]
+name = "rav-junktroller-pvp"
+path = "src/bin/rav_junktroller_pvp.rs"
+
+[[bin]]
+name = "rav-ghosts-of-the-innocent-pvp"
+path = "src/bin/rav_ghosts_of_the_innocent_pvp.rs"
+
+[[bin]]
+name = "rav-trophy-hunter-task-pvp"
+path = "src/bin/rav_trophy_hunter_task_pvp.rs"
+
+[[bin]]
+name = "rav-hunted-dragon-pvp"
+path = "src/bin/rav_hunted_dragon_pvp.rs"
+
+[[bin]]
+name = "rav-hunted-phantasm-pvp"
+path = "src/bin/rav_hunted_phantasm_pvp.rs"
+
+[[bin]]
+name = "rav-drake-familiar-pvp"
+path = "src/bin/rav_drake_familiar_pvp.rs"
+
+[[bin]]
+name = "rav-flame-kin-zealot-pvp"
+path = "src/bin/rav_flame_kin_zealot_pvp.rs"
+
+[[bin]]
+name = "rav-lore-broker-pvp"
+path = "src/bin/rav_lore_broker_pvp.rs"
+
+[[bin]]
+name = "rav-hour-of-reckoning-pvp"
+path = "src/bin/rav_hour_of_reckoning_pvp.rs"
+
+[[bin]]
+name = "rav-loxodon-hierarch-pvp"
+path = "src/bin/rav_loxodon_hierarch_pvp.rs"
+
+[[bin]]
+name = "rav-stinkweed-imp-pvp"
+path = "src/bin/rav_stinkweed_imp_pvp.rs"
+
+[[bin]]
+name = "rav-twilight-drover-pvp"
+path = "src/bin/rav_twilight_drover_pvp.rs"
+
+[[bin]]
+name = "rav-shambling-shell-pvp"
+path = "src/bin/rav_shambling_shell_pvp.rs"
+
+[[bin]]
+name = "rav-voyager-staff-pvp"
+path = "src/bin/rav_voyager_staff_pvp.rs"
+
+[[bin]]
+name = "rav-induce-paranoia-pvp"
+path = "src/bin/rav_induce_paranoia_pvp.rs"
+
+[[bin]]
+name = "rav-indentured-oaf-pvp"
+path = "src/bin/rav_indentured_oaf_pvp.rs"
+
+[[bin]]
+name = "rav-empty-the-catacombs-pvp"
+path = "src/bin/rav_empty_the_catacombs_pvp.rs"
+
+[[bin]]
+name = "rav-halcyon-glaze-pvp"
+path = "src/bin/rav_halcyon_glaze_pvp.rs"
+
+[[bin]]
+name = "rav-dream-leash-pvp"
+path = "src/bin/rav_dream_leash_pvp.rs"
+
+[[bin]]
+name = "rav-grave-shell-scarab-pvp"
+path = "src/bin/rav_grave_shell_scarab_pvp.rs"
+
+[[bin]]
+name = "rav-copy-enchantment-pvp"
+path = "src/bin/rav_copy_enchantment_pvp.rs"
+
+[[bin]]
+name = "rav-drift-of-phantasms-pvp"
+path = "src/bin/rav_drift_of_phantasms_pvp.rs"
+
+[[bin]]
+name = "rav-agrus-kos-wojek-veteran-pvp"
+path = "src/bin/rav_agrus_kos_wojek_veteran_pvp.rs"
+
+[[bin]]
+name = "rav-followed-footsteps-pvp"
+path = "src/bin/rav_followed_footsteps_pvp.rs"
+
+[[bin]]
+name = "rav-dimir-infiltrator-pvp"
+path = "src/bin/rav_dimir_infiltrator_pvp.rs"
+
+[[bin]]
+name = "rav-privileged-position-pvp"
+path = "src/bin/rav_privileged_position_pvp.rs"
+
+[[bin]]
+name = "rav-primordial-sage-pvp"
+path = "src/bin/rav_primordial_sage_pvp.rs"
+
+[[bin]]
+name = "rav-stasis-cell-pvp"
+path = "src/bin/rav_stasis_cell_pvp.rs"
+
+[[bin]]
+name = "rav-sadistic-augermage-pvp"
+path = "src/bin/rav_sadistic_augermage_pvp.rs"

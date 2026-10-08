@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-duskmantle-house-of-shadow"
+definition_id = "RAV-DUSKMANTLE-HOUSE-OF-SHADOW"
+expansion = "RAV"
+variant = "single-card"
+bundle = "duskmantle_house_of_shadow_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/duskmantle_house_of_shadow.rs"
+authority_bin = "rav-duskmantle-house-of-shadow-pvp"
+materializer = "varieties/magic/scripts/materialize_duskmantle_task.py"
+scorer = "varieties/magic/scripts/score_duskmantle_house_of_shadow_pvp.py"
+review_scope = "Duskmantle, House of Shadow RAV #277 identity and nonbasic-land characteristics; candidate-owned activated binding; exact tap cost and player target; exactly one opponent library-to-graveyard transition; event order, deterministic replay, full PvP game, compiled semantic mutations, materializer/scorer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/duskmantle_house_of_shadow_card/README.md",
+  "adapters/harbor/bundles/duskmantle_house_of_shadow_card/instruction.md",
+  "adapters/harbor/bundles/duskmantle_house_of_shadow_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_duskmantle_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_duskmantle_house_of_shadow_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_duskmantle_house_of_shadow_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/duskmantle_house_of_shadow.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-duskmantle-house-of-shadow-pvp/README.md",
+  "varieties/magic/tasks/rav-duskmantle-house-of-shadow-pvp/features.toml",
+  "varieties/magic/tasks/rav-duskmantle-house-of-shadow-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Duskmantle identity or target-mill-one ability differs from its feature contract"
+
+[mutation]
+find = "count: 2"
+replace = "count: 1"
+expected_diagnostic = "Duskmantle identity or target-mill-one ability differs from its feature contract"

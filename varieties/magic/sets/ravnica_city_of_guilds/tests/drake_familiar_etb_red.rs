@@ -1,18 +1,15 @@
-//! Red regression for Drake Familiar's target-bearing enter-the-battlefield ability.
-//!
-//! The ordinary target-bearing trigger boundary must retain an enchantment
-//! target through priority and move that target to its owner's hand only at
-//! stack resolution.
+//! Red regression for Drake Familiar's target-free return-or-sacrifice trigger.
 
-use cardbench_magic_engine::{Keyword, TargetRequirement, TriggerCondition};
+use cardbench_magic_engine::{Effect, Keyword, TriggerCondition};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_triggered_ability_bindings,
 };
 
 const DRAKE_FAMILIAR: &str = "RAV-DRAKE-FAMILIAR";
+const ABILITY_ID: &str = "etb-return-any-enchantment-or-sacrifice-source";
 
 #[test]
-fn drake_familiar_requires_a_targeted_enchantment_return_etb() {
+fn drake_familiar_requires_a_target_free_any_enchantment_return_or_sacrifice_etb() {
     let definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == DRAKE_FAMILIAR)
@@ -21,34 +18,26 @@ fn drake_familiar_requires_a_targeted_enchantment_return_etb() {
     assert!(
         definition
             .supported_rules
-            .contains(&"etb-target-enchantment-owner-hand"),
-        "the entry trigger is part of Drake Familiar's represented behavior"
+            .contains(&"etb-return-any-enchantment-or-sacrifice-source")
     );
-    assert!(
-        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "Drake Familiar cannot be full fidelity without its target-bearing ETB"
-    );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 
     let binding = rav_triggered_ability_bindings()
         .into_iter()
         .find(|binding| binding.card_definition == DRAKE_FAMILIAR)
-        .expect("Drake Familiar has a target-enchantment ETB binding");
+        .expect("Drake Familiar has a candidate-owned ETB binding");
+    assert_eq!(binding.ability.id, ABILITY_ID);
     assert_eq!(
         binding.ability.condition,
         TriggerCondition::EntersBattlefield
     );
-    assert_eq!(
-        binding.ability.targets,
-        vec![TargetRequirement::Enchantment]
+    assert!(
+        binding.ability.targets.is_empty(),
+        "the ability is not targeted"
     );
+    assert!(!binding.ability.optional, "the trigger itself is mandatory");
     assert_eq!(
-        binding
-            .ability
-            .effects
-            .iter()
-            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
-            .collect::<Vec<_>>(),
-        vec![TargetRequirement::Enchantment],
-        "the trigger retains its enchantment target as a normal stack target"
+        binding.ability.effects,
+        vec![Effect::ReturnAnyEnchantmentOrSacrificeSource]
     );
 }

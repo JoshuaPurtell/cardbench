@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 256
+definition_id = "RAV-BOTTLED-CLOISTER"
+card_name = "Bottled Cloister"
+printed_mana_cost = "{4}"
+colors = []
+mana_colors = []
+card_types = ["artifact"]
+power = 0
+toughness = 0
+keywords = []
+abilities = ["Exile controller's current hand on each opponent upkeep, linked to this source incarnation", "At controller upkeep return the linked cards, then draw a card"]
+source_authority = "Public RAV identity and candidate-owned linked-hand triggered abilities; summaries are CardBench-authored"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "No art, scans, flavor, or copied rules-text corpus; only public card identity and semantics needed by the trace"
+
+[[features]]
+id = "opponent-upkeep-private-linked-hand-exile"
+summary = "The controller's entire current hand moves face down to exile on an opponent's upkeep and is associated with the exact Bottled Cloister battlefield incarnation."
+trace_required = true
+
+[[features]]
+id = "controller-upkeep-return-before-draw"
+summary = "At the controller's upkeep, the exact linked cards return to their owner's hand before a new library card is drawn and before the ability resolves."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A normal shuffled 60-card duel reaches a terminal result, replays deterministically, preserves source incarnation identity, and detects trigger, order, draw, and upkeep-condition mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["400 Zones", "406 Exile", "514 Upkeep step", "603 Triggered abilities", "607 Linked abilities", "608 Resolving spells and abilities", "120 Drawing a card", "601 Casting spells"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Bottled Cloister"
+collector_number = 256
+url = "https://scryfall.com/card/rav/256/bottled-cloister"
+retained_data = "Public card identity and linked-upkeep exile, return, and draw behavior needed by the trace"

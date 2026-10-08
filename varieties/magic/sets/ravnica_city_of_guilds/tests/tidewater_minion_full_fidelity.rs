@@ -30,7 +30,7 @@ fn pass_stack_object(game: &mut Game) {
 }
 
 #[test]
-fn minion_untaps_a_target_permanent_and_loses_defender_after_blue_payment() {
+fn minion_untaps_a_target_permanent_and_loses_defender_after_four_generic_payment() {
     let mut game = game_with_rav_bindings();
     let minion = game
         .put_on_battlefield(PlayerId(0), "RAV-TIDEWATER-MINION")
@@ -41,6 +41,12 @@ fn minion_untaps_a_target_permanent_and_loses_defender_after_blue_payment() {
     let payment_island = game
         .put_on_battlefield(PlayerId(0), "RAV-ISLAND")
         .expect("payment source setup");
+    let payment_island_two = game
+        .put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+        .expect("second payment source setup");
+    let payment_island_three = game
+        .put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+        .expect("third payment source setup");
     game.set_entered_turn_for_setup(minion, 0)
         .expect("Minion entered on an earlier turn");
     game.begin_game().expect("game begins");
@@ -49,7 +55,11 @@ fn minion_untaps_a_target_permanent_and_loses_defender_after_blue_payment() {
     game.activate_mana_ability(PlayerId(0), target_island, Color::Blue)
         .expect("target Island taps for setup mana");
     game.activate_mana_ability(PlayerId(0), payment_island, Color::Blue)
-        .expect("second Island provides the defender-removal payment");
+        .expect("second Island provides generic payment");
+    game.activate_mana_ability(PlayerId(0), payment_island_two, Color::Blue)
+        .expect("third Island provides generic payment");
+    game.activate_mana_ability(PlayerId(0), payment_island_three, Color::Blue)
+        .expect("fourth Island provides generic payment");
     assert!(game.object(target_island).expect("target exists").tapped);
     game.activate_ability(
         PlayerId(0),
@@ -75,14 +85,14 @@ fn minion_untaps_a_target_permanent_and_loses_defender_after_blue_payment() {
         PlayerId(0),
         AbilityActivation {
             source: minion,
-            ability_id: "blue-lose-defender",
+            ability_id: "lose-defender-until-end-of-turn",
             sacrifice_sources: vec![],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
         },
     )
-    .expect("Minion pays Blue to lose Defender");
+    .expect("Minion pays four generic mana to lose Defender");
     pass_stack_object(&mut game);
     println!(
         "tidewater_minion_event_log={:#?}",
@@ -101,7 +111,7 @@ fn minion_untaps_a_target_permanent_and_loses_defender_after_blue_payment() {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::AbilityResolved { source, ability, .. }
-            if *source == minion && *ability == "blue-lose-defender"
+            if *source == minion && *ability == "lose-defender-until-end-of-turn"
     )));
     game.validate_invariants()
         .expect("Tidewater Minion trace preserves invariants");

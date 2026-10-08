@@ -1,0 +1,29 @@
+{
+  "schema_version": "cardbench.magic.independent-review.v1",
+  "status": "passed",
+  "review_scope": "Lightning Helix single-card PvP task, source boundary, event authority, workspace materialization, Harbor scoring, and RAV catalog registration",
+  "reviewer": "char_game_trace independent subagent",
+  "review_verdict": "No implementation or security blocker found; post-review Rust changes were formatting-only and reconfirmed by the reviewer.",
+  "review_findings": [],
+  "reviewed_files": {
+    "adapters/harbor/bundles/magic_card/README.md": "64a0693466a71b2ce3496d2b93764973c601eba530fb56dcc8fcb2b8516391b3",
+    "adapters/harbor/bundles/magic_card/instruction.md": "467c07dffec1c44a34c83ca093f9ea6b0586575138b8cd826863d6d1d5b09926",
+    "adapters/harbor/bundles/magic_card/tests/test.sh": "6975971ba339b3d79143127264d2696b1d3f8743b5d3b839dac48750c9e19202",
+    "adapters/harbor/scripts/run_harbor.py": "2d0b46b156383dc89956c9fbaf654ee1a739cf47301df4a211bd8b9dc6fa783a",
+    "varieties/magic/DATA_PROVENANCE.md": "7d5dba8b64f8d1f648aee79e6339be3ad1ac697c1a08bb370934cd0ffb8bfdd5",
+    "varieties/magic/README.md": "22f26f4a1f4a100be4fd5eac27bc8d99ae2ae2f18ce884df6d34befafb49cf1a",
+    "varieties/magic/Cargo.lock": "4c9b44850b78b794db563c19b491cd332992c870735e48c3dc6370fc98753179",
+    "varieties/magic/Cargo.toml": "6a60eea35f4f208707e064273adb4f3dc9dd1c72fcba5ab8e23ad9021a893477",
+    "varieties/magic/scripts/materialize_lightning_helix_task.py": "250dda5ef1794702ff575b7e50a774c55447f1f512c8e41c0a6a6d316c22db7c",
+    "varieties/magic/scripts/score_lightning_helix_pvp.py": "dcc0ad7fb0078b84430bc79e112d44fb33b1655ee22e45099340714c58e84ee5",
+    "varieties/magic/session/Cargo.toml": "4a47f3083204083033d54b18fffb662ef6642beec0d30f9da970ab44fd1fb4d5",
+    "varieties/magic/session/src/bin/rav_lightning_helix_pvp.rs": "8106c4a468dd0dc5c28cf02dac3c7393987e26e822201f33c73bf0b5e869ed64",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/lightning_helix.rs": "9b300a8c861994e90711cf3f2608b52a62505c3bd14fccc22c760b7fcf15c46c",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs": "cb98daffac459bf482d6c06024e06f6779a460f77a1737e9ce08a88913caa0a7",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs": "ed3ab7505f4826cb43b74ac2c9bcc2e06062cefaa535c9a6766189d8b06801f2",
+    "varieties/magic/tasks/rav-lightning-helix-pvp/README.md": "50c8207c74ee4c2580c1a7212391860dc222b51661270dfbeb4f29941bd4b146",
+    "varieties/magic/tasks/rav-lightning-helix-pvp/features.toml": "eaf51f1d9b8cf3a251bcc66d29ae647f530b907d94bc3ad24e047bdff7f0fba6",
+    "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv": "c08f472c724e85518c7c6423cbec330dee2e5a1ccd9daaf63d3fae7e90bec518"
+  },
+  "review_method": "Read-only source review; no provider trial was run."
+}

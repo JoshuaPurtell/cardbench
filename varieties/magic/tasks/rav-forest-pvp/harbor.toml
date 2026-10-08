@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-forest"
+definition_id = "RAV-FOREST"
+expansion = "RAV"
+variant = "single-card"
+bundle = "forest_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/forest.rs"
+authority_bin = "rav-forest-pvp"
+materializer = "varieties/magic/scripts/materialize_forest_task.py"
+scorer = "varieties/magic/scripts/score_forest_pvp.py"
+review_scope = "RAV Forest identity, intrinsic green mana, full-game PvP trace, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/forest_card/README.md",
+  "adapters/harbor/bundles/forest_card/instruction.md",
+  "adapters/harbor/bundles/forest_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_forest_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_forest_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_forest_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/forest.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-forest-pvp/README.md",
+  "varieties/magic/tasks/rav-forest-pvp/features.toml",
+  "varieties/magic/tasks/rav-forest-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Forest definition or intrinsic mana binding differs from its RAV identity"
+
+[mutation]
+find = "land_type: BasicLandType::Forest"
+replace = "land_type: BasicLandType::Mountain"
+expected_diagnostic = "candidate Forest definition or intrinsic mana binding differs from its RAV identity"

@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-agrus-kos-wojek-veteran-pvp"
+definition_id = "RAV-AGRUS-KOS-WOJEK-VETERAN"
+expansion = "RAV"
+variant = "single-card"
+bundle = "agrus_kos_wojek_veteran_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/agrus_kos_wojek_veteran.rs"
+authority_bin = "rav-agrus-kos-wojek-veteran-pvp"
+materializer = "varieties/magic/scripts/materialize_agrus_kos_wojek_veteran_task.py"
+scorer = "varieties/magic/scripts/score_agrus_kos_wojek_veteran_pvp.py"
+review_scope = "RAV #190 red-white legendary 3/3 for {3}{R}{W}; attack trigger and stack resolution; red +2/+0, white +0/+2, and both for red-white attackers; excludes nonattacking same-color creatures; expiry at Cleanup; deterministic shuffled terminal PvP; semantic mutation detection; exact isolated candidate module"
+review_files = [
+  "adapters/harbor/bundles/agrus_kos_wojek_veteran_card/README.md",
+  "adapters/harbor/bundles/agrus_kos_wojek_veteran_card/instruction.md",
+  "adapters/harbor/bundles/agrus_kos_wojek_veteran_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_agrus_kos_wojek_veteran_task.py",
+  "varieties/magic/scripts/score_agrus_kos_wojek_veteran_pvp.py",
+  "varieties/magic/session/src/bin/rav_agrus_kos_wojek_veteran_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/agrus_kos_wojek_veteran.rs",
+  "varieties/magic/tasks/rav-agrus-kos-wojek-veteran-pvp/README.md",
+  "varieties/magic/tasks/rav-agrus-kos-wojek-veteran-pvp/source-note.md",
+  "varieties/magic/tasks/rav-agrus-kos-wojek-veteran-pvp/features.toml",
+  "varieties/magic/tasks/rav-agrus-kos-wojek-veteran-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Agrus Kos source differs from the pinned literal card module"
+
+[mutation]
+find = "toughness: 2,"
+replace = "toughness: 3,"
+expected_diagnostic = "Agrus Kos source differs from the pinned literal card module"

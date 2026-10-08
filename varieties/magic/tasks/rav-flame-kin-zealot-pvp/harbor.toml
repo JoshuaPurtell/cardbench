@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-flame-kin-zealot"
+definition_id = "RAV-FLAME-KIN-ZEALOT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "flame_kin_zealot_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flame_kin_zealot.rs"
+authority_bin = "rav-flame-kin-zealot-pvp"
+materializer = "varieties/magic/scripts/materialize_flame_kin_zealot_task.py"
+scorer = "varieties/magic/scripts/score_flame_kin_zealot_pvp.py"
+review_scope = "Flame-Kin Zealot #206 original RAV identity and source note, {1}{R}{R}{W} red-white 2/2 Creature, mandatory target-free ETB trigger, resolution-time +1/+1 and Haste for the controller's creature team including the Zealot, same-turn attack enabled by Haste, complete shuffled legal 60-card duel, deterministic replay, semantic mutations, normalized source and AST guard before candidate calls, compile-valid side-effect rejection, authority, scoring, materialization and public bundle"
+review_files = [
+  "adapters/harbor/bundles/flame_kin_zealot_card/README.md",
+  "adapters/harbor/bundles/flame_kin_zealot_card/instruction.md",
+  "adapters/harbor/bundles/flame_kin_zealot_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/scripts/materialize_flame_kin_zealot_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_flame_kin_zealot_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_flame_kin_zealot_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/flame_kin_zealot.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/flame_kin_zealot_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-flame-kin-zealot-pvp/README.md",
+  "varieties/magic/tasks/rav-flame-kin-zealot-pvp/source-note.md",
+  "varieties/magic/tasks/rav-flame-kin-zealot-pvp/features.toml",
+  "varieties/magic/tasks/rav-flame-kin-zealot-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Flame-Kin Zealot candidate differs from the printed feature contract"
+
+[mutation]
+find = "pub(crate) fn definition() -> CardDefinition {"
+replace = "pub(crate) fn definition() -> CardDefinition {\n    std::process::exit(0);"
+expected_diagnostic = "Flame-Kin Zealot candidate differs from the printed feature contract"

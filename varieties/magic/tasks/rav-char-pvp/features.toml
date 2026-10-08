@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/set_pvp"
+set_code = "RAV"
+collector_number = 117
+definition_id = "RAV-CHAR"
+card_name = "Char"
+source_authority = "RAV printed semantics; current Oracle reviewed as cross-check, later target-domain errata excluded for original-set compatibility"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "card-identity-and-cast"
+summary = "Represent the RAV identity as a red instant with the printed mana cost; legal full-game casting enters the normal stack and priority lifecycle."
+trace_required = true
+
+[[features]]
+id = "player-or-creature-target"
+summary = "The first instruction selects one legal player or creature target; the chosen target receives four damage on resolution."
+trace_required = true
+branches = ["player", "opponent-creature"]
+
+[[features]]
+id = "controller-damage"
+summary = "After the first damage instruction, the spell's controller receives two damage."
+trace_required = true
+
+[[features]]
+id = "ordered-resolution-and-zone-change"
+summary = "The spell resolves its ordered instructions, completes resolution, and then moves from the stack to its owner's graveyard."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Timing and Priority", "601 Casting Spells", "608 Resolving Spells and Abilities", "120 Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[rules_references]]
+document = "The Hobbit update bulletin"
+published = "2026-08-10"
+relevance = "Reconciled for rules changes published after the June 19 baseline; no Char-specific behavior override recorded."
+url = "https://magic.wizards.com/en/news/announcements/the-hobbit-update-bulletin"

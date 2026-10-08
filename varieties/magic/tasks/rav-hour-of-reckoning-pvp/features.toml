@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-HOUR-OF-RECKONING"
+set_code = "RAV"
+collector_number = 21
+card_name = "Hour of Reckoning"
+printed_mana_cost = "{4}{W}{W}{W}"
+colors = ["white"]
+card_types = ["sorcery"]
+keywords = ["convoke"]
+abilities = ["destroy all nontoken creatures"]
+source_authority = "RAV printing controls public identity and tested semantics per RAV_PVP_SOURCE_CONTRACT.md; Oracle wording is interpretation only."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-convoke-sorcery"
+summary = "Cast the white {4}{W}{W}{W} Sorcery with Convoke, retaining exact colored and generic payment receipts."
+trace_required = true
+
+[[features]]
+id = "global-nontoken-creature-destruction"
+summary = "On resolution, destroy every nontoken creature on both battlefields while creature tokens survive."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay the complete duel deterministically and detect changes to mana cost, Convoke, and the destroy-all-nontoken-creatures instruction."
+trace_required = true
+
+[[features]]
+id = "candidate-source-side-effect-guard"
+summary = "Check the exact candidate definition source before invocation and reject a compile-valid injected filesystem side effect before execution."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting Spells and Paying Costs", "608.2 Resolving Spells and Abilities", "701.7 Destroy", "702.50 Convoke", "111 Tokens"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

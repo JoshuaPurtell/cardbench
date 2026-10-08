@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 216
+definition_id = "RAV-MOROII"
+card_name = "Moroii"
+printed_mana_cost = "{2}{U}{B}"
+colors = ["blue", "black"]
+card_types = ["creature"]
+keywords = ["flying"]
+abilities = ["controller-upkeep-lose-one-life"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition and trigger binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-base-characteristics"
+summary = "Cast RAV Moroii for exact {2}{U}{B} in a shuffled two-player 60-card duel; verify its blue-black creature identity, 4/4 base characteristics, and Flying."
+trace_required = true
+
+[[features]]
+id = "flying-combat"
+summary = "Attack with the resolved Moroii. The opponent's ground creature submits no legal block, and Moroii deals four combat damage to the opponent."
+trace_required = true
+
+[[features]]
+id = "controller-upkeep-trigger"
+summary = "Do not trigger during the opponent's upkeep; stack and resolve Moroii's `upkeep-lose-one-life` ability at its controller's upkeep, with the source incarnation preserved and exactly one life lost by that controller."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the complete duel to a seat-zero win and reproduce the ordered event log for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Detect changed printed cost or base stats, removed Flying, and removal of the controller-upkeep trigger."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["202.1-202.2: colors and mana cost", "302.1 and 601.2: creature characteristics and casting", "508-509: Flying and blocker legality", "117: upkeep priority", "603.2-603.3: triggered ability occurrence and stacking", "608: resolving triggered abilities", "119.3: life loss", "704: state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

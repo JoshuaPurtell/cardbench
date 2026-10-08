@@ -1,0 +1,43 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 64
+definition_id = "RAV-SNAPPING-DRAKE"
+card_name = "Snapping Drake"
+printed_mana_cost = "{3}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 3
+toughness = 2
+keywords = ["flying"]
+abilities = []
+source_authority = "RAV printed card identity and characteristics already represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-casting"
+summary = "Cast RAV Snapping Drake as a blue creature for {3}{U} through the normal full-game spell and priority lifecycle."
+trace_required = true
+
+[[features]]
+id = "battlefield-entry"
+summary = "The resolved physical spell moves from the stack onto the battlefield under its owner's control."
+trace_required = true
+
+[[features]]
+id = "flying-characteristics"
+summary = "The entered permanent has 3 power, 2 toughness, and the live Flying keyword."
+trace_required = true
+
+[[features]]
+id = "later-combat"
+summary = "Snapping Drake is included in a legal attacker declaration after its entry turn, respecting summoning sickness."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and Priority", "302 Creatures", "508 Declaring Attackers", "601 Casting Spells", "608 Resolving Spells and Abilities", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"

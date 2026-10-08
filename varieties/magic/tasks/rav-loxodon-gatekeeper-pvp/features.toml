@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 25
+definition_id = "RAV-LOXODON-GATEKEEPER"
+card_name = "Loxodon Gatekeeper"
+printed_mana_cost = "{2}{W}{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 2
+toughness = 3
+keywords = []
+abilities = ["opponents-artifacts-creatures-and-lands-enter-tapped"]
+source_authority = "RAV printed card identity and characteristics represented by the executable set definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-colored-creature-casting"
+summary = "Cast the white 2/3 RAV Loxodon Gatekeeper for {2}{W}{W} through the ordinary full-game spell lifecycle."
+trace_required = true
+
+[[features]]
+id = "live-opponent-entry-restriction"
+summary = "While Loxodon Gatekeeper remains on the battlefield, an opponent's artifact, creature, or land enters tapped; the trace follows the source-bound replacement receipt for an opponent Plains."
+trace_required = true
+
+[[features]]
+id = "source-incarnation-provenance"
+summary = "The entry-tapped receipt identifies the exact live Loxodon Gatekeeper source object that applied the replacement."
+trace_required = true
+
+[[features]]
+id = "full-game-pvp"
+summary = "Complete a deterministic two-player constructed game after exercising the entry restriction and win through creature combat."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colors and colored costs", "117 Timing and Priority", "302.1-302.2 Creature Spells and Creatures", "601.2 Casting Spells", "608.3a Permanent Spell Resolution", "614 Replacement Effects", "614.12 Effects that modify how permanents enter the battlefield"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

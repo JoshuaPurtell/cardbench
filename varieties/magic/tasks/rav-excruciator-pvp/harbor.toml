@@ -1,0 +1,39 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-excruciator"
+definition_id = "RAV-EXCRUCIATOR"
+expansion = "RAV"
+variant = "single-card"
+bundle = "excruciator_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/excruciator.rs"
+authority_bin = "rav-excruciator-pvp"
+materializer = "varieties/magic/scripts/materialize_excruciator_task.py"
+scorer = "varieties/magic/scripts/score_excruciator_pvp.py"
+review_scope = "Excruciator RAV #121 red {6}{R}{R} 7/7 identity, damage-cannot-be-prevented keyword, blocked combat into a shielded Ordruun Commando, ordered seven-damage/no-prevention/graveyard receipts, normal shuffled 60-card full-game PvP, terminal win, replay, three gameplay mutations, candidate source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/excruciator_card/README.md",
+  "adapters/harbor/bundles/excruciator_card/instruction.md",
+  "adapters/harbor/bundles/excruciator_card/tests/test.sh",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_excruciator_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_excruciator_pvp.py",
+  "varieties/magic/session/src/bin/rav_excruciator_pvp.rs",
+  "varieties/magic/session/src/lib.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/excruciator.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/catalog.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-excruciator-pvp/README.md",
+  "varieties/magic/tasks/rav-excruciator-pvp/features.toml",
+  "varieties/magic/tasks/rav-excruciator-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Excruciator candidate definition differs from the exact RAV #121 source contract"
+
+[mutation]
+find = "keywords: vec![Keyword::DamageCannotBePrevented],"
+replace = "keywords: vec![],"
+expected_diagnostic = "Excruciator candidate definition differs from the exact RAV #121 source contract"

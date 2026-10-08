@@ -1,79 +1,94 @@
-//! Red milestone for Indentured Oaf's source-color damage prevention.
+//! Red regression for Indentured Oaf's source-bound damage prevention.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Target, Zone};
-use cardbench_magic_rav::{
-    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+use cardbench_magic_engine::{
+    CardType, Color, CombatBlock, Game, GameEvent, Keyword, PlayerId, Step, Target,
 };
+use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-fn indentured_oaf_declares_red_damage_prevention() {
-    let oaf = card_definitions()
+fn indentured_oaf_prevents_its_damage_to_red_creatures() {
+    let oaf_definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-INDENTURED-OAF")
         .expect("Indentured Oaf definition exists");
-    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&oaf.id));
-    assert!(
-        oaf.supported_rules
-            .contains(&"prevent-damage-from-red-sources")
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&oaf_definition.id));
+    assert_eq!(
+        oaf_definition.card_types,
+        [CardType::Creature].into_iter().collect()
     );
-}
+    assert_eq!(oaf_definition.colors, [Color::Red].into_iter().collect());
+    assert!(
+        oaf_definition
+            .supported_rules
+            .contains(&"prevent-damage-by-this-source-to-red-creatures")
+    );
+    assert!(
+        oaf_definition
+            .keywords
+            .contains(&Keyword::PreventDamageToCreaturesOfColor(Color::Red))
+    );
 
-#[test]
-fn indentured_oaf_prevents_all_damage_from_red_char() {
-    let mut game = Game::new_with_all_bindings(
-        card_definitions(),
-        2,
-        rav_mana_ability_bindings(),
-        rav_basic_land_type_bindings(),
-        rav_additional_spell_cost_bindings(),
-        rav_activated_ability_bindings(),
-    )
-    .expect("RAV game builds");
+    let mut game = Game::new(card_definitions(), 2).expect("RAV game builds");
     let oaf = game
         .put_on_battlefield(PlayerId(0), "RAV-INDENTURED-OAF")
         .expect("Oaf enters");
-    let char = game
-        .add_card(PlayerId(0), "RAV-CHAR", Zone::Hand)
-        .expect("Char enters hand");
-    let mountains = (0..3)
-        .map(|_| {
-            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
-                .expect("Mountain enters")
-        })
-        .collect::<Vec<_>>();
+    let red_blocker = game
+        .put_on_battlefield(PlayerId(1), "RAV-GOBLIN-FIRE-FIEND")
+        .expect("red creature enters");
+    for creature in [oaf, red_blocker] {
+        game.set_entered_turn_for_setup(creature, 0)
+            .expect("creature predates the measured turn");
+    }
     game.begin_game().expect("game starts");
-    for _ in 0..2 {
-        game.pass_priority(PlayerId(0)).expect("early pass");
-        game.pass_priority(PlayerId(1))
-            .expect("early response pass");
+    while game.step != Step::DeclareAttackers {
+        let player = game.priority;
+        game.pass_priority(player).expect("advance to attackers");
     }
-    for mountain in mountains {
-        game.activate_mana_ability(PlayerId(0), mountain, Color::Red)
-            .expect("Char mana");
+    game.declare_attackers(PlayerId(0), &[oaf])
+        .expect("Oaf attacks");
+    while game.step != Step::DeclareBlockers {
+        let player = game.priority;
+        game.pass_priority(player).expect("advance to blockers");
     }
-    game.cast_spell(
-        PlayerId(0),
-        CastRequest {
-            card: char,
-            targets: vec![Target::Permanent(oaf)],
-            convoke: vec![],
-            payment_mana_abilities: vec![],
-        },
+    game.declare_blockers(
+        PlayerId(1),
+        &[CombatBlock {
+            attacker: oaf,
+            blocker: red_blocker,
+        }],
     )
-    .expect("Char casts at Oaf");
-    game.pass_priority(PlayerId(0))
-        .expect("Char controller passes");
-    game.pass_priority(PlayerId(1)).expect("Char resolves");
+    .expect("red Goblin blocks");
+
+    for _ in 0..16 {
+        if game.event_log.iter().any(|event| {
+            matches!(
+                event,
+                GameEvent::DamagePrevented {
+                    source,
+                    target: Target::Permanent(target),
+                    amount: 4,
+                } if *source == oaf && *target == red_blocker
+            )
+        }) {
+            break;
+        }
+        let player = game.priority;
+        game.pass_priority(player).expect("combat advances");
+    }
+
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::DamagePrevented {
             source,
             target: Target::Permanent(target),
             amount: 4,
-        } if *source == char && *target == oaf
+        } if *source == oaf && *target == red_blocker
     )));
-    assert_eq!(game.object(oaf).expect("Oaf exists").damage, 0);
-    assert_eq!(game.zone_of(oaf), Some(Zone::Battlefield));
-    game.validate_invariants().expect("Oaf trace is valid");
+    assert_eq!(
+        game.object(red_blocker).expect("red blocker exists").damage,
+        0
+    );
+    assert_eq!(game.object(oaf).expect("Oaf remains").damage, 1);
+    game.validate_invariants()
+        .expect("Oaf's source-bound prevention trace is valid");
 }

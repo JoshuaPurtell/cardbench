@@ -1,0 +1,33 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-concerted-effort"
+definition_id = "RAV-CONCERTED-EFFORT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "concerted_effort_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/concerted_effort.rs"
+authority_bin = "rav-concerted-effort-pvp"
+materializer = "varieties/magic/scripts/materialize_concerted_effort_task.py"
+scorer = "varieties/magic/scripts/score_concerted_effort_pvp.py"
+review_scope = "RAV #8 Concerted Effort identity and {2}{W}{W} cost; mandatory beginning-of-upkeep trigger; exact six shared keyword families and typed Landwalk/Protection instances; same-controller other-creature snapshot; current-turn expiration; shuffled full-game cast, combat, terminal result, deterministic replay, trigger and family mutations; public stub rejection; zero rewards and card credit"
+review_files = [
+  "adapters/harbor/bundles/concerted_effort_card/README.md",
+  "adapters/harbor/bundles/concerted_effort_card/instruction.md",
+  "adapters/harbor/bundles/concerted_effort_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_concerted_effort_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_concerted_effort_pvp.py",
+  "varieties/magic/session/src/bin/rav_concerted_effort_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/concerted_effort.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/concerted_effort_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/concerted_effort_red.rs",
+  "varieties/magic/tasks/rav-concerted-effort-pvp/README.md",
+  "varieties/magic/tasks/rav-concerted-effort-pvp/features.toml",
+  "varieties/magic/tasks/rav-concerted-effort-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Concerted Effort identity, cost, upkeep timing, or six-family binding differs"
+
+[mutation]
+find = "SharedKeywordFamily::Trample,"
+replace = "SharedKeywordFamily::Flying,"
+expected_diagnostic = "Concerted Effort identity, cost, upkeep timing, or six-family binding differs"

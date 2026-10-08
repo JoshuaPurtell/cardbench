@@ -1,0 +1,36 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-golgari-germination"
+definition_id = "RAV-GOLGARI-GERMINATION"
+expansion = "RAV"
+variant = "single-card"
+bundle = "golgari_germination_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_germination.rs"
+authority_bin = "rav-golgari-germination-pvp"
+materializer = "varieties/magic/scripts/materialize_golgari_germination_task.py"
+scorer = "varieties/magic/scripts/score_golgari_germination_pvp.py"
+review_scope = "Golgari Germination RAV #209 exact {1}{B}{G} black-green enchantment, candidate-owned controlled-nontoken-creature-dies trigger, ordinary stack resolution, exactly one green 1/1 Saproling token, complete deterministic legal game, and gameplay semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/golgari_germination_card/README.md",
+  "adapters/harbor/bundles/golgari_germination_card/instruction.md",
+  "adapters/harbor/bundles/golgari_germination_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_golgari_germination_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_golgari_germination_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_golgari_germination_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_germination.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-golgari-germination-pvp/README.md",
+  "varieties/magic/tasks/rav-golgari-germination-pvp/features.toml",
+  "varieties/magic/tasks/rav-golgari-germination-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Golgari Germination candidate definition or trigger is outside its literal source contract"
+
+[mutation]
+find = "TokenSpec::saproling()"
+replace = "TokenSpec::white_spirit()"
+expected_diagnostic = "Golgari Germination candidate definition or trigger is outside its literal source contract"

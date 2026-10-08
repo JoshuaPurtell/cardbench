@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-coalhauler-swine"
+definition_id = "RAV-COALHAULER-SWINE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "coalhauler_swine_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/coalhauler_swine.rs"
+authority_bin = "rav-coalhauler-swine-pvp"
+materializer = "varieties/magic/scripts/materialize_coalhauler_swine_task.py"
+scorer = "varieties/magic/scripts/score_coalhauler_swine_pvp.py"
+review_scope = "Coalhauler Swine #119 identity, {4}{R}{R} cast and 4/4 body, received-damage trigger provenance, captured amount dealt to each surviving player, life totals, terminal full-game result, deterministic replay, semantic mutations, task tooling and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/coalhauler_swine_card/README.md",
+  "adapters/harbor/bundles/coalhauler_swine_card/instruction.md",
+  "adapters/harbor/bundles/coalhauler_swine_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_coalhauler_swine_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_coalhauler_swine_pvp.py",
+  "varieties/magic/session/src/bin/rav_coalhauler_swine_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/coalhauler_swine.rs",
+  "varieties/magic/tasks/rav-coalhauler-swine-pvp/README.md",
+  "varieties/magic/tasks/rav-coalhauler-swine-pvp/features.toml",
+  "varieties/magic/tasks/rav-coalhauler-swine-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Coalhauler Swine candidate differs from the RAV #119 feature contract"
+
+[mutation]
+find = "DealDamageToEachPlayerFromReceivedDamage"
+replace = "DealDamageToEachPlayer { amount: 1 }"
+expected_diagnostic = "Coalhauler Swine candidate differs from the RAV #119 feature contract"

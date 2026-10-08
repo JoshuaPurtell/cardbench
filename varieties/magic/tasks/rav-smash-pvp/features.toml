@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 143
+definition_id = "RAV-SMASH"
+card_name = "Smash"
+printed_mana_cost = "{2}{R}"
+colors = ["red"]
+card_types = ["instant"]
+keywords = []
+abilities = ["destroy-target-artifact", "draw-one-after-destruction"]
+source_authority = "CardBench-authored semantic summary of RAV printed identity and effect order"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-instant-casting"
+summary = "Cast RAV Smash as a red instant for {2}{R}, using ordinary priority, target announcement, and mana payment."
+trace_required = true
+
+[[features]]
+id = "artifact-target-and-destruction"
+summary = "Choose a legal opponent Boros Signet as Smash's artifact target; resolution records that Smash destroys the exact target and moves it to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "ordered-draw"
+summary = "After the artifact is destroyed, resolve Smash's second instruction and move exactly one card from the pilot's library to hand before Smash leaves the stack."
+trace_required = true
+
+[[features]]
+id = "full-game-pvp"
+summary = "Continue the deterministic constructed game after the artifact destruction and draw, then win through Viashino Slasher combat."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["115 Targets", "117 Timing and Priority", "601.2 Casting Spells", "608 Resolving Spells and Abilities", "701.7 Destroying", "121 Drawing a Card"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

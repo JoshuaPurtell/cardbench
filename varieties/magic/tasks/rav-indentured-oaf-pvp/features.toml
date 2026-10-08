@@ -1,0 +1,49 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 133
+definition_id = "RAV-INDENTURED-OAF"
+card_name = "Indentured Oaf"
+printed_mana_cost = "{3}{R}"
+colors = ["red"]
+card_types = ["creature"]
+card_subtypes = ["Ogre", "Warrior"]
+keywords = []
+abilities = ["Prevent all damage that Indentured Oaf would deal to red creatures."]
+source_authority = "RAV printed identity; current Oracle uses 'this creature' in place of the card name with the same source-bound prevention direction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus; subtypes are retained identity metadata because CardDefinition cannot represent them"
+
+[[features]]
+id = "prevent-damage-by-this-source-to-red-creatures"
+summary = "Verify that Indentured Oaf's exact source incarnation prevents all four damage it would deal to a red creature, while Boros Recruit's one first-strike damage to Oaf is not prevented."
+trace_required = true
+
+[[features]]
+id = "red-creature-target-survives"
+summary = "Verify the opposing red-white Boros Recruit remains a red creature on the battlefield with zero damage marked after blocking Oaf, and its hybrid cost was paid with red."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutation-sensitivity"
+summary = "Complete a normal shuffled 60-card duel, replay deterministically, and detect cost, power, lethal toughness, missing prevention, wrong-color, and reversed-direction mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["120 Damage", "510 Combat damage step", "614 Replacement effects", "702.16 Prevention effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing identity and rules-text reference"
+card = "Indentured Oaf"
+collector_number = 133
+url = "https://aetherhub.com/Card/RAV/Indentured-Oaf/133"
+retained_data = "Public identity, mana cost, color, type line, power/toughness, and exact damage-prevention direction"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

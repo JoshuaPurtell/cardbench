@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-galvanic-arc"
+definition_id = "RAV-GALVANIC-ARC"
+expansion = "RAV"
+variant = "single-card"
+bundle = "galvanic_arc_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/galvanic_arc.rs"
+authority_bin = "rav-galvanic-arc-pvp"
+materializer = "varieties/magic/scripts/materialize_galvanic_arc_task.py"
+scorer = "varieties/magic/scripts/score_galvanic_arc_pvp.py"
+review_scope = "RAV #126 Galvanic Arc original red {2}{R} Enchantment — Aura identity and Aura-subtype model limitation; printed Enchant creature, mandatory ETB 3 damage to target creature or player, and attached First Strike; current Oracle target wording reconciliation; candidate-owned definition/trigger/attachment APIs; exact host and target incarnations, cast payment, ETB stack/damage/SBA/zone ordering, FirstStrikeCombatDamage combat, full-game win and replay; four gameplay mutations; literal source/AST guard before candidate calls and compile-valid side-effect rejection; zero rewards/credit; public bundle, scorer, materializer, catalog/source contract/engine/projection/registry/manifest/public scenario/provenance files"
+review_files = [
+  "adapters/harbor/bundles/galvanic_arc_card/README.md",
+  "adapters/harbor/bundles/galvanic_arc_card/instruction.md",
+  "adapters/harbor/bundles/galvanic_arc_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/scripts/materialize_galvanic_arc_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_galvanic_arc_pvp.py",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_galvanic_arc_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/galvanic_arc.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/galvanic_arc_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/galvanic_arc_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/scenarios.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/scenarios/shown.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-galvanic-arc-pvp/README.md",
+  "varieties/magic/tasks/rav-galvanic-arc-pvp/source-note.md",
+  "varieties/magic/tasks/rav-galvanic-arc-pvp/features.toml",
+  "varieties/magic/tasks/rav-galvanic-arc-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Galvanic Arc source differs from the pinned RAV literal module"
+
+[mutation]
+find = "amount: 3"
+replace = "amount: 2"
+expected_diagnostic = "Galvanic Arc source differs from the pinned RAV literal module"

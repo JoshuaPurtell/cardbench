@@ -1,0 +1,5 @@
+Implement Ravnica: City of Guilds #203, Dimir Infiltrator, in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/dimir_infiltrator.rs`. Its printed characteristics are blue-black `{U}{B}`, Creature — Spirit, 1/3, unblockable, and Transmute `{1}{U}{B}`. Transmute can be activated from hand at sorcery timing; discard the source, search for a card with the same mana value, reveal it, put it into hand, then shuffle.
+
+The trusted authority uses a shuffled 60-card PvP duel. It activates Transmute on a Dimir Infiltrator and selects the exact Dimir Signet of the same mana value. It also casts Infiltrators and attacks past an available Carven Caryatid, then plays through a normal seat-zero win. The authority checks deterministic replay and mutations to cost, body, unblockable, and Transmute.
+
+Keep the module declarative and local to this card definition. The current engine stores creature card types but does not model subtypes, so Spirit is retained in task identity and source notes rather than as an engine characteristic. Do not add files to the submission.

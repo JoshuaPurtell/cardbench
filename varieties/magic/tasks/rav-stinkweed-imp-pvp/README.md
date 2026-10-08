@@ -1,0 +1,7 @@
+# CardBench Magic single-card task: Stinkweed Imp
+
+Implement the candidate-owned Stinkweed Imp definition and combat-damage trigger in `varieties/magic/sets/ravnica_city_of_guilds/src/cards/stinkweed_imp.rs`.
+
+The trusted authority validates the exact normalized candidate AST before calling candidate functions. It then runs a deterministic legal 60-card duel. Stinkweed Imp blocks an opposing Watchwolf and deals exactly 1 combat damage to it; the source-bound trigger resolves and destroys that same Watchwolf object. The Imp dies in combat, then its Dredge 5 replaces the controller's next draw: the trace proves that exactly five cards move from the library to the graveyard and that the same Imp object returns to hand, is recast, and participates in the game before a terminal result. The authority also replays the game and checks card, Dredge, Flying, and combat-trigger mutations, plus a compile-valid injected side-effect candidate rejection.
+
+The printed subtype is Imp. The current `CardDefinition` model has no creature-subtype field, so Imp is retained as identity but not asserted by the candidate definition or gameplay trace. See [source-note.md](source-note.md) for the RAV/Oracle reconciliation and model boundary. This is an uncredited diagnostic task against 291 distinct RAV names and 306 printings; it reports zero card credit and zero reward. Candidate evaluation is separate.

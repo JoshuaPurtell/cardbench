@@ -1,0 +1,65 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+definition_id = "RAV-GOLGARI-BROWNSCALE"
+set_code = "RAV"
+collector_number = 166
+card_name = "Golgari Brownscale"
+printed_mana_cost = "{1}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+subtypes = ["Lizard"]
+power = 2
+toughness = 3
+keywords = ["Dredge 2"]
+abilities = ["graveyard-to-hand trigger: gain 2 life", "Dredge 2"]
+source_authority = "Original RAV #166 printing controls identity and tested mechanics under RAV_PVP_SOURCE_CONTRACT.md; current Oracle preserves the tested branches."
+oracle_reconciliation = "Current Oracle preserves the printed two-life graveyard-to-hand trigger and Dredge 2. The printed Dredge reminder is represented by the keyword; no semantic change affects the trace."
+public_identity_record = "https://www.mtg.wtf/card/rav/166/Golgari-Brownscale"
+model_limitations = "CardDefinition represents Creature but has no creature-subtype field; Lizard is retained identity and not asserted. Dredge 2 and the graveyard-to-hand trigger are executable and candidate-owned."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-and-candidate-owned-bindings"
+summary = "Define the green {1}{G}{G} 2/3 creature with Dredge 2 and bind its mandatory graveyard-to-hand life-gain trigger in the candidate module. Lizard is retained printed subtype identity but is not asserted because CardDefinition has no creature-subtype field."
+trace_required = true
+
+[[features]]
+id = "exact-dredge-two-and-life-trigger-order"
+summary = "In legal combat, the pilot's Brownscale blocks an opposing Watchwolf and dies. Replace the pilot's next draw with Dredge 2; verify exactly two library objects move to the graveyard, then the same Brownscale object moves to hand, the Dredged receipt occurs, its graveyard-to-hand ability stacks and resolves, and exactly 2 life is gained."
+trace_required = true
+
+[[features]]
+id = "recast-terminal-pvp-and-mutations"
+summary = "Replay the deterministic shuffled 60-card duel and recast the returned Brownscale before a terminal result. Detect mutations to identity, cost, body, Dredge presence/count, trigger condition/effect/amount, and a compile-valid injected side-effect candidate before any candidate function executes."
+trace_required = true
+
+[[features]]
+id = "pre-call-literal-source-guard"
+summary = "Require the normalized parsed AST to equal the literal candidate module before invoking candidate functions; report rejection of a compile-valid injected side effect."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority and draw replacement decisions", "202.1-202.2 Mana cost and color", "302 Creatures", "603 Triggered abilities", "608 Resolving abilities", "704 State-based actions", "702.52 Dredge"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."
+
+[[source_references]]
+source = "Original Ravnica: City of Guilds printing record"
+card = "Golgari Brownscale"
+collector_number = 166
+url = "https://www.mtg.wtf/card/rav/166/Golgari-Brownscale"
+retained_data = "Public identity, {1}{G}{G} cost, green Creature — Lizard type line, 2/3 body, Dredge 2, and the two-life graveyard-to-hand trigger identity"
+
+[[source_references]]
+source = "Current Oracle wording, consulted for interpretation"
+card = "Golgari Brownscale"
+url = "https://www.mtgsalvation.com/cards/ravnica-city-of-guilds/12251-golgari-brownscale"
+retained_data = "The current Oracle record preserves the same graveyard-to-hand event, 2-life amount, and Dredge 2 behavior; the RAV printing remains the task's identity authority."

@@ -90,3 +90,68 @@ fn attached_modifier_counts_other_creatures_of_its_targets_controller() {
     game.validate_invariants()
         .expect("dynamic attached modifier is a valid continuous effect");
 }
+
+#[test]
+fn attached_modifier_can_count_other_creatures_of_its_source_controller() {
+    let mut game = Game::new(
+        vec![
+            definition(CREATURE, CardType::Creature, vec![]),
+            definition(
+                AURA,
+                CardType::Enchantment,
+                vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::Creature,
+                    changes: vec![
+                        ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledBySource {
+                            power_per_creature: 0,
+                            toughness_per_creature: 2,
+                        },
+                    ],
+                }],
+            ),
+        ],
+        2,
+    )
+    .expect("synthetic fixture builds");
+    let target = game
+        .put_on_battlefield(PlayerId(1), CREATURE)
+        .expect("opponent creature setup");
+    game.put_on_battlefield(PlayerId(1), CREATURE)
+        .expect("opponent's other creature setup");
+    game.put_on_battlefield(PlayerId(0), CREATURE)
+        .expect("Aura controller's first other creature setup");
+    game.put_on_battlefield(PlayerId(0), CREATURE)
+        .expect("Aura controller's second other creature setup");
+    let aura = game
+        .add_card(PlayerId(0), AURA, Zone::Hand)
+        .expect("Aura setup");
+    game.begin_game().expect("game starts");
+    for _ in 0..2 {
+        let first = game.priority;
+        game.pass_priority(first).expect("first player passes");
+        let second = game.priority;
+        game.pass_priority(second).expect("second player passes");
+    }
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: aura,
+            targets: vec![Target::Permanent(target)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Aura casts on the opponent's creature");
+    game.pass_priority(PlayerId(0))
+        .expect("Aura controller passes");
+    game.pass_priority(PlayerId(1)).expect("Aura resolves");
+    assert_eq!(
+        game.characteristics(target)
+            .expect("enchanted creature characteristics")
+            .toughness,
+        Some(5),
+        "the Aura's controller has two other creatures, regardless of the enchanted creature's controller",
+    );
+    game.validate_invariants()
+        .expect("source-controller Aura modifier is a valid continuous effect");
+}

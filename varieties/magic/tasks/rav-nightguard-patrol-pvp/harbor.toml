@@ -1,0 +1,50 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-nightguard-patrol"
+definition_id = "RAV-NIGHTGUARD-PATROL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "nightguard_patrol_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/nightguard_patrol.rs"
+authority_bin = "rav-nightguard-patrol-pvp"
+materializer = "varieties/magic/scripts/materialize_nightguard_patrol_task.py"
+scorer = "varieties/magic/scripts/score_nightguard_patrol_pvp.py"
+review_scope = "RAV Nightguard Patrol single-card PvP trace, 291-name/306-printing catalog denominator, source contract, mana-payment and ordered First Strike/Vigilance combat event trust paths, deterministic replay, materialization, authority, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/nightguard_patrol_card/README.md",
+  "adapters/harbor/bundles/nightguard_patrol_card/instruction.md",
+  "adapters/harbor/bundles/nightguard_patrol_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/scripts/materialize_nightguard_patrol_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_nightguard_patrol_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_nightguard_patrol_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/nightguard_patrol.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/decks/rav_boros_aggro.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/decks/rav_golgari_midrange.toml",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-nightguard-patrol-pvp/README.md",
+  "varieties/magic/tasks/rav-nightguard-patrol-pvp/features.toml",
+  "varieties/magic/tasks/rav-nightguard-patrol-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "no clean Nightguard Patrol trace found for seeds 0..=64"
+
+[mutation]
+find = "keywords: vec![Keyword::FirstStrike, Keyword::Vigilance]"
+replace = "keywords: vec![Keyword::FirstStrike]"
+expected_diagnostic = "Nightguard Patrol tapped when it attacked without Vigilance"

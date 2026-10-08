@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 184
+definition_id = "RAV-STONE-SEEDER-HIEROPHANT"
+card_name = "Stone-Seeder Hierophant"
+printed_mana_cost = "{2}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+printed_subtypes = ["Human", "Druid"]
+runtime_subtypes_asserted = false
+power = 1
+toughness = 1
+keywords = []
+abilities = ["Whenever a land comes into play under your control, untap Stone-Seeder Hierophant.", "{T}: Untap target land."]
+source_authority = "Original RAV #184 printed identity and controller-land-entry trigger; Oracle's Landfall and enters/this-creature wording is reconciled as terminology and self-reference only; Human and Druid subtypes are not runtime-asserted"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-cast-and-base-characteristics"
+summary = "Cast a green {2}{G}{G} Stone-Seeder Hierophant from an ordinary shuffled 60-card deck and capture its exact payment and 1/1 battlefield entry."
+trace_required = true
+
+[[features]]
+id = "controller-land-entry-untaps-source"
+summary = "A land entering under its controller's control stacks one mandatory trigger; resolving it untaps that same Stone-Seeder Hierophant. An opponent's land entry does not trigger this ability."
+trace_required = true
+
+[[features]]
+id = "tap-ability-targets-and-untaps-land"
+summary = "The source's {T} ability targets a land permanent, uses the stack, pays the tap cost, and untaps the still-legal target on resolution."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "A complete legal PvP game ends in a Player 0 win, replays deterministically, and detects altered identity, cost, scope, trigger, activation target/effect/cost, missing bindings, and a parse-valid side-effecting source before candidate calls."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["305.1-305.2: playing lands and land characteristics", "603.2-603.3: triggered ability occurrence and stacking", "608.2: resolving triggered and activated abilities", "602.1-602.2: activating an ability and paying costs", "601.2f: mana payment"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original RAV printing text transcription and current Oracle record"
+card = "Stone-Seeder Hierophant"
+collector_number = 184
+url = "https://gnomegames.com/products/stone-seeder-hierophant-ravnica-city-of-guilds-13429"
+retained_data = "Public identity, green {2}{G}{G} cost, Human Druid subtype metadata, 1/1 body, controller-land-entry untap trigger, and tap-to-untap-target-land activation"
+
+[[source_references]]
+source = "Current card and Oracle record"
+card = "Stone-Seeder Hierophant"
+collector_number = 184
+url = "https://mtg.wtf/card/rav/184/Stone-Seeder-Hierophant"
+retained_data = "Current Oracle terminology for comparison only; no art or full text payload retained"
+
+[source_reconciliation]
+printed_wording = "Whenever a land comes into play under your control, untap Stone-Seeder Hierophant. T: Untap target land."
+oracle_wording = "Landfall — Whenever a land you control enters, untap this creature. {T}: Untap target land."
+semantic_difference = "Landfall label and enters/this-creature wording only; both trigger for a land entering under the Hierophant controller's control. The activated ability is unchanged."
+subtype_limit = "RAV printing is Creature — Human Druid; CardDefinition currently models card types but not creature subtypes. Human and Druid are retained in source metadata and are not asserted at runtime."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace follows the original RAV printed source contract, reconciled to current Oracle terminology without replacing printed semantics."

@@ -1,0 +1,1 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/ursapine.rs` as a declarative candidate module exposing `definition()` and `activated_ability()`. Preserve Ursapine's `{3}{G}{G}` green 3/3 creature identity. Its `{G}` ability targets a creature and gives it +1/+1 until end of turn. Do not change other files.

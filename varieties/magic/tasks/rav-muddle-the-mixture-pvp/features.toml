@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 60
+definition_id = "RAV-MUDDLE-THE-MIXTURE"
+card_name = "Muddle the Mixture"
+printed_mana_cost = "{U}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = ["Transmute {1}{U}{U}"]
+abilities = ["Counter target instant or sorcery spell"]
+source_authority = "RAV printed card identity, cost, color, Instant type, exact counter restriction, and Transmute cost; the RAV reminder uses converted mana cost while current Oracle uses mana value with unchanged comparison semantics"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-exact-cost-and-counter-restriction"
+summary = "Cast Muddle for exactly {U}{U}; prove it targets and counters an instant or sorcery spell, not a creature spell."
+trace_required = true
+
+[[features]]
+id = "transmute-private-search-and-same-object"
+summary = "At sorcery timing, pay {1}{U}{U}, discard the source, privately select and reveal another Muddle with the matching mana value, put that physical object into hand, and shuffle."
+trace_required = true
+
+[[features]]
+id = "counter-resolution-and-terminal-duel"
+summary = "Cast the found object for {U}{U} in response to Rain of Embers, move the exact countered spell to its graveyard without resolving it, then finish the duel."
+trace_required = true
+
+[[features]]
+id = "replay-source-guard-and-semantic-mutations"
+summary = "Require deterministic full-game replay, a pinned declarative AST checked before candidate calls, compile-valid side-effect injection rejection, and five gameplay mutations detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells", "117 Timing and priority", "608.2b-608.3 Targeted spell resolution", "701.5 Countering spells", "702.53 Transmute", "701.19 Library search and shuffle", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Muddle the Mixture"
+collector_number = 60
+url = "https://scryfall.com/card/rav/60/muddle-the-mixture"
+retained_data = "Public card identity, {U}{U} cost, blue Instant type, counter target restriction, and Transmute {1}{U}{U}"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

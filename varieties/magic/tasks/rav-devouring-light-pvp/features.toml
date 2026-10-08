@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 13
+definition_id = "RAV-DEVOURING-LIGHT"
+card_name = "Devouring Light"
+printed_mana_cost = "{1}{W}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = ["convoke"]
+abilities = ["exile target attacking or blocking creature"]
+source_authority = "RAV printing identity and printed characteristics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-instant-and-convoke"
+summary = "Cast the white instant for `{1}{W}{W}` and use two white creatures for its colored symbols through Convoke."
+trace_required = true
+
+[[features]]
+id = "attacking-target-at-cast"
+summary = "After a real opposing Watchwolf is declared as an attacker, cast Devouring Light while it is still attacking and before blockers are declared."
+trace_required = true
+
+[[features]]
+id = "resolution-exiles-target"
+summary = "Resolve the spell and verify the exact attacking object changes from battlefield to exile before the game continues."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-and-replay"
+summary = "Continue play after the answer, reach a terminal game result, and reproduce the full seeded event log."
+trace_required = true
+
+[[features]]
+id = "targeted-semantic-mutations"
+summary = "Removing Convoke and broadening the spell to target any creature must both be detected by gameplay."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Color identity and colored costs", "117 Priority and instant timing", "301.1 Instants", "508 Attacker declaration", "601.2 Casting and target legality", "608.2b-c Target legality on resolution", "701.11 Exile", "702.50 Convoke"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Devouring Light"
+collector_number = 13
+url = "https://scryfall.com/card/rav/13/devouring-light"
+retained_data = "Public identity, mana cost, color, type, Convoke keyword, and attacking-or-blocking creature target behavior required by the trace"

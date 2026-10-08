@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 170
+definition_id = "RAV-HUNTED-TROLL"
+card_name = "Hunted Troll"
+printed_mana_cost = "{2}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 8
+toughness = 4
+keywords = []
+abilities = ["when this creature enters the battlefield, target opponent creates four 1/1 blue Faerie creature tokens with flying", "{G}: regenerate Hunted Troll"]
+source_authority = "RAV printed card identity and characteristics represented by candidate-owned card and ability bindings"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-creature-cast-and-entry"
+summary = "Cast a green 8/4 Hunted Troll with two generic and two green mana and check its live battlefield characteristics."
+trace_required = true
+
+[[features]]
+id = "opponent-only-etb-faerie-trigger"
+summary = "Select the opponent for the mandatory ETB trigger and create exactly four blue 1/1 Faeries with the Faerie subtype and Flying under that opponent's control."
+trace_required = true
+
+[[features]]
+id = "green-self-regeneration"
+summary = "In response to Brainspoil targeting this nonblack creature, pay one green mana for Hunted Troll's stack-backed self-regeneration ability; its shield replaces the legal destruction, taps the Troll, and keeps it on the battlefield."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-controls"
+summary = "Replay both full constructed games deterministically and reject body, trigger-removal, target-shape, token-identity, and regeneration-cost mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["110 and 111 Permanents and Tokens", "117 Timing and Priority", "302 Creatures", "601.2 Casting Spells", "603.2 and 603.3 Trigger Events and Target Selection", "608.2 Resolving Spells and Abilities", "701.15 Regeneration", "614.8 Replacement Effects"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Aug 10 Hobbit bulletin announced changes planned for its Aug 14 release; those changes are in the Aug 7 effective rules. The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

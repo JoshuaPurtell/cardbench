@@ -1,0 +1,3 @@
+# Rally the Righteous RAV card task
+
+This bundle covers Rally the Righteous (RAV #222), a `{1}{R}{W}` instant with Radiance: untap creatures that share a color with the target, then give those creatures +2/+0 for the turn. The reference uses two attacking Boros Swiftblades, pays Red/White/Red, and checks the live same-color untap and 3/2 states before blockers. A mono-green 2/3 blocks the targeted Swiftblade and dies to its first-strike damage before normal combat; the second Swiftblade deals damage in both combat steps to end the shuffled game. The reference report awards no RAV coverage or Harbor reward.

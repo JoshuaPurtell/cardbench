@@ -60,8 +60,9 @@ fn capability_manifest_claims_only_what_is_implemented() {
     assert_eq!(
         capabilities.verified_seat_counts,
         vec![2, 4],
-        "two seats are the duel fixtures; four are the M5 format fixtures in \
-         engine/tests/formats_m5.rs"
+        "two seats are the duel fixtures; four are M5 capability fixtures \
+         (formats_m5.rs) and the RAV Commander workload \
+         (rav_commander_workload.rs)"
     );
     assert_eq!(
         capabilities.format(FormatCapability::Duel),

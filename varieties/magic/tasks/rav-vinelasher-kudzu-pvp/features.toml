@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 189
+definition_id = "RAV-VINELASHER-KUDZU"
+card_name = "Vinelasher Kudzu"
+printed_mana_cost = "{1}{G}"
+colors = ["green"]
+card_types = ["creature"]
+printed_subtypes = ["Plant"]
+runtime_subtypes_asserted = false
+power = 1
+toughness = 1
+keywords = []
+abilities = ["Whenever a land comes into play under your control, put a +1/+1 counter on Vinelasher Kudzu."]
+source_authority = "Original RAV #189 printing identity and land-entry wording; current Oracle Landfall wording is reconciled as terminology only; CardDefinition cannot assert Plant subtype"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-cast-and-base-characteristics"
+summary = "Cast a green {1}{G} 1/1 Vinelasher Kudzu from an ordinary shuffled 60-card deck and capture its exact paid cost and battlefield entry."
+trace_required = true
+
+[[features]]
+id = "controlled-land-entry-trigger"
+summary = "After Kudzu enters, a land entering under its controller's control stacks exactly one mandatory trigger and adds one +1/+1 counter to that same source when the trigger resolves."
+trace_required = true
+
+[[features]]
+id = "opponent-land-does-not-trigger"
+summary = "An opposing land entry creates no trigger and no counter on the pilot's Vinelasher Kudzu."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "The legal full-game duel ends with a Player 0 win, replays deterministically, and detects altered cast identity, trigger condition or effect, missing trigger binding, and a parse-valid, type-correct side-effect source mutation before candidate calls."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["305.1-305.2: playing lands and land characteristics", "603.2-603.3: triggered ability occurrence and stacking", "608.2: resolving abilities", "122.1: counters"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original RAV printing and current Oracle record"
+card = "Vinelasher Kudzu"
+collector_number = 189
+url = "https://scryfall.com/card/rav/189/vinelasher-kudzu"
+retained_data = "Public card identity, cost, color, Plant subtype, 1/1 body, land-entry condition, controller scope, and source counter effect"
+
+[[source_references]]
+source = "Wizards Gatherer record"
+card = "Vinelasher Kudzu"
+collector_number = 189
+url = "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=83559"
+retained_data = "Official public identity and card record"
+
+[source_reconciliation]
+printed_wording = "Whenever a land comes into play under your control, put a +1/+1 counter on Vinelasher Kudzu."
+oracle_wording = "Landfall — Whenever a land you control enters, put a +1/+1 counter on this creature."
+semantic_difference = "Wording and Landfall keyword only: both trigger for a land entering under the Kudzu controller's control and put one +1/+1 counter on that Kudzu."
+subtype_limit = "RAV printing is Creature — Plant; CardDefinition currently exposes card types but not subtypes. Runtime identity is therefore Creature only, while source metadata retains Plant."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace follows the original RAV printed source contract, reconciled to the current Oracle terminology without replacing printed semantics."

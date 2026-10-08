@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-followed-footsteps-pvp"
+definition_id = "RAV-FOLLOWED-FOOTSTEPS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "followed_footsteps_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/followed_footsteps.rs"
+authority_bin = "rav-followed-footsteps-pvp"
+materializer = "varieties/magic/scripts/materialize_followed_footsteps_task.py"
+scorer = "varieties/magic/scripts/score_followed_footsteps_pvp.py"
+review_scope = "RAV #51 printed blue {3}{U}{U} Aura; Aura controller's upkeep scope and triggered-ability control; token control by Aura controller when enchanted creature has a different controller; exact Aura attachment and attached-creature incarnation; copied Watchwolf characteristics and source/target incarnation receipts; repeated upkeep trigger/token/copy/resolution event ordering; legal 60-card full-game terminal result; deterministic replay and source/semantic mutations; pinned module source and pre-call AST guard with side-effect injection rejection; source reconciliation, provenance, materializer and expected trusted-stub rejection"
+review_files = [
+  "adapters/harbor/bundles/followed_footsteps_card/README.md",
+  "adapters/harbor/bundles/followed_footsteps_card/instruction.md",
+  "adapters/harbor/bundles/followed_footsteps_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_followed_footsteps_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_followed_footsteps_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_followed_footsteps_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/followed_footsteps.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/tattered_drake.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/watchwolf.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/followed_footsteps_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/followed_footsteps_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/full_fidelity_simple_spells_contract.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-followed-footsteps-pvp/README.md",
+  "varieties/magic/tasks/rav-followed-footsteps-pvp/source-note.md",
+  "varieties/magic/tasks/rav-followed-footsteps-pvp/features.toml",
+  "varieties/magic/tasks/rav-followed-footsteps-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Followed Footsteps source differs from the pinned literal RAV module"
+
+[mutation]
+find = "condition: TriggerCondition::BeginningOfUpkeep"
+replace = "condition: TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep"
+expected_diagnostic = "Followed Footsteps source differs from the pinned literal RAV module"

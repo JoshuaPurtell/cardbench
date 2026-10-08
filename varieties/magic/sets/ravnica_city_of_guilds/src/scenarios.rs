@@ -150,7 +150,11 @@ pub(crate) fn run_public_scenarios() -> Result<Vec<ScenarioResult>, String> {
             Err(error) => failures.push(error),
         }
     }
-    if failures.is_empty() { Ok(results) } else { Err(failures.join("\n")) }
+    if failures.is_empty() {
+        Ok(results)
+    } else {
+        Err(failures.join("\n"))
+    }
 }
 
 /// Executes one named public scenario without first replaying the whole

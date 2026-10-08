@@ -1,0 +1,54 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 246
+definition_id = "RAV-GAZE-OF-THE-GORGON"
+card_name = "Gaze of the Gorgon"
+printed_mana_cost = "{3}{B/G}"
+colors = ["black", "green"]
+card_types = ["instant"]
+abilities = ["Target creature gets a regeneration shield; at this turn's next end of combat, destroy creatures that blocked or were blocked by it this turn"]
+source_authority = "RAV printing identity and functionality; Oracle wording is consulted only to interpret the printed end-of-combat timing and target reference"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "hybrid-instant-payment"
+summary = "Cast Gaze of the Gorgon from the shuffled pilot library and record generic and selected black-or-green hybrid payment."
+trace_required = true
+
+[[features]]
+id = "targeted-regeneration-shield"
+summary = "Resolve Gaze targeting the pilot's attacking creature after it is blocked, creating a shield tied to the exact spell and target objects."
+trace_required = true
+
+[[features]]
+id = "combat-block-history-delayed-destruction"
+summary = "At the next end of combat, the ordinary stack-backed delayed action captures and destroys the exact blocker recorded in this turn's combat history."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mechanic-mutation"
+summary = "Continue the same legal 60-card two-player game to a normal terminal win, reproduce it deterministically, and reject a candidate whose effect is removed."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "400.7 Object identity", "511 End of Combat Step", "701.15 Regenerate", "704 State-Based Actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Gaze of the Gorgon"
+collector_number = 246
+url = "https://www.lastdodo.fr/fr/items/829185-gaze-of-the-gorgon"
+retained_data = "Public identity, hybrid mana cost, colors, instant type, and the targeted regeneration and end-of-combat block-history effects required by this trace"
+
+[[source_references]]
+source = "Oracle interpretation"
+card = "Gaze of the Gorgon"
+collector_number = 246
+url = "https://mtg.wtf/card/rav/246/Gaze-of-the-Gorgon"
+retained_data = "Interpretive confirmation of next-end-of-combat timing; RAV printed wording remains controlling"

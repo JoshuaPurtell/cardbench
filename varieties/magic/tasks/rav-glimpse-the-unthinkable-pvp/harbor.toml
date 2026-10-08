@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-glimpse-the-unthinkable"
+definition_id = "RAV-GLIMPSE-THE-UNTHINKABLE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "glimpse_the_unthinkable_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/glimpse_the_unthinkable.rs"
+authority_bin = "rav-glimpse-the-unthinkable-pvp"
+materializer = "varieties/magic/scripts/materialize_glimpse_the_unthinkable_task.py"
+scorer = "varieties/magic/scripts/score_glimpse_the_unthinkable_pvp.py"
+review_scope = "Glimpse the Unthinkable RAV #208 identity, exact {U}{B} cost and blue-black color, targeted PlayerId(1), exactly ten distinct opponent library objects moved to graveyard, library delta, stack/resolution/terminal zone event order, deterministic replay, complete PvP game, and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/glimpse_the_unthinkable_card/README.md",
+  "adapters/harbor/bundles/glimpse_the_unthinkable_card/instruction.md",
+  "adapters/harbor/bundles/glimpse_the_unthinkable_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_glimpse_the_unthinkable_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_glimpse_the_unthinkable_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_glimpse_the_unthinkable_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/glimpse_the_unthinkable.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-glimpse-the-unthinkable-pvp/README.md",
+  "varieties/magic/tasks/rav-glimpse-the-unthinkable-pvp/features.toml",
+  "varieties/magic/tasks/rav-glimpse-the-unthinkable-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Glimpse identity or exact targeted-mill-ten definition differs"
+
+[mutation]
+find = "count: 9"
+replace = "count: 10"
+expected_diagnostic = "Glimpse identity or exact targeted-mill-ten definition differs"

@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-selesnya-evangel"
+definition_id = "RAV-SELESNYA-EVANGEL"
+expansion = "RAV"
+variant = "single-card"
+bundle = "selesnya_evangel_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_evangel.rs"
+authority_bin = "rav-selesnya-evangel-pvp"
+materializer = "varieties/magic/scripts/materialize_selesnya_evangel_task.py"
+scorer = "varieties/magic/scripts/score_selesnya_evangel_pvp.py"
+review_scope = "RAV Selesnya Evangel colored cast, activated-cost and stack resolution, Saproling token PvP trace, source contract, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/selesnya_evangel_card/README.md",
+  "adapters/harbor/bundles/selesnya_evangel_card/instruction.md",
+  "adapters/harbor/bundles/selesnya_evangel_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_selesnya_evangel_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_selesnya_evangel_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_selesnya_evangel_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/selesnya_evangel.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-selesnya-evangel-pvp/README.md",
+  "varieties/magic/tasks/rav-selesnya-evangel-pvp/features.toml",
+  "varieties/magic/tasks/rav-selesnya-evangel-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Selesnya Evangel activated ability did not create a green 1/1 Saproling"
+
+[mutation]
+find = "additional_tap_creatures: 1"
+replace = "additional_tap_creatures: 0"
+expected_diagnostic = "Selesnya Evangel additional creature tap cost was not paid"

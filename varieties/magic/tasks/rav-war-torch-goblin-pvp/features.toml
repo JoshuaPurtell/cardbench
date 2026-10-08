@@ -1,0 +1,59 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 151
+definition_id = "RAV-WAR-TORCH-GOBLIN"
+card_name = "War-Torch Goblin"
+printed_mana_cost = "{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+abilities = ["{R}, sacrifice this creature: deal 2 damage to target blocking creature"]
+source_authority = "RAV printing identity and characteristics, with the complete executable activated ability in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "cast-and-payment"
+summary = "Cast War-Torch Goblin from a shuffled library and pay exactly {R}; verify the spell resolves and the 1/1 enters the battlefield."
+trace_required = true
+
+[[features]]
+id = "legal-blocker-target"
+summary = "In an ordinary two-player game, Goblin Fire Fiend attacks and a live Terraformer is recorded as its blocker before War-Torch Goblin targets that blocking creature."
+trace_required = true
+
+[[features]]
+id = "red-sacrifice-activation"
+summary = "Pay {R}, sacrifice War-Torch Goblin as the activated ability cost, and verify the ability resolves after the source moves to its graveyard."
+trace_required = true
+
+[[features]]
+id = "damage-before-combat-and-lethal-sba"
+summary = "Deal exactly 2 damage to the declared blocker before combat damage; lethal damage causes the blocker to move to its graveyard while the blocked Fire Fiend remains in the game."
+trace_required = true
+
+[[features]]
+id = "later-attack-and-terminal-game"
+summary = "Goblin Fire Fiend attacks in a later combat and deals damage to the opponent before the same shuffled game reaches a terminal seat-zero win."
+trace_required = true
+
+[[features]]
+id = "semantic-and-cost-mutations"
+summary = "Full-game mutations to damage amount, activation color, tap cost, sacrifice cost, target boundary, and red casting cost each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "117 Priority", "120 Damage", "302.6 Summoning sickness", "509.1-509.2 Declaring blockers", "510.1-510.2 Combat damage", "601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities, targets, and costs", "608.2 Resolving an activated ability", "701.17 Sacrifice", "704.5g Lethal damage state-based action", "702.10 Haste"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "War-Torch Goblin"
+collector_number = 151
+url = "https://scryfall.com/card/rav/151/war-torch-goblin"
+retained_data = "Public card identity, mana cost, color, creature type, power/toughness, and activated sacrifice-and-damage operation needed by the trace"

@@ -1,0 +1,7 @@
+# Keening Banshee full-game card task
+
+Implement the candidate-owned Keening Banshee module at `varieties/magic/sets/ravnica_city_of_guilds/src/cards/keening_banshee.rs`. Keening Banshee is RAV collector #92: a black 2/2 Creature with Flying costing `{2}{B}{B}`. Its mandatory enters-the-battlefield trigger targets a creature and gives that exact creature -2/-2 until end of turn.
+
+The authority runs shuffled 60-card PvP decks. The opponent establishes a Watchwolf or Courier Hawk; the pilot casts Keening Banshee and chooses that exact opposing creature when the trigger's controller-only target decision opens. The trace checks the cast and colored payment, printed body, trigger stack and resolution with matching source incarnation, exact target object/controller/owner, layer-seven effect, and resulting characteristics or state-based-action destination. The Banshee then attacks through combat to a terminal pilot win. The authority replays the duel deterministically and detects five in-game semantic mutations: removed trigger, optionalized trigger, changed -2/-2 magnitude, changed body, and changed cost.
+
+This is a diagnostic pilot for one identity among 291 RAV card names and 306 printings. It awards zero card credit and zero reward. Do not run a Harbor/provider candidate trial for local reference validation. Materialize with `materialize_keening_banshee_task.py --workspace PATH --manifest PATH`; verify with the same command plus `--verify`.

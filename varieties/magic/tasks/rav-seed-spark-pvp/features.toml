@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 30
+definition_id = "RAV-SEED-SPARK"
+card_name = "Seed Spark"
+printed_mana_cost = "{3}{W}"
+colors = ["white"]
+card_types = ["instant"]
+keywords = []
+abilities = ["Destroy target artifact or enchantment, then create two green 1/1 Saproling creature tokens"]
+source_authority = "RAV printed identity, {3}{W} cost, white Instant type, artifact-or-enchantment target, ordered destruction, and two green 1/1 Saprolings represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-instant-exact-cost"
+summary = "Cast Seed Spark as a white {3}{W} Instant with one white mana and exactly four total mana recorded in the spell payment receipt."
+trace_required = true
+
+[[features]]
+id = "opposing-artifact-target-destroyed"
+summary = "Target the opponent's exact Boros Signet object, record Seed Spark as its destruction source, and move it to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "ordered-two-saproling-creation"
+summary = "After target destruction, record exactly two distinct green 1/1 Saproling creature tokens under the pilot's control before the spell resolution receipt."
+trace_required = true
+
+[[features]]
+id = "combat-terminal-replay-and-mutants"
+summary = "Continue both Saprolings into combat in a full shuffled duel through the terminal win, replay deterministically, and detect five gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and choosing targets", "608.2 Resolving spells and following printed instruction order", "701.7 Destroying permanents", "111.1 and 111.3 Token creation and characteristics", "508.1 Declaring attackers", "510.1 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

@@ -1,0 +1,34 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-conclaves-blessing"
+definition_id = "RAV-CONCLAVES-BLESSING"
+expansion = "RAV"
+variant = "single-card"
+bundle = "conclaves_blessing_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/conclaves_blessing.rs"
+authority_bin = "rav-conclaves-blessing-pvp"
+materializer = "varieties/magic/scripts/materialize_conclaves_blessing_task.py"
+scorer = "varieties/magic/scripts/score_conclaves_blessing_pvp.py"
+review_scope = "Conclave's Blessing full-game diagnostic, 291-name/306-printing denominator, white Aura and Convoke payment, opposing creature attachment, Aura-controller-relative live toughness, terminal combat, replay, gameplay mutations, authority stubbing and compile-valid isolated task workspace"
+review_files = [
+  "adapters/harbor/bundles/conclaves_blessing_card/README.md",
+  "adapters/harbor/bundles/conclaves_blessing_card/instruction.md",
+  "adapters/harbor/bundles/conclaves_blessing_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_conclaves_blessing_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_conclaves_blessing_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_conclaves_blessing_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/conclaves_blessing.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-conclaves-blessing-pvp/README.md",
+  "varieties/magic/tasks/rav-conclaves-blessing-pvp/features.toml",
+  "varieties/magic/tasks/rav-conclaves-blessing-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Conclave's Blessing literal is outside the task source contract"
+
+[mutation]
+find = "toughness_per_creature: 2"
+replace = "toughness_per_creature: 1"
+expected_diagnostic = "Conclave's Blessing literal is outside the task source contract"

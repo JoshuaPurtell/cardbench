@@ -1,0 +1,1 @@
+Implement the RAV Dromad Purebred card module. Preserve the printed 1/5 creature identity and bind its nonoptional received-positive-damage trigger to life equal to the damage dealt. Use the legal 60-card PvP trace and follow the task manifest's source contract, mutation, and compile-valid stub gates.

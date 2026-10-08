@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 104
+definition_id = "RAV-SEWERDREG"
+card_name = "Sewerdreg"
+printed_mana_cost = "{3}{B}{B}"
+colors = ["black"]
+card_types = ["creature"]
+power = 3
+toughness = 3
+keywords = ["fear"]
+abilities = ["{B}: regenerate Sewerdreg"]
+source_authority = "RAV printed semantics represented by the candidate-owned definition and activated ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "black-creature-cast-and-entry"
+summary = "Pay exactly {3}{B}{B} to cast Sewerdreg and check its live black 3/3 creature characteristics and Fear after resolution."
+trace_required = true
+
+[[features]]
+id = "self-regeneration-response"
+summary = "When Char targets Sewerdreg, pay exactly {B} for its no-target self-regeneration ability and preserve the source incarnation through resolution."
+trace_required = true
+
+[[features]]
+id = "regeneration-replaces-lethal-damage"
+summary = "Check that the regeneration shield is created and consumed as Char resolves, tapping Sewerdreg while leaving it alive on the battlefield."
+trace_required = true
+
+[[features]]
+id = "fear-combat-legality"
+summary = "Attack with live Fear and reject a nonblack nonartifact Elves of Deep Shadow block attempt without changing game state before accepting empty blockers and dealing combat damage."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutants"
+summary = "Replay the shuffled full game deterministically and detect compiled wrong-color regeneration and Fear-removal mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 and 202.1-202.2 Colored Mana Costs", "117 Timing and Priority", "302 Creatures", "508 Declaring Attackers", "509 Declaring Blockers", "601.2 Casting Spells", "608.2 Resolving Spells and Abilities", "614.8 Regeneration Replacement Effects", "702.36 Fear", "701.15 Regeneration"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

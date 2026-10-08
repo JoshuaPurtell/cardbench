@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-undercity-shade-pvp"
+definition_id = "RAV-UNDERCITY-SHADE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "undercity_shade_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/undercity_shade.rs"
+authority_bin = "rav-undercity-shade-pvp"
+materializer = "varieties/magic/scripts/materialize_undercity_shade_task.py"
+scorer = "varieties/magic/scripts/score_undercity_shade_pvp.py"
+review_scope = "Undercity Shade #110 printed black {4}{B} 1/1 Creature — Shade identity (subtype not runtime-asserted), Fear including the artifact-or-black blocker exception, {B} self-pump, legal terminal full-game duel, cast and activation payment, rejected nonblack/nonartifact block with atomicity, cleanup expiry and restored base stats, deterministic replay, semantic mutation, source-shape guard, materialization, and zero-credit scoring"
+review_files = [
+  "adapters/harbor/bundles/undercity_shade_card/README.md",
+  "adapters/harbor/bundles/undercity_shade_card/instruction.md",
+  "adapters/harbor/bundles/undercity_shade_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_undercity_shade_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_undercity_shade_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_undercity_shade_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/undercity_shade.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/undercity_shade_full_fidelity.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/undercity_shade_full_fidelity_red.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-undercity-shade-pvp/README.md",
+  "varieties/magic/tasks/rav-undercity-shade-pvp/source-note.md",
+  "varieties/magic/tasks/rav-undercity-shade-pvp/features.toml",
+  "varieties/magic/tasks/rav-undercity-shade-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Undercity Shade ability effects: literal vector content differs"
+
+[mutation]
+find = "Keyword::BlackEvasion"
+replace = "Keyword::Flying"
+expected_diagnostic = "Undercity Shade keywords: literal vector content differs"

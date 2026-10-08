@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 171
+definition_id = "RAV-IVY-DANCER"
+card_name = "Ivy Dancer"
+printed_mana_cost = "{2}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 1
+toughness = 2
+keywords = []
+abilities = ["{T}: target creature gains Forestwalk until end of turn"]
+source_authority = "RAV printing identity and candidate-owned definition and activated ability; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-base-characteristics"
+summary = "Cast Ivy Dancer for {2}{G} and verify its green 1/2 creature characteristics."
+trace_required = true
+
+[[features]]
+id = "targeted-forestwalk-activation"
+summary = "Tap Ivy Dancer to give a target creature Forestwalk until end of turn; verify the target and effect duration."
+trace_required = true
+
+[[features]]
+id = "landwalk-blocking-legality"
+summary = "While the defending player controls a Forest, verify the engine rejects an attempted block of the Forestwalk attacker and the legal game assigns no such block."
+trace_required = true
+
+[[features]]
+id = "complete-legal-game-and-mutations"
+summary = "Continue the deterministic legal duel to a seat-zero win; detect gameplay mutations to the Forestwalk effect, activation cost, casting cost, power, and toughness."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.6 Summoning sickness", "508.1 Declaring attackers", "509.1-509.2 Declaring blockers and landwalk legality", "510.1-510.2 Combat damage", "601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities", "608.2 Resolving abilities", "611.2 Until-end-of-turn effects", "702.14 Landwalk"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Ivy Dancer"
+collector_number = 171
+url = "https://scryfall.com/card/rav/171/ivy-dancer"
+retained_data = "Public card identity, mana cost, color, creature type, power/toughness, and activated ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

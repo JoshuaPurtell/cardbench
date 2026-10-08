@@ -1,0 +1,3 @@
+# Flame-Kin Zealot task bundle
+
+Implement Flame-Kin Zealot as the red-white `{1}{R}{R}{W}` 2/2 Creature and provide its mandatory, target-free team-pump/Haste ETB binding. The authority checks a legal shuffled full duel, exact cast payment, trigger ordering, resolution-time changes to allied and opposing creature characteristics, a same-turn attack by the newly entered Zealot, deterministic replay, and semantic mutations. Before calling either candidate function, it validates the pinned normalized source and AST shape; a compile-valid injected process-exit side effect must be rejected without execution. The diagnostic grants no card credit or reward.

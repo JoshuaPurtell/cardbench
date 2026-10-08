@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-keening-banshee"
+definition_id = "RAV-KEENING-BANSHEE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "keening_banshee_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/keening_banshee.rs"
+authority_bin = "rav-keening-banshee-pvp"
+materializer = "varieties/magic/scripts/materialize_keening_banshee_task.py"
+scorer = "varieties/magic/scripts/score_keening_banshee_pvp.py"
+review_scope = "Keening Banshee RAV #92 identity and {2}{B}{B} cost, black 2/2 Creature with Flying, mandatory ETB creature target and exact -2/-2 effect, controller-only target choice, exact target object/controller/owner, layer-seven effect and post-resolution characteristics or state-based-action destination, trigger source incarnation, later Banshee combat, terminal PvP win, deterministic replay, five semantic gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/keening_banshee_card/README.md",
+  "adapters/harbor/bundles/keening_banshee_card/instruction.md",
+  "adapters/harbor/bundles/keening_banshee_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_keening_banshee_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_keening_banshee_pvp.py",
+  "varieties/magic/session/src/bin/rav_keening_banshee_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/keening_banshee.rs",
+  "varieties/magic/tasks/rav-keening-banshee-pvp/README.md",
+  "varieties/magic/tasks/rav-keening-banshee-pvp/features.toml",
+  "varieties/magic/tasks/rav-keening-banshee-pvp/harbor.toml",
+]
+
+[mutation]
+find = "power: -2,"
+replace = "power: -1,"
+expected_diagnostic = "Keening Banshee candidate definition or mandatory ETB trigger differs from the RAV source contract"

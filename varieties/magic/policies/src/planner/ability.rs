@@ -85,7 +85,7 @@ fn best_opposing_creature(
     let attacking_only = requirement == TargetRequirement::AttackingOrBlockingCreature;
     board
         .their_creatures()
-        .filter(|permanent| !permanent.has(&Keyword::Shroud))
+        .filter(|permanent| target::targetable(board, permanent))
         .filter(|permanent| {
             !attacking_only
                 || board
@@ -115,7 +115,7 @@ fn best_damage_target(
     let killable = if requirement_hits_creature(requirement) {
         board
             .their_creatures()
-            .filter(|permanent| !permanent.has(&Keyword::Shroud))
+            .filter(|permanent| target::targetable(board, permanent))
             .filter(|permanent| permanent.toughness <= damage)
             .max_by(|left, right| {
                 creature_value(left, weights).total_cmp(&creature_value(right, weights))

@@ -1,0 +1,31 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-leave-no-trace"
+definition_id = "RAV-LEAVE-NO-TRACE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "leave_no_trace_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/leave_no_trace.rs"
+authority_bin = "rav-leave-no-trace-pvp"
+materializer = "varieties/magic/scripts/materialize_leave_no_trace_task.py"
+scorer = "varieties/magic/scripts/score_leave_no_trace_pvp.py"
+review_scope = "Leave No Trace RAV #23 identity and {1}{W} cost, Radiance destruction of the target and other enchantments sharing its color across both players, preservation of an off-color enchantment, ordered source/destruction/move/resolve receipts, terminal PvP win, deterministic replay, three gameplay mutations, source authority, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/leave_no_trace_card/README.md",
+  "adapters/harbor/bundles/leave_no_trace_card/instruction.md",
+  "adapters/harbor/bundles/leave_no_trace_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_leave_no_trace_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_leave_no_trace_pvp.py",
+  "varieties/magic/session/src/bin/rav_leave_no_trace_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/leave_no_trace.rs",
+  "varieties/magic/tasks/rav-leave-no-trace-pvp/README.md",
+  "varieties/magic/tasks/rav-leave-no-trace-pvp/features.toml",
+  "varieties/magic/tasks/rav-leave-no-trace-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Leave No Trace candidate or registry differs from the exact RAV #23 identity and Radiance instruction"
+
+[mutation]
+find = "Effect::RadianceDestroyEnchantments"
+replace = "Effect::DestroyTargetArtifactOrEnchantment"
+expected_diagnostic = "Leave No Trace candidate or registry differs from the exact RAV #23 identity and Radiance instruction"

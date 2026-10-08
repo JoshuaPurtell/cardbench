@@ -1,0 +1,58 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 56
+definition_id = "RAV-INDUCE-PARANOIA"
+card_name = "Induce Paranoia"
+printed_mana_cost = "{2}{U}{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = []
+abilities = ["counter target spell; if black mana was spent to cast this spell, mill its controller equal to the target spell's mana value"]
+source_authority = "CardBench-authored semantic summary of the RAV printing; current Oracle is used only for interpretation"
+oracle_reconciliation = "The RAV printing's top-X-to-graveyard and converted-mana-cost wording is represented by the equivalent current Oracle mill and mana-value interpretation."
+model_limitations = "The effect is represented as a typed target-physical-spell counter and a captured-color conditional mill; no card subtype is asserted because this is an instant."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-and-targeted-cast"
+summary = "Cast the blue {2}{U}{U} instant during the opposing Carven Caryatid spell's response window and target that exact physical spell."
+trace_required = true
+
+[[features]]
+id = "counter-provenance-and-normal-zone"
+summary = "Record Induce Paranoia countering only the chosen target, followed by that target's move to its owner's graveyard and the source spell's normal terminal move."
+trace_required = true
+
+[[features]]
+id = "black-spent-mana-value-mill"
+summary = "When Black was actually spent on Induce Paranoia, mill exactly three cards because the target spell has mana value 3; compare their identities and order to the target controller's library-top snapshot before the response."
+trace_required = true
+
+[[features]]
+id = "no-black-control"
+summary = "With the same target spell and no Black spent, counter it without moving any card from the target controller's library to the graveyard."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-replay-and-mutations"
+summary = "Continue both shuffled 60-card games to a seat-zero win, require deterministic replay, and detect removal of conditional milling, a changed mana-color condition, and a changed spell cost."
+trace_required = true
+
+[[features]]
+id = "pre-call-source-validation"
+summary = "Validate normalized candidate source and literal AST shape before candidate calls; reject an injected compile-valid side-effect function."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106 Mana", "117 Priority", "115 Targets", "202.3 Mana value", "601.2 Casting spells", "608 Resolving spells", "701.5 Countering", "701.13 Milling", "510 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

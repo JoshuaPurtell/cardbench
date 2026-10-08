@@ -1,4 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
+#[path = "commander_replacement.rs"]
+mod commander_replacement;
+#[cfg(test)]
+#[path = "commander_tests.rs"]
+mod commander_tests;
+#[cfg(test)]
+#[path = "multiplayer_combat_tests.rs"]
+mod multiplayer_combat_tests;
+#[path = "pregame.rs"]
+mod pregame;
+#[path = "warp_world.rs"]
+mod warp_world;
+pub use pregame::{LondonPregame, MulliganChoice, PregameEvent, PregamePrompt};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -17,8 +30,8 @@ use crate::{
     DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
-    DelayedActionTiming, Duration, Effect, EntryCharacteristicOverride, EntryCoinFlipBinding,
-    EntryCopyBinding, EntryCopySnapshot, ExiledSpellCopyMember, GameEvent,
+    DelayedActionTiming, Duration, Effect, EntryAttachmentBinding, EntryCharacteristicOverride,
+    EntryCoinFlipBinding, EntryCopyBinding, EntryCopySnapshot, ExiledSpellCopyMember, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
     GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
     LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
@@ -339,6 +352,18 @@ pub enum PolicyAction {
         pay: bool,
         target: Option<Target>,
     },
+    /// Resolves the same optional trigger decision while explicitly naming
+    /// mana abilities activated atomically as part of its resolution-time
+    /// payment. This is not a priority window; the payment abilities and the
+    /// optional cost either all succeed together or the transition rolls back.
+    ResolveOptionalTriggeredAbilityWithManaPayment {
+        decision: DecisionId,
+        source: ObjectId,
+        ability: &'static str,
+        pay: bool,
+        target: Option<Target>,
+        mana_abilities: Vec<ResolutionPaymentManaAbility>,
+    },
     /// Submits an answer to the one current typed decision. The exact
     /// `DecisionId` is mandatory: a response to an earlier prompt cannot
     /// accidentally resolve a later matching source/ability prompt.
@@ -432,7 +457,8 @@ impl PolicyAction {
                 PolicyMoveKind::ChooseTriggeredAbilityEffectObject
             }
             Self::ChooseDamageReplacement { .. } => PolicyMoveKind::ChooseDamageReplacement,
-            Self::ResolveOptionalTriggeredAbility { .. } => {
+            Self::ResolveOptionalTriggeredAbility { .. }
+            | Self::ResolveOptionalTriggeredAbilityWithManaPayment { .. } => {
                 PolicyMoveKind::ResolveOptionalTriggeredAbility
             }
             Self::SubmitDecision { .. } => PolicyMoveKind::SubmitDecision,
@@ -471,8 +497,9 @@ pub struct CardView {
     pub controller: PlayerId,
     pub tapped: bool,
     pub colors: BTreeSet<Color>,
+    /// Colors the land's live intrinsic mana ability can produce.
     pub mana_colors: BTreeSet<Color>,
-    /// Typed basic-land type line, when this card's expansion registered one.
+    /// Current typed basic-land type after active continuous effects.
     pub basic_land_type: Option<BasicLandType>,
     pub card_types: BTreeSet<CardType>,
     /// Live keywords after every continuous effect, not the printed list. A
@@ -615,6 +642,9 @@ pub struct TriggeredAbilityEffectObjectChoiceView {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingDecisionView {
     pub id: DecisionId,
+    /// An already-revealed Warp World entrant whose as-enter choice is
+    /// pending. This is not a general hidden-zone source projection.
+    pub source: Option<CardView>,
     pub kind: DecisionKind,
     pub visibility: DecisionVisibility,
     pub min_selections: u8,
@@ -623,6 +653,10 @@ pub struct PendingDecisionView {
     /// stays separate from `candidates`, whose card views may be private for
     /// library and hand selections.
     pub target_candidates: Vec<Target>,
+    /// One legal ordered completion of a triggered target decision, computed
+    /// from public target legality (including cross-slot constraints). This is
+    /// not a strategic recommendation; the flat union above is not a tuple.
+    pub legal_target_selection: Option<Vec<Target>>,
     pub candidates: Vec<CardView>,
     /// Public identities available only for a simultaneous-trigger ordering
     /// continuation. A source can expose more than one independently
@@ -673,6 +707,11 @@ pub struct GameView {
     pub mana_pool: crate::ManaPool,
     pub lands_played: u8,
     pub hand: Vec<CardView>,
+    /// Public command-zone identities, never merged into a player's hand.
+    pub command_zone: Vec<CardView>,
+    pub commander_taxes: BTreeMap<ObjectId, u32>,
+    pub combat_defenders: Vec<(ObjectId, DefenderChoice)>,
+    pub submitted_blocks: Vec<(PlayerId, Vec<CombatBlock>)>,
     /// Every currently nonempty library top made public by a live
     /// battlefield-only effect. This is absent entirely when no registered
     /// reveal source is live, so policies never receive an ordinary hidden
@@ -709,7 +748,13 @@ pub struct GameView {
     /// for the controller-only candidates of a resolving Transmute search.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
+    pub teammates: Vec<PlayerId>,
+    pub teammate_battlefield: Vec<CardView>,
     pub opponent_battlefield: Vec<CardView>,
+    /// Living seats and the permanents each currently controls. Added beside
+    /// `opponent_battlefield` so a pod can see who owns what without rewriting
+    /// the concatenated field frozen v1–v8 still read.
+    pub battlefields_by_seat: Vec<(PlayerId, Vec<CardView>)>,
     pub combat_attackers: Vec<CardView>,
     pub attackers_declared: bool,
     pub blockers_declared: bool,
@@ -799,6 +844,8 @@ struct CombatState {
     /// The defender each attacker named. Absent for a derived declaration,
     /// which keeps every existing two-seat receipt byte-identical.
     attacker_defenders: BTreeMap<ObjectId, DefenderChoice>,
+    /// APNAP declarations collected without granting priority between seats.
+    submitted_blocks: BTreeMap<PlayerId, Vec<CombatBlock>>,
     attackers_declared: bool,
     blockers_declared: bool,
     /// Sources that assigned damage in the first-strike damage step. They
@@ -1101,6 +1148,19 @@ struct GlobalCombatDamagePrevention {
     expires_turn: u32,
 }
 
+/// An independent current-turn replacement for every damage packet from a
+/// creature source. The controller is frozen at resolution because the
+/// delayed life gain belongs to the resolving spell's controller, even after
+/// its source leaves the stack.
+#[derive(Clone, Debug)]
+struct GlobalCreatureDamagePrevention {
+    id: u64,
+    source: ObjectId,
+    source_is_virtual: bool,
+    controller: PlayerId,
+    expires_turn: u32,
+}
+
 /// An independent current-turn rule effect that changes who makes combat's
 /// mandatory turn-based declarations without changing any creature's
 /// controller. The source can leave the stack normally; its captured
@@ -1153,6 +1213,7 @@ pub struct Game {
     mana_ability_costs: BTreeMap<(&'static str, &'static str), ManaAbilityCostBinding>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     attachment_bindings: BTreeMap<&'static str, AttachmentBinding>,
+    entry_attachment_bindings: BTreeMap<&'static str, EntryAttachmentBinding>,
     entry_copy_bindings: BTreeMap<&'static str, EntryCopyBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
@@ -1191,6 +1252,11 @@ pub struct Game {
     /// still satisfied an earlier "attacked this turn" condition, while a
     /// returned object has a fresh incarnation and cannot inherit it.
     attacked_creature_incarnations_this_turn: BTreeSet<(ObjectId, u64)>,
+    /// Positive committed damage this turn, keyed by exact source and
+    /// creature-recipient battlefield incarnations. A matching dies trigger
+    /// must use this historical pair and must see its observer before the
+    /// source leaves in the same or a later zone-change batch.
+    damaged_creature_by_source_incarnations_this_turn: BTreeSet<(ObjectId, u64, ObjectId, u64)>,
     /// Exact current graveyard incarnations of non-token creature cards that
     /// moved there from the battlefield during this turn. A later zone change
     /// removes the candidate, and the next Untap boundary clears the turn
@@ -1369,11 +1435,14 @@ pub struct Game {
     damage_prevention_shields: Vec<DamagePreventionShield>,
     combat_damage_preventions: Vec<CombatDamagePrevention>,
     global_combat_damage_preventions: Vec<GlobalCombatDamagePrevention>,
+    global_creature_damage_preventions: Vec<GlobalCreatureDamagePrevention>,
     combat_declaration_authorities: Vec<CombatDeclarationAuthority>,
     /// Teammates who still owe their draw in a shared team turn. Each draw is
     /// its own replacement decision, so they are opened one at a time in
     /// seating order rather than as one simultaneous prompt.
     pending_team_draws: Vec<PlayerId>,
+    /// Shared-turn Cleanup choices are collected before any card is discarded.
+    pending_cleanup_discards: BTreeMap<PlayerId, Vec<ObjectId>>,
     /// Named-format rules that are inert until a caller configures them. An
     /// unconfigured game is exactly the duel/free-for-all substrate that every
     /// existing fixture and replay digest was measured against.
@@ -1411,6 +1480,26 @@ struct CommanderRecord {
 /// `None` for an ordinary game, and every read path short-circuits on that.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct FormatRules {
+    warp_world: BTreeMap<(StackObjectId, usize), warp_world::PendingWarp>,
+    commander_selected_returns: BTreeMap<StackObjectId, commander_replacement::SelectedReturns>,
+    commander_zone_choices:
+        BTreeMap<(StackObjectId, usize, ObjectId), (u64, Option<Zone>, Zone, bool)>,
+    /// One-use permission consumed synchronously while completing a draw.
+    commander_draw_choice: Option<(ObjectId, u64, Zone, bool)>,
+    /// Remaining serial card draws for one suspended stack instruction. The
+    /// existing commander replacement continuation uses this for command-zone
+    /// choices; ordinary Dredge replacement decisions share the same cursor.
+    commander_stack_draws: BTreeMap<(StackObjectId, usize), (PlayerId, usize)>,
+    /// The recipient declined Dredge for the current draw in one suspended
+    /// stack instruction. It clears as soon as that ordinary draw commits.
+    spell_draw_dredge_declined: BTreeSet<(StackObjectId, usize)>,
+    commander_revealed_cards: BTreeMap<(StackObjectId, usize), (ObjectId, u8)>,
+    commander_group_draws: BTreeMap<StackObjectId, Vec<PlayerId>>,
+    commander_activation: Option<commander_replacement::PendingActivation>,
+    /// Unchecked graveyard/exile arrivals, keyed by exact zone incarnation.
+    commander_arrivals: BTreeMap<ObjectId, (u64, Zone)>,
+    /// APNAP choices are collected before the simultaneous SBA moves occur.
+    commander_returns: Vec<(ObjectId, u64, Zone)>,
     /// Team membership indexed by seat. Empty means the game has no teams.
     team_of_seat: Vec<TeamId>,
     /// Seats per team, in seating order. Empty means the game has no teams.
@@ -1612,6 +1701,7 @@ impl Game {
             mana_ability_costs: BTreeMap::new(),
             activated_abilities: BTreeMap::new(),
             attachment_bindings: BTreeMap::new(),
+            entry_attachment_bindings: BTreeMap::new(),
             entry_copy_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_attack_restrictions: BTreeMap::new(),
@@ -1636,6 +1726,7 @@ impl Game {
             spell_timing_exceptions: BTreeSet::new(),
             noncreature_spell_casters_this_turn: BTreeSet::new(),
             attacked_creature_incarnations_this_turn: BTreeSet::new(),
+            damaged_creature_by_source_incarnations_this_turn: BTreeSet::new(),
             creature_cards_put_into_graveyard_from_battlefield_this_turn: BTreeSet::new(),
             virtual_spell_copies: BTreeMap::new(),
             deferred_virtual_sources: BTreeMap::new(),
@@ -1699,8 +1790,10 @@ impl Game {
             damage_prevention_shields: Vec::new(),
             combat_damage_preventions: Vec::new(),
             global_combat_damage_preventions: Vec::new(),
+            global_creature_damage_preventions: Vec::new(),
             combat_declaration_authorities: Vec::new(),
             pending_team_draws: Vec::new(),
+            pending_cleanup_discards: BTreeMap::new(),
             format: FormatRules::default(),
         };
         // Construction is the first observable state-machine boundary. Do not
@@ -1942,6 +2035,71 @@ impl Game {
             return Err(error);
         }
         Ok(())
+    }
+
+    /// Registers non-targeting as-enters Equipment attachment choices before
+    /// the game begins. The legal endpoint restriction is inherited from the
+    /// source's typed [`AttachmentBinding`], so entry attachment cannot drift
+    /// from ordinary Equip legality or create an ETB stack object.
+    pub fn register_entry_attachment_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = EntryAttachmentBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment bindings cannot be changed after the game starts",
+            ));
+        }
+        let previous = self.entry_attachment_bindings.clone();
+        let mut next = previous.clone();
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            let attachment = self.attachment_bindings.get(binding.card_definition);
+            if !definition.is_permanent()
+                || !definition.card_types.contains(&CardType::Artifact)
+                || !definition.effects.is_empty()
+                || attachment.is_none_or(|attachment| {
+                    attachment.kind != AttachmentKind::Equipment
+                        || !Self::attachment_target_requirement_is_permanent(attachment.target)
+                })
+                || attachment.is_some_and(|attachment| {
+                    self.entry_attachment_has_matching_trigger(binding.card_definition, attachment)
+                })
+                || next.insert(binding.card_definition, binding).is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-attachment binding requires a unique effect-free Equipment with typed attachment data",
+                ));
+            }
+        }
+        self.entry_attachment_bindings = next;
+        if let Err(error) = self.validate_invariants() {
+            self.entry_attachment_bindings = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn entry_attachment_has_matching_trigger(
+        &self,
+        definition: &'static str,
+        attachment: &AttachmentBinding,
+    ) -> bool {
+        self.triggered_abilities
+            .get(definition)
+            .is_some_and(|abilities| {
+                abilities.values().any(|ability| {
+                    ability.condition == TriggerCondition::EntersBattlefield
+                        && ability.effects.iter().any(|effect| {
+                            Self::attachment_effect_spec(effect).is_some_and(|(target, changes)| {
+                                target == attachment.target && changes == attachment.changes
+                            })
+                        })
+                })
+            })
     }
 
     /// Registers source-bound generic-cost reductions before the game begins.
@@ -2233,6 +2391,7 @@ impl Game {
                     TriggerCondition::EntersBattlefield
                         | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
                         | TriggerCondition::ControlledAuraEntersBattlefield
+                        | TriggerCondition::AuraBecomesAttachedToSource
                         | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
@@ -2250,7 +2409,9 @@ impl Game {
                         | TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
+                        | TriggerCondition::DamagedCreatureBySourceDiesThisTurn
                         | TriggerCondition::AnotherCreatureLeavesBattlefield
+                        | TriggerCondition::AnotherCreatureTokenLeavesBattlefield
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::ControlledNontokenCreatureDies
                         | TriggerCondition::ControllerSacrificesCreatureOfColor(_)
@@ -2776,17 +2937,28 @@ impl Game {
     /// every live-game field change inside that same journal: an invalid
     /// deferred binding must leave the caller able to repair setup and retry.
     fn begin_game_impl(&mut self) -> Result<(), RulesError> {
+        self.begin_game_from_impl(PlayerId(0))
+    }
+
+    fn begin_game_from_impl(&mut self, first: PlayerId) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction("the game has already begun"));
         }
         self.require_game_in_progress()?;
+        if self.player(first)?.lost {
+            return Err(RulesError::IllegalAction(
+                "starting player has left the game",
+            ));
+        }
         self.started = true;
-        self.active_player = PlayerId(0);
-        self.priority = PlayerId(0);
+        self.active_player = first;
+        self.priority = first;
         self.step = Step::Untap;
         self.turn = 1;
         self.noncreature_spell_casters_this_turn.clear();
         self.attacked_creature_incarnations_this_turn.clear();
+        self.damaged_creature_by_source_incarnations_this_turn
+            .clear();
         self.validate_attachment_relative_trigger_bindings()?;
         self.consecutive_passes = 0;
         self.start_step()?;
@@ -3347,7 +3519,7 @@ impl Game {
                     "only an Aura may enter attached without being cast",
                 ));
             }
-            if !game.target_matches_for_source(
+            if !game.attachment_matches_for_source(
                 game.controller_of(attachment)?,
                 attachment,
                 Target::Permanent(target),
@@ -3502,7 +3674,67 @@ impl Game {
         self.validate_invariants()
     }
 
-    /// Designates one owned object as a seat's commander.
+    /// Loads a standard Commander deck through trusted legality metadata.
+    /// Unlike the explicit fixture seams, this enforces 100 cards, legal
+    /// commander combinations, singleton exceptions and full color identity.
+    /// Metadata must be host-owned and versioned, never supplied by a policy.
+    pub fn load_commander_deck(
+        &mut self,
+        player: PlayerId,
+        deck: &crate::CommanderDeck,
+        metadata: &crate::CommanderCatalog,
+    ) -> Result<(), RulesError> {
+        deck.validate(metadata)
+            .map_err(|_| RulesError::IllegalAction("illegal or unsupported Commander deck"))?;
+        self.atomic_transition(|game| {
+            if game.started
+                || game.format.has_teams()
+                || game
+                    .format
+                    .commander_damage_threshold
+                    .is_some_and(|threshold| threshold != 21)
+                || game
+                    .format
+                    .commanders
+                    .values()
+                    .any(|record| record.owner == player)
+            {
+                return Err(RulesError::IllegalAction(
+                    "standard Commander requires an uninitialized free-for-all seat",
+                ));
+            }
+            if !game.player(player)?.command.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "standard Commander requires an empty command zone",
+                ));
+            }
+            for entry in &deck.deck.mainboard {
+                if !game.catalog.contains_key(entry.card.as_str()) {
+                    return Err(RulesError::UnknownDefinition(
+                        "Commander deck card lacks an executable definition",
+                    ));
+                }
+            }
+            game.load_deck_into_library_impl(player, &deck.deck)?;
+            game.format.commander_damage_threshold = Some(21);
+            game.players[player.0].life = 40;
+            for commander in &deck.commanders {
+                let card = game.players[player.0]
+                    .library
+                    .iter()
+                    .copied()
+                    .find(|card| game.objects[card].definition == Some(commander.as_str()))
+                    .ok_or(RulesError::IllegalAction(
+                        "validated commander missing from library",
+                    ))?;
+                game.designate_commander(player, card)?;
+            }
+            game.shuffle_library_and_record(player)?;
+            Ok(())
+        })
+    }
+
+    /// Designates one owned object as a seat's commander (fixture seam).
     ///
     /// A commander that is not already on the battlefield starts in the
     /// command zone, which is where CR 903.6 puts it. A fixture that seats a
@@ -3692,6 +3924,25 @@ impl Game {
             DefenderChoice::Team(team) => {
                 self.format.teams.get(team.0).cloned().unwrap_or_default()
             }
+        }
+    }
+
+    /// CR 805.10d: either teammate can block an attacker aimed at one of them.
+    /// This must not change the individual recipient of combat damage.
+    fn blocking_seats_for(&self, choice: DefenderChoice) -> Vec<PlayerId> {
+        if let DefenderChoice::Player(player) = choice
+            && let Some(team) = self.format.team_of(player)
+        {
+            return self.defending_seats_for(DefenderChoice::Team(team));
+        }
+        self.defending_seats_for(choice)
+    }
+
+    fn landwalk_defender(&self, attacker: ObjectId, fallback: PlayerId) -> PlayerId {
+        match self.attacking_defender(attacker) {
+            Some(DefenderChoice::Player(player)) => player,
+            // Legacy Team-only fixture declarations have no individual target.
+            _ => fallback,
         }
     }
 
@@ -4104,6 +4355,7 @@ impl Game {
         mana_payment_selection: Option<&ManaPaymentSelection>,
         generalized_cost_payment: &AbilityCostPayment,
     ) -> Result<(), RulesError> {
+        let requested_activation = activation.clone();
         let source_zone = self
             .zone_of(activation.source)
             .ok_or(RulesError::UnknownCard(activation.source))?;
@@ -4473,6 +4725,17 @@ impl Game {
                 ));
             }
         }
+        if self.suspend_commander_activation(
+            player,
+            source.incarnation,
+            GeneralizedAbilityActivation {
+                activation: requested_activation,
+                cost_payment: generalized_cost_payment.clone(),
+                mana_payment_selection: mana_payment_selection.cloned(),
+            },
+        )? {
+            return Ok(());
+        }
         for (counter, amount) in source_counter_values {
             self.record_event(GameEvent::SourceCounterValueMaterialized {
                 source: activation.source,
@@ -4670,6 +4933,7 @@ impl Game {
             ability: ability.id,
         });
         self.enqueue_creature_becomes_target_triggers(&trigger_targets)?;
+        self.format.commander_activation = None;
         // Activation costs and the ability's stack placement form one
         // transition.  Leave every trigger observed while paying those costs
         // pending until the enclosing public activation boundary has run the
@@ -5151,6 +5415,9 @@ impl Game {
             || !self
                 .creature_cards_put_into_graveyard_from_battlefield_this_turn
                 .is_empty()
+            || !self
+                .damaged_creature_by_source_incarnations_this_turn
+                .is_empty()
             || self.objects.values().any(|object| {
                 object.attached_to.is_some()
                     && object
@@ -5326,14 +5593,30 @@ impl Game {
                 decision.player == player || decision.visibility == DecisionVisibility::Public
             })
             .map(|decision| {
+                let source = if let DecisionContinuation::WarpWorld {
+                    stack,
+                    effect_index,
+                } = decision.continuation
+                {
+                    self.format
+                        .warp_world
+                        .get(&(stack, effect_index))
+                        .and_then(|state| state.source_card())
+                        .map(|card| self.card_view(card))
+                        .transpose()?
+                } else {
+                    None
+                };
                 self.decision_candidate_cards(decision)
                     .map(|candidates| PendingDecisionView {
                         id: decision.id,
+                        source,
                         kind: decision.kind,
                         visibility: decision.visibility,
                         min_selections: decision.min_selections,
                         max_selections: decision.max_selections,
                         target_candidates: Self::decision_target_candidates(decision),
+                        legal_target_selection: self.decision_legal_target_selection(decision),
                         candidates,
                         trigger_candidates: Self::decision_trigger_candidates(decision),
                         replacement_candidates: Self::decision_replacement_candidates(decision),
@@ -5347,6 +5630,12 @@ impl Game {
             .as_ref()
             .filter(|decision| decision.player == player)
             .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::WarpWorld { .. } | DecisionContinuation::CommanderReturn { .. } | DecisionContinuation::CommanderZoneReplacement { .. }
+                    | DecisionContinuation::CommanderDrawReplacement { .. }
+                    | DecisionContinuation::CommanderActivationReplacement { .. }
+                    | DecisionContinuation::CommanderDredgeReplacement { .. }
+                    | DecisionContinuation::SpellDredgeReplacement { .. }
+                    | DecisionContinuation::SpellCommanderDredgeReplacement { .. } => None,
                 DecisionContinuation::LibrarySearch {
                     source,
                     destination,
@@ -5411,6 +5700,7 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::PermanentEntryAttachment { .. }
                 | DecisionContinuation::LegendRule { .. }
                 | DecisionContinuation::CleanupDiscard { .. } => None,
             })
@@ -5438,6 +5728,12 @@ impl Game {
             .as_ref()
             .filter(|decision| decision.player == player)
             .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::WarpWorld { .. } | DecisionContinuation::CommanderReturn { .. } | DecisionContinuation::CommanderZoneReplacement { .. }
+                    | DecisionContinuation::CommanderDrawReplacement { .. }
+                    | DecisionContinuation::CommanderActivationReplacement { .. }
+                    | DecisionContinuation::CommanderDredgeReplacement { .. }
+                    | DecisionContinuation::SpellDredgeReplacement { .. }
+                    | DecisionContinuation::SpellCommanderDredgeReplacement { .. } => None,
                 DecisionContinuation::TriggeredAbilityTargets {
                     source,
                     controller,
@@ -5495,6 +5791,7 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::PermanentEntryAttachment { .. }
                 | DecisionContinuation::LegendRule { .. }
                 | DecisionContinuation::CleanupDiscard { .. } => None,
             });
@@ -5528,6 +5825,12 @@ impl Game {
             .as_ref()
             .filter(|decision| decision.player == player)
             .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::WarpWorld { .. } | DecisionContinuation::CommanderReturn { .. } | DecisionContinuation::CommanderZoneReplacement { .. }
+                    | DecisionContinuation::CommanderDrawReplacement { .. }
+                    | DecisionContinuation::CommanderActivationReplacement { .. }
+                    | DecisionContinuation::CommanderDredgeReplacement { .. }
+                    | DecisionContinuation::SpellDredgeReplacement { .. }
+                    | DecisionContinuation::SpellCommanderDredgeReplacement { .. } => None,
                 DecisionContinuation::TriggeredEffectObject {
                     source, ability, ..
                 } => Some((decision.id, *source, *ability)),
@@ -5566,6 +5869,7 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::PermanentEntryAttachment { .. }
                 | DecisionContinuation::LegendRule { .. }
                 | DecisionContinuation::CleanupDiscard { .. } => None,
             })
@@ -5591,6 +5895,12 @@ impl Game {
             .as_ref()
             .filter(|decision| decision.player == player)
             .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::WarpWorld { .. } | DecisionContinuation::CommanderReturn { .. } | DecisionContinuation::CommanderZoneReplacement { .. }
+                    | DecisionContinuation::CommanderDrawReplacement { .. }
+                    | DecisionContinuation::CommanderActivationReplacement { .. }
+                    | DecisionContinuation::CommanderDredgeReplacement { .. }
+                    | DecisionContinuation::SpellDredgeReplacement { .. }
+                    | DecisionContinuation::SpellCommanderDredgeReplacement { .. } => None,
                 DecisionContinuation::DamageReplacement {
                     source,
                     source_incarnation,
@@ -5669,6 +5979,7 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::PermanentEntryAttachment { .. }
                 | DecisionContinuation::LegendRule { .. }
                 | DecisionContinuation::CleanupDiscard { .. } => None,
             });
@@ -5678,7 +5989,7 @@ impl Game {
             // A departed seat is not a current opponent. In particular, a
             // policy must not be handed a life-total target that the rules
             // layer will reject as eliminated.
-            candidate.id != player && !candidate.lost
+            self.are_opponents(player, candidate.id) && !candidate.lost
         }) {
             opponent_life.push((opponent.id, opponent.life));
         }
@@ -5687,7 +5998,7 @@ impl Game {
                 .into_iter()
                 .filter(|card| {
                     self.controller_of(*card)
-                        .is_ok_and(|controller| controller != player)
+                        .is_ok_and(|controller| self.are_opponents(player, controller))
                 })
                 .map(|card| self.card_view(card))
                 .collect::<Result<Vec<_>, _>>()?,
@@ -5732,6 +6043,34 @@ impl Game {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let teammate_battlefield = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|card| {
+                self.controller_of(*card).is_ok_and(|controller| {
+                    controller != player && !self.are_opponents(player, controller)
+                })
+            })
+            .map(|card| self.card_view(card))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut battlefields_by_seat: Vec<(PlayerId, Vec<CardView>)> = self
+            .players
+            .iter()
+            .filter(|seat| !seat.lost)
+            .map(|seat| (seat.id, Vec::new()))
+            .collect();
+        for card in own_battlefield
+            .iter()
+            .chain(teammate_battlefield.iter())
+            .chain(opponent_battlefield.iter())
+        {
+            if let Some((_, cards)) = battlefields_by_seat
+                .iter_mut()
+                .find(|(seat, _)| *seat == card.controller)
+            {
+                cards.push(card.clone());
+            }
+        }
         Ok(GameView {
             player,
             active_player: self.active_player,
@@ -5744,6 +6083,26 @@ impl Game {
             mana_pool: state.mana_pool.clone(),
             lands_played: state.lands_played,
             hand,
+            command_zone: self
+                .players
+                .iter()
+                .flat_map(|seat| seat.command.iter().copied())
+                .map(|card| self.card_view(card))
+                .collect::<Result<Vec<_>, _>>()?,
+            commander_taxes: self
+                .format
+                .commanders
+                .keys()
+                .map(|card| (*card, self.commander_tax(*card) as u32))
+                .collect(),
+            combat_defenders: self.combat.as_ref().map_or_else(Vec::new, |combat| {
+                combat
+                    .attacker_defenders
+                    .iter()
+                    .map(|(card, defender)| (*card, *defender))
+                    .collect()
+            }),
+            submitted_blocks: self.submitted_defender_blocks(),
             revealed_library_tops,
             draw_replacement_pending,
             draw_replacement_decision,
@@ -5758,7 +6117,17 @@ impl Game {
             damage_replacement_choice,
             transmute_searches: Vec::new(),
             own_battlefield,
+            teammates: self
+                .players
+                .iter()
+                .filter(|seat| {
+                    seat.id != player && !seat.lost && !self.are_opponents(player, seat.id)
+                })
+                .map(|seat| seat.id)
+                .collect(),
+            teammate_battlefield,
             opponent_battlefield,
+            battlefields_by_seat,
             combat_attackers,
             attackers_declared,
             blockers_declared,
@@ -5887,7 +6256,31 @@ impl Game {
                 target,
             } => {
                 self.resolve_optional_triggered_ability(
-                    player, decision, source, ability, pay, target,
+                    player,
+                    decision,
+                    source,
+                    ability,
+                    pay,
+                    target,
+                    &[],
+                )?;
+            }
+            PolicyAction::ResolveOptionalTriggeredAbilityWithManaPayment {
+                decision,
+                source,
+                ability,
+                pay,
+                target,
+                mana_abilities,
+            } => {
+                self.resolve_optional_triggered_ability(
+                    player,
+                    decision,
+                    source,
+                    ability,
+                    pay,
+                    target,
+                    &mana_abilities,
                 )?;
             }
             PolicyAction::SubmitDecision {
@@ -6043,6 +6436,7 @@ impl Game {
             .filter(|effect| matches!(effect.change.layer(), Layer::Type | Layer::Color))
         {
             self.apply_timestamped_continuous_change_to_characteristics(
+                effect.source,
                 card,
                 &mut characteristics,
                 &effect.change,
@@ -6095,6 +6489,7 @@ impl Game {
                 }
                 AbilityLayerChange::Timestamped(effect) => {
                     self.apply_timestamped_continuous_change_to_characteristics(
+                        effect.source,
                         card,
                         &mut characteristics,
                         &effect.change,
@@ -6109,6 +6504,7 @@ impl Game {
             )
         }) {
             self.apply_timestamped_continuous_change_to_characteristics(
+                effect.source,
                 card,
                 &mut characteristics,
                 &effect.change,
@@ -6126,6 +6522,7 @@ impl Game {
             )
         }) {
             self.apply_timestamped_continuous_change_to_characteristics(
+                effect.source,
                 card,
                 &mut characteristics,
                 &effect.change,
@@ -6144,6 +6541,7 @@ impl Game {
             })
         {
             self.apply_timestamped_continuous_change_to_characteristics(
+                effect.source,
                 card,
                 &mut characteristics,
                 &effect.change,
@@ -6177,6 +6575,7 @@ impl Game {
     #[allow(clippy::too_many_lines)] // Closed-world layered characteristic changes remain auditable in one dispatcher.
     fn apply_timestamped_continuous_change_to_characteristics(
         &self,
+        source: ObjectId,
         card: ObjectId,
         characteristics: &mut Characteristics,
         change: &ContinuousChange,
@@ -6260,6 +6659,26 @@ impl Game {
                 .map_err(|_| {
                     RulesError::IllegalAction(
                         "other controlled creature count exceeds supported range",
+                    )
+                })?;
+                characteristics.power = characteristics
+                    .power
+                    .map(|current| current + i32::from(*power_per_creature) * count);
+                characteristics.toughness = characteristics
+                    .toughness
+                    .map(|current| current + i32::from(*toughness_per_creature) * count);
+            }
+            ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledBySource {
+                power_per_creature,
+                toughness_per_creature,
+            } => {
+                let count = i32::try_from(self.controlled_creature_count_other_than(
+                    self.controller_of(source)?,
+                    Some(card),
+                ))
+                .map_err(|_| {
+                    RulesError::IllegalAction(
+                        "other source-controller creature count exceeds supported range",
                     )
                 })?;
                 characteristics.power = characteristics
@@ -6980,7 +7399,7 @@ impl Game {
         allow_reattachment: bool,
     ) -> Result<(), RulesError> {
         self.require_zone(attachment, Zone::Battlefield)?;
-        if !self.target_matches_for_source(
+        if !self.attachment_matches_for_source(
             self.controller_of(attachment)?,
             attachment,
             Target::Permanent(target),
@@ -7053,6 +7472,34 @@ impl Game {
                 }),
             }
         }
+        if binding.kind == AttachmentKind::Aura {
+            self.enqueue_aura_becomes_attached_to_source_triggers(target)?;
+        }
+        Ok(())
+    }
+
+    /// Captures abilities of the exact permanent to which this Aura became
+    /// attached. The attached permanent, rather than the Aura's controller,
+    /// controls the trigger. This also handles an Aura controlled by an
+    /// opponent and an Aura that was already on the battlefield and is
+    /// reattached through a represented effect.
+    fn enqueue_aura_becomes_attached_to_source_triggers(
+        &mut self,
+        source: ObjectId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield) {
+            return Ok(());
+        }
+        let Some(definition) = self.effective_definition_id(source)? else {
+            return Ok(());
+        };
+        let controller = self.controller_of(source)?;
+        self.enqueue_triggers_for_source(
+            source,
+            definition,
+            controller,
+            TriggerCondition::AuraBecomesAttachedToSource,
+        );
         Ok(())
     }
 
@@ -7159,7 +7606,10 @@ impl Game {
                     toughness: *toughness,
                 }],
             )),
-            Effect::AttachSourceToTarget { target, changes } => Some((*target, changes.clone())),
+            Effect::AttachSourceToTarget { target, changes }
+            | Effect::AttachSourceToTappedTarget { target, changes } => {
+                Some((*target, changes.clone()))
+            }
             _ => None,
         }
     }
@@ -7331,6 +7781,66 @@ impl Game {
         self.move_to_zone(target, Zone::Hand)
     }
 
+    /// Returns the exact creature enchanted by this Aura and all Auras
+    /// attached to that creature to their respective owners' hands. Capture
+    /// the whole attachment group before moving any member so the source Aura
+    /// and sibling Auras do not disappear from the group as zone changes
+    /// detach them.
+    fn return_source_attached_permanent_and_auras_to_owners_hands(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<(), RulesError> {
+        let Some((creature, auras)) =
+            self.source_attached_creature_and_auras(source, source_incarnation)?
+        else {
+            return Ok(());
+        };
+
+        for aura in auras {
+            self.move_to_zone(aura, Zone::Hand)?;
+        }
+        self.move_to_zone(creature, Zone::Hand)
+    }
+
+    /// Captures the creature enchanted by one exact Aura incarnation plus
+    /// every Aura attached to that exact creature incarnation. The returned
+    /// Aura IDs are sorted so all callers process the same deterministic
+    /// group before moving the creature itself.
+    fn source_attached_creature_and_auras(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<Option<(ObjectId, Vec<ObjectId>)>, RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+        {
+            return Ok(None);
+        }
+        let Some((creature, creature_incarnation)) = self.current_attached_creature(source)? else {
+            return Ok(None);
+        };
+
+        let mut auras = Vec::new();
+        for candidate in self.all_battlefield_cards() {
+            if self.is_aura_like(candidate)? {
+                let object = self.object(candidate)?;
+                if object.attached_to == Some(creature)
+                    && object.attached_to_incarnation == Some(creature_incarnation)
+                {
+                    auras.push(candidate);
+                }
+            }
+        }
+        auras.sort_unstable();
+        if !auras.contains(&source) {
+            return Err(RulesError::IllegalAction(
+                "attached-Aura return source lost its exact attachment",
+            ));
+        }
+        Ok(Some((creature, auras)))
+    }
+
     /// Exiles the resolving controller's current hand and, while the exact
     /// source permanent still exists, links its post-exile object
     /// incarnations to that source. The effect itself does not require a live
@@ -7425,15 +7935,19 @@ impl Game {
                 && self.object_has_incarnation(member.object, member.exile_incarnation)
             {
                 self.move_to_zone(member.object, Zone::Hand)?;
-                returned.push(member.object);
+                if self.zone_of(member.object) == Some(Zone::Hand) {
+                    returned.push(member.object);
+                }
             }
         }
-        self.record_event(GameEvent::LinkedHandExileReturned {
-            controller,
-            source,
-            source_incarnation,
-            cards: returned,
-        });
+        if !returned.is_empty() {
+            self.record_event(GameEvent::LinkedHandExileReturned {
+                controller,
+                source,
+                source_incarnation,
+                cards: returned,
+            });
+        }
         Ok(())
     }
 
@@ -7886,7 +8400,7 @@ impl Game {
                     // primary. If that fresh incarnation is no longer a
                     // legal enchant target, it remains in its current zone
                     // rather than entering unattached for an SBA cleanup.
-                    if !self.target_matches_for_source(
+                    if !self.attachment_matches_for_source(
                         controller,
                         aura.object,
                         Target::Permanent(primary),
@@ -8456,6 +8970,41 @@ impl Game {
             .map_or(default, |authority| authority.controller)
     }
 
+    /// Public combat information, including an attack split across opponents.
+    pub fn attacking_defender(&self, attacker: ObjectId) -> Option<DefenderChoice> {
+        let combat = self.combat.as_ref()?;
+        if !combat.attackers.contains(&attacker) {
+            return None;
+        }
+        combat
+            .attacker_defenders
+            .get(&attacker)
+            .copied()
+            .or_else(|| combat.defending_player.map(DefenderChoice::Player))
+    }
+
+    pub fn are_opponents(&self, player: PlayerId, other: PlayerId) -> bool {
+        player != other
+            && !(self.format.team_of(player).is_some()
+                && self.format.team_of(player) == self.format.team_of(other))
+    }
+
+    /// Public APNAP declarations already announced in the current blocker step.
+    pub fn submitted_defender_blocks(&self) -> Vec<(PlayerId, Vec<CombatBlock>)> {
+        self.combat.as_ref().map_or_else(Vec::new, |combat| {
+            combat
+                .defending_seats
+                .iter()
+                .filter_map(|seat| {
+                    combat
+                        .submitted_blocks
+                        .get(seat)
+                        .map(|blocks| (*seat, blocks.clone()))
+                })
+                .collect()
+        })
+    }
+
     /// Performs the turn-based action of declaring attackers in the current combat.
     pub fn declare_attackers(
         &mut self,
@@ -8467,10 +9016,8 @@ impl Game {
 
     /// Declares attackers while naming what each one attacks.
     ///
-    /// Every attacker must name the same defending seat or team. Splitting one
-    /// combat across two defenders is legal Magic but is deliberately rejected
-    /// here: blockers are declared once, by one authority, and admitting a
-    /// split would make one seat declare blocks for another's creatures.
+    /// Each attacker may name a different defending seat. Defenders declare
+    /// their own blocks in APNAP order, with no intervening priority window.
     pub fn declare_attackers_against(
         &mut self,
         player: PlayerId,
@@ -8489,11 +9036,24 @@ impl Game {
         })
     }
 
+    /// Living free-for-all opponents of `player`. Team games return 0 so the
+    /// untargeted team-derivation path stays in charge.
+    fn living_ffa_opponent_count(&self, player: PlayerId) -> usize {
+        if self.format.team_of(player).is_some() {
+            return 0;
+        }
+        self.players
+            .iter()
+            .filter(|seat| !seat.lost && self.are_opponents(player, seat.id))
+            .count()
+    }
+
     /// Resolves what one attack declaration is aimed at.
     ///
-    /// A declaration with no named defender keeps the derived next-living-seat
-    /// behavior, which is what every existing fixture and replay digest was
-    /// measured against. A team game derives the opposing team instead,
+    /// Two-seat duels and a pod that has already collapsed to one living
+    /// opponent keep the derived next-living-seat behavior. A nonempty FFA
+    /// attack with more than one living opponent must name a defender before
+    /// this helper runs. A team game derives the sole opposing team instead,
     /// because a teammate is never a legal defender.
     fn resolve_attack_defenders(
         &self,
@@ -8524,11 +9084,18 @@ impl Game {
             return self.resolve_attack_defenders(None);
         };
         if defenders.iter().any(|choice| *choice != first) {
-            return Err(RulesError::IllegalAction(
-                "every attacker in one combat must attack the same seat or team",
-            ));
+            let mut seats = Vec::new();
+            for choice in defenders {
+                let (_, group) = self.resolve_attack_defenders(Some(&[*choice]))?;
+                seats.extend(group);
+            }
+            seats.sort_by_key(|seat| {
+                (seat.0 + self.players.len() - self.active_player.0) % self.players.len()
+            });
+            seats.dedup();
+            return Ok((None, seats));
         }
-        let seats = self.defending_seats_for(first);
+        let seats = self.blocking_seats_for(first);
         if seats.is_empty() {
             return Err(RulesError::IllegalAction("unknown defending team"));
         }
@@ -8577,6 +9144,14 @@ impl Game {
         if defenders.is_some_and(|defenders| defenders.len() != attackers.len()) {
             return Err(RulesError::IllegalAction(
                 "every declared attacker needs exactly one defender",
+            ));
+        }
+        if defenders.is_none()
+            && !attackers.is_empty()
+            && self.living_ffa_opponent_count(player) > 1
+        {
+            return Err(RulesError::IllegalAction(
+                "a multiplayer attack must name which opponent it attacks",
             ));
         }
         let (defender_choice, defending_seats) = self.resolve_attack_defenders(defenders)?;
@@ -8697,7 +9272,13 @@ impl Game {
         combat.landwalk_attackers = landwalk_attackers;
         combat.defending_player = Some(defending_player);
         combat.defending_seats = defending_seats;
-        if let Some(choice) = defender_choice {
+        if let Some(choices) = defenders {
+            combat.attacker_defenders = attackers
+                .iter()
+                .copied()
+                .zip(choices.iter().copied())
+                .collect();
+        } else if let Some(choice) = defender_choice {
             combat.attacker_defenders = attackers
                 .iter()
                 .map(|attacker| (*attacker, choice))
@@ -8743,16 +9324,72 @@ impl Game {
         player: PlayerId,
         assignments: &[CombatBlock],
     ) -> Result<(), RulesError> {
+        let split = !self.format.has_teams()
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| combat.defending_seats.len() > 1);
+        if !split {
+            return self.declare_blockers_for_impl(player, assignments, None);
+        }
+        let combat = self
+            .combat
+            .as_ref()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        let next = combat
+            .defending_seats
+            .iter()
+            .copied()
+            .find(|seat| !self.players[seat.0].lost && !combat.submitted_blocks.contains_key(seat))
+            .ok_or(RulesError::IllegalAction(
+                "all defenders have declared blocks",
+            ))?;
+        self.declare_blockers_for_impl(player, assignments, Some(next))?;
+        let combat = self.combat.as_ref().expect("validated combat");
+        if combat
+            .defending_seats
+            .iter()
+            .any(|seat| !self.players[seat.0].lost && !combat.submitted_blocks.contains_key(seat))
+        {
+            return Ok(());
+        }
+        let all = combat
+            .defending_seats
+            .iter()
+            .flat_map(|seat| {
+                combat
+                    .submitted_blocks
+                    .get(seat)
+                    .into_iter()
+                    .flatten()
+                    .cloned()
+            })
+            .collect::<Vec<_>>();
+        let representative = combat.defending_player.expect("declared defender");
+        self.declare_blockers_for_impl(
+            self.combat_declaration_authority(representative),
+            &all,
+            None,
+        )
+    }
+
+    fn declare_blockers_for_impl(
+        &mut self,
+        player: PlayerId,
+        assignments: &[CombatBlock],
+        collecting_seat: Option<PlayerId>,
+    ) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
         // The declaring authority is the seat this combat was aimed at. A duel
         // derives the same seat it always did; a team declares once for the
         // whole team, which is faithful because teammates share every fact
         // that a blocker declaration depends on.
-        let normal_defender = self
-            .combat
-            .as_ref()
-            .and_then(|combat| combat.defending_player)
-            .unwrap_or_else(|| self.next_player(self.active_player));
+        let normal_defender = collecting_seat.unwrap_or_else(|| {
+            self.combat
+                .as_ref()
+                .and_then(|combat| combat.defending_player)
+                .unwrap_or_else(|| self.next_player(self.active_player))
+        });
         if self.step != Step::DeclareBlockers
             || player != self.combat_declaration_authority(normal_defender)
         {
@@ -8773,7 +9410,9 @@ impl Game {
         // Blocker legality is seat membership in the attacked group. Outside
         // team play that group is exactly `[defending_player]`, so a duel and
         // an existing pod fixture take an identical path.
-        let defending_seats = if combat.defending_seats.is_empty() {
+        let defending_seats = if let Some(seat) = collecting_seat {
+            vec![seat]
+        } else if combat.defending_seats.is_empty() {
             vec![defending_player]
         } else {
             combat.defending_seats.clone()
@@ -8850,6 +9489,14 @@ impl Game {
             // team, where the blocker may belong to either teammate.
             let blocker_controller = self.controller_of(assignment.blocker)?;
             if !defending_seats.contains(&blocker_controller)
+                || combat
+                    .attacker_defenders
+                    .get(&assignment.attacker)
+                    .is_some_and(|choice| {
+                        !self
+                            .blocking_seats_for(*choice)
+                            .contains(&blocker_controller)
+                    })
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
@@ -8907,7 +9554,10 @@ impl Game {
                 .get(&assignment.attacker)
                 .is_some_and(|land_types| {
                     land_types.iter().any(|land_type| {
-                        self.player_controls_basic_land_type(blocker_controller, *land_type)
+                        self.player_controls_basic_land_type(
+                            self.landwalk_defender(assignment.attacker, blocker_controller),
+                            *land_type,
+                        )
                     })
                 })
             {
@@ -8931,6 +9581,15 @@ impl Game {
                     return false;
                 };
                 if !defending_seats.contains(&defending_player) {
+                    return false;
+                }
+                if combat
+                    .attacker_defenders
+                    .get(attacker)
+                    .is_some_and(|choice| {
+                        !self.blocking_seats_for(*choice).contains(&defending_player)
+                    })
+                {
                     return false;
                 }
                 let Ok(object) = self.object(candidate) else {
@@ -8980,7 +9639,10 @@ impl Game {
                     .get(attacker)
                     .is_some_and(|land_types| {
                         land_types.iter().any(|land_type| {
-                            self.player_controls_basic_land_type(defending_player, *land_type)
+                            self.player_controls_basic_land_type(
+                                self.landwalk_defender(*attacker, defending_player),
+                                *land_type,
+                            )
                         })
                     })
                 {
@@ -9022,6 +9684,12 @@ impl Game {
             if !combat.attackers.contains(&attacker)
                 || blocker_unblockable_attackers.contains(&attacker)
                 || !defending_seats.contains(&defending_player)
+                || combat
+                    .attacker_defenders
+                    .get(&attacker)
+                    .is_some_and(|choice| {
+                        !self.blocking_seats_for(*choice).contains(&defending_player)
+                    })
             {
                 continue;
             }
@@ -9057,7 +9725,7 @@ impl Game {
                                 |land_types| {
                                     land_types.iter().any(|land_type| {
                                         self.player_controls_basic_land_type(
-                                            defending_player,
+                                            self.landwalk_defender(attacker, defending_player),
                                             *land_type,
                                         )
                                     })
@@ -9081,6 +9749,14 @@ impl Game {
                     "a creature required to block the source did not block it",
                 ));
             }
+        }
+        if let Some(seat) = collecting_seat {
+            self.combat
+                .as_mut()
+                .expect("validated combat")
+                .submitted_blocks
+                .insert(seat, assignments.to_vec());
+            return self.validate_invariants();
         }
         let history = assignments
             .iter()
@@ -9123,13 +9799,26 @@ impl Game {
         combat.must_be_blocked_attackers = blocker_must_be_blocked_attackers;
         combat.landwalk_attackers = blocker_landwalk_attackers;
         combat.blockers_declared = true;
-        self.record_event(GameEvent::BlockersDeclared {
-            player,
-            assignments: assignments
-                .iter()
-                .map(|assignment| (assignment.attacker, assignment.blocker))
-                .collect(),
-        });
+        let submitted = std::mem::take(&mut combat.submitted_blocks);
+        if submitted.is_empty() {
+            self.record_event(GameEvent::BlockersDeclared {
+                player,
+                assignments: assignments
+                    .iter()
+                    .map(|a| (a.attacker, a.blocker))
+                    .collect(),
+            });
+        } else {
+            let order = combat.defending_seats.clone();
+            for seat in order {
+                if let Some(blocks) = submitted.get(&seat) {
+                    self.record_event(GameEvent::BlockersDeclared {
+                        player: self.combat_declaration_authority(seat),
+                        assignments: blocks.iter().map(|a| (a.attacker, a.blocker)).collect(),
+                    });
+                }
+            }
+        }
         self.consecutive_passes = 0;
         // CR 509.2: after all blocks are declared, the attacking player
         // orders each multi-block group before either player receives
@@ -9410,6 +10099,7 @@ impl Game {
         let (spell_targets, additional_cost_selections) =
             self.split_cast_targets(&definition, &request.targets)?;
         self.validate_targets(player, &definition, &spell_targets)?;
+        self.validate_cast_time_target_restrictions(&definition.effects, &spell_targets)?;
         if let Some(x_value) = chosen_x {
             self.validate_chosen_x_targets(&definition, &spell_targets, x_value)?;
         }
@@ -9760,7 +10450,9 @@ impl Game {
                         let Target::Permanent(card) = target else {
                             return Err(RulesError::IllegalTarget(target));
                         };
-                        if self.permanent_mana_value(card)? > i16::from(x_value) {
+                        if !effect
+                            .chosen_x_allows_mana_value(self.permanent_mana_value(card)?, x_value)
+                        {
                             return Err(RulesError::IllegalTarget(target));
                         }
                     }
@@ -9986,6 +10678,24 @@ impl Game {
             }
             return Ok(());
         };
+        if self.started && self.is_commander(card) {
+            let incarnation = self.object(card)?.incarnation;
+            self.clear_pending_draw_replacement();
+            self.open_pending_decision(
+                player,
+                DecisionVisibility::Private,
+                DecisionKind::CommanderZoneReplacement,
+                0,
+                1,
+                vec![DecisionOption::Object(card)],
+                DecisionContinuation::CommanderDrawReplacement {
+                    player,
+                    commander: card,
+                    incarnation,
+                },
+            )?;
+            return Ok(());
+        }
         self.move_to_zone(card, Zone::Hand)?;
         if resolves_pending_draw {
             self.clear_pending_draw_replacement();
@@ -10137,9 +10847,6 @@ impl Game {
             ));
         }
 
-        self.stack.pop().ok_or(RulesError::IllegalAction(
-            "private library choice stack spell disappeared before resolution",
-        ))?;
         self.pending_private_library_choice = None;
         if life_payment > 0 {
             self.adjust_life(player, -i64::from(life_payment));
@@ -10149,10 +10856,39 @@ impl Game {
                 amount: life_payment,
             });
         }
-        for card in choice.cards {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "paid library look lost its stack",
+        ))?;
+        self.finish_paid_library_look(top, &choice.cards, selected)
+    }
+
+    fn finish_paid_library_look(
+        &mut self,
+        top: StackObject,
+        cards: &[ObjectId],
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let spell = top.card;
+        if selected.iter().any(|card| self.is_commander(*card)) {
+            self.format.commander_selected_returns.insert(
+                top.id,
+                commander_replacement::SelectedReturns::PaidLook {
+                    cards: cards.to_vec(),
+                    selected: selected.to_vec(),
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format.commander_selected_returns.remove(&top.id);
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "paid library look lost its stack",
+        ))?;
+        for card in cards {
             self.move_to_zone(
-                card,
-                if selected.contains(&card) {
+                *card,
+                if selected.contains(card) {
                     Zone::Hand
                 } else {
                     Zone::Graveyard
@@ -10374,6 +11110,142 @@ impl Game {
             ));
         }
         match decision.continuation.clone() {
+            DecisionContinuation::WarpWorld { stack, effect_index } => {
+                self.resolve_warp_world_decision(&decision, stack, effect_index, selection)
+            }
+            DecisionContinuation::CommanderDredgeReplacement { player, commander, incarnation, amount } => {
+                self.validate_commander_dredge_replacement(&decision)?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                self.format.commander_draw_choice = Some((commander, incarnation, Zone::Graveyard, !selected.is_empty()));
+                self.move_to_zone(commander, Zone::Hand)?;
+                self.record_event(GameEvent::Dredged { player, card: commander, count: amount });
+                self.priority = player;
+                self.open_next_team_turn_draw()?;
+                if self.pending_draw_replacement.is_none() { self.check_state_based_actions_impl()?; }
+                Ok(())
+            }
+            DecisionContinuation::SpellDredgeReplacement {
+                stack,
+                effect_index,
+                player,
+                optional_trigger,
+                counter_payment,
+                counter_discard,
+            } => {
+                self.validate_spell_dredge_replacement(&decision, stack, effect_index, player)?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                self.complete_spell_dredge_replacement(
+                    stack,
+                    effect_index,
+                    player,
+                    selected.into_iter().next(),
+                    optional_trigger,
+                    counter_payment,
+                    counter_discard,
+                )
+            }
+            DecisionContinuation::SpellCommanderDredgeReplacement {
+                stack,
+                effect_index,
+                player,
+                commander,
+                incarnation,
+                amount,
+                optional_trigger,
+                counter_payment,
+                counter_discard,
+            } => {
+                self.validate_spell_commander_dredge_replacement(
+                    &decision,
+                    stack,
+                    effect_index,
+                    player,
+                    commander,
+                    incarnation,
+                    amount,
+                )?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                self.complete_spell_commander_dredge_replacement(
+                    stack,
+                    effect_index,
+                    player,
+                    commander,
+                    incarnation,
+                    amount,
+                    !selected.is_empty(),
+                    optional_trigger,
+                    counter_payment,
+                    counter_discard,
+                )
+            }
+            DecisionContinuation::CommanderActivationReplacement { commander, .. } => {
+                self.validate_commander_activation_replacement(&decision)?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                let pending = self.format.commander_activation.as_mut().expect("validated activation");
+                pending.choices.get_mut(&commander).expect("validated cost choice").3 = Some(!selected.is_empty());
+                let player = pending.player;
+                let request = pending.request.clone();
+                self.priority = player;
+                self.activate_ability_impl(player, request.activation,
+                    request.mana_payment_selection.as_ref(), &request.cost_payment)?;
+                if self.pending_decision.is_none() {
+                    self.check_state_based_actions_impl()?;
+                    self.flush_pending_dies_triggers()?;
+                }
+                Ok(())
+            }
+            DecisionContinuation::CommanderDrawReplacement { player, commander, incarnation } => {
+                self.validate_commander_draw_replacement(&decision)?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                self.format.commander_draw_choice = Some((commander, incarnation, Zone::Library, !selected.is_empty()));
+                self.move_to_zone(commander, Zone::Hand)?;
+                self.priority = player;
+                self.open_next_team_turn_draw()?;
+                self.check_state_based_actions_impl()?;
+                Ok(())
+            }
+            DecisionContinuation::CommanderZoneReplacement {
+                stack, effect_index, commander, incarnation, from, to,
+                optional_trigger, counter_payment, counter_discard,
+            } => {
+                self.validate_commander_zone_replacement(&decision)?;
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.complete_pending_decision(&decision)?;
+                self.format.commander_zone_choices.insert(
+                    (stack, effect_index, commander), (incarnation, from, to, !selected.is_empty()));
+                if self.format.commander_selected_returns.contains_key(&stack) {
+                    return self.resume_commander_selected_returns(stack);
+                }
+                self.resolve_top_of_stack_with_optional_decision(optional_trigger, counter_payment, counter_discard)
+            }
+            DecisionContinuation::CommanderReturn { commander, incarnation, zone } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                if self.zone_of(commander) != Some(zone)
+                    || !self.object_has_incarnation(commander, incarnation)
+                    || self.format.commander_arrivals.get(&commander) != Some(&(incarnation, zone))
+                {
+                    return Err(RulesError::IllegalAction("stale commander return decision"));
+                }
+                self.complete_pending_decision(&decision)?;
+                self.format.commander_arrivals.remove(&commander);
+                if !selected.is_empty() {
+                    self.format.commander_returns.push((commander, incarnation, zone));
+                }
+                self.check_state_based_actions_impl()?;
+                if self.pending_decision.is_none() {
+                    self.priority = self.priority_after_resolution();
+                    if self.step == Step::Untap && self.stack.is_empty()
+                        && self.pending_optional_trigger_choice.is_none() {
+                        self.advance_step()?;
+                    }
+                }
+                Ok(())
+            }
             DecisionContinuation::LibrarySearch {
                 source,
                 effect_index,
@@ -10937,6 +11809,24 @@ impl Game {
                     selected.into_iter().next(),
                 )
             }
+            DecisionContinuation::PermanentEntryAttachment {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                attachment_definition,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_permanent_entry_attachment_decision(
+                    &decision,
+                    source_stack_item,
+                    entrant,
+                    entrant_incarnation,
+                    controller,
+                    attachment_definition,
+                    selected.into_iter().next(),
+                )
+            }
             DecisionContinuation::LegendRule {
                 controller,
                 name,
@@ -11059,7 +11949,7 @@ impl Game {
         selected: &[ObjectId],
     ) -> Result<(), RulesError> {
         if cleanup_player != decision.player
-            || cleanup_player != self.active_player
+            || !self.is_active_seat(cleanup_player)
             || self.step != Step::Cleanup
             || !self.cleanup_repeat_required
         {
@@ -11083,12 +11973,19 @@ impl Game {
             ));
         }
         self.complete_pending_decision(decision)?;
-        for card in selected {
-            self.record_event(GameEvent::CardDiscarded {
-                player: cleanup_player,
-                card: *card,
-            });
-            self.move_to_zone(*card, Zone::Graveyard)?;
+        self.pending_cleanup_discards
+            .insert(cleanup_player, selected.to_vec());
+        if self.open_cleanup_discard_decision()? {
+            return Ok(());
+        }
+        // CR 805.6: every active teammate chooses before the shared action.
+        // No priority, SBA or trigger resolution occurs between these moves.
+        let discards = std::mem::take(&mut self.pending_cleanup_discards);
+        for (player, cards) in discards {
+            for card in cards {
+                self.record_event(GameEvent::CardDiscarded { player, card });
+                self.move_to_zone(card, Zone::Graveyard)?;
+            }
         }
         self.resolve_cleanup_turn_based_actions()?;
         if !self.cleanup_repeat_required && !self.is_game_over() {
@@ -11261,6 +12158,30 @@ impl Game {
         Ok(cards)
     }
 
+    /// Snapshots every eligible creature card from every living player's own
+    /// graveyard before a symmetric all-creatures return. These exact object
+    /// incarnations are also used by the commander replacement boundary.
+    fn all_graveyard_creature_card_snapshots(
+        &self,
+    ) -> Result<Vec<GraveyardCreatureCardSnapshot>, RulesError> {
+        let mut snapshots = Vec::new();
+        for player in self
+            .players
+            .iter()
+            .filter(|player| !player.lost)
+            .map(|player| player.id)
+        {
+            for card in self.graveyard_creature_card_candidates(player)? {
+                snapshots.push(GraveyardCreatureCardSnapshot {
+                    player,
+                    card,
+                    incarnation: self.object(card)?.incarnation,
+                });
+            }
+        }
+        Ok(snapshots)
+    }
+
     /// Advances the one-player-at-a-time public choice sequence. Players
     /// with no creature card in their own graveyard have no rules choice and
     /// are skipped without opening an empty policy prompt.
@@ -11315,22 +12236,32 @@ impl Game {
         let top = self.stack.last().ok_or(RulesError::IllegalAction(
             "public graveyard choice escaped its stack spell",
         ))?;
+        let is_all_creatures_return =
+            top.effects.as_slice() == [Effect::ReturnAllCreatureCardsFromEachGraveyardToHand];
+        let expected_all_returns = if is_all_creatures_return {
+            self.all_graveyard_creature_card_snapshots()?
+        } else {
+            Vec::new()
+        };
         if top.id != source_stack_item
             || top.card != source
             || top.source_incarnation != source_incarnation
             || top.controller != controller
             || top.ability_id.is_some()
             || !top.targets.is_empty()
-            || top.effects.as_slice() != [Effect::ReturnOneCreatureCardFromEachGraveyardToHand]
+            || (!is_all_creatures_return
+                && top.effects.as_slice() != [Effect::ReturnOneCreatureCardFromEachGraveyardToHand])
+            || (is_all_creatures_return && selected != expected_all_returns)
             || selected.iter().enumerate().any(|(index, snapshot)| {
                 snapshot.incarnation == 0
                     || self
                         .players
                         .get(snapshot.player.0)
                         .is_none_or(|state| state.lost)
-                    || selected[index + 1..]
-                        .iter()
-                        .any(|other| other.player == snapshot.player || other.card == snapshot.card)
+                    || selected[index + 1..].iter().any(|other| {
+                        (!is_all_creatures_return && other.player == snapshot.player)
+                            || other.card == snapshot.card
+                    })
                     || self.zone_of(snapshot.card) != Some(Zone::Graveyard)
                     || self.object(snapshot.card).map_or(true, |object| {
                         object.owner != snapshot.player
@@ -11347,6 +12278,18 @@ impl Game {
                 "public graveyard choices no longer match the suspended stack spell",
             ));
         }
+        if !self.format.commanders.is_empty() {
+            self.format.commander_selected_returns.insert(
+                source_stack_item,
+                commander_replacement::SelectedReturns::Creatures(selected.clone()),
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format
+            .commander_selected_returns
+            .remove(&source_stack_item);
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "public graveyard choice stack spell disappeared before resolution",
         ))?;
@@ -11496,6 +12439,18 @@ impl Game {
                 "public graveyard land choices no longer match the suspended stack spell",
             ));
         }
+        if !self.format.commanders.is_empty() {
+            self.format.commander_selected_returns.insert(
+                source_stack_item,
+                commander_replacement::SelectedReturns::Lands(selected.to_vec()),
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format
+            .commander_selected_returns
+            .remove(&source_stack_item);
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "public graveyard land choice stack spell disappeared before resolution",
         ))?;
@@ -11696,6 +12651,9 @@ impl Game {
             previous: original_target,
             new: new_target,
         });
+        if !self.format.commanders.is_empty() {
+            return self.finish_commander_terminal_draw(source_stack, controller, 1);
+        }
         let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
             "retargeting spell disappeared before its terminal resolution",
         ))?;
@@ -11805,6 +12763,14 @@ impl Game {
                 match activation {
                     ResolutionPaymentManaAbility::Bound(activation) => {
                         self.activate_bound_mana_ability_impl(player, activation, None, None)?;
+                    }
+                    ResolutionPaymentManaAbility::BoundWithBundleChoice(activation) => {
+                        self.activate_bound_mana_ability_impl(
+                            player,
+                            activation.activation,
+                            Some(&activation.chosen_bundle),
+                            None,
+                        )?;
                     }
                     ResolutionPaymentManaAbility::IntrinsicLand(activation) => {
                         self.activate_intrinsic_mana_ability_impl(
@@ -12205,6 +13171,9 @@ impl Game {
             permanent: sacrificed,
         });
         self.move_to_graveyard_or_remove_token(sacrificed)?;
+        if !self.format.commanders.is_empty() {
+            return self.finish_commander_terminal_draw(top, controller, draw_count);
+        }
         for _ in 0..draw_count {
             self.draw_card_from_spell_effect(controller)?;
         }
@@ -13738,7 +14707,7 @@ impl Game {
         effect_index: usize,
     ) -> Result<(), RulesError> {
         let player = decision.player;
-        let (top, ability, chosen_x, reveal_selected) = {
+        let (top, chosen_x, reveal_selected) = {
             let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
                 "library search choice has no live stack item",
             ))?;
@@ -13769,7 +14738,7 @@ impl Game {
                     "library search choice no longer matches the live stack item",
                 ));
             }
-            (top.clone(), top.ability_id, top.chosen_x, reveal_selected)
+            (top.clone(), top.chosen_x, reveal_selected)
         };
         let expected_cards = self.library_search_candidates(player, requirement, chosen_x)?;
         if decision.options
@@ -13800,6 +14769,42 @@ impl Game {
 
         self.complete_pending_decision(decision)?;
 
+        self.finish_library_search_selection(
+            top,
+            destination,
+            selected,
+            reveal_selected,
+            effect_index,
+        )
+    }
+
+    fn finish_library_search_selection(
+        &mut self,
+        top: StackObject,
+        destination: LibrarySearchDestination,
+        selected: Option<ObjectId>,
+        reveal_selected: bool,
+        effect_index: usize,
+    ) -> Result<(), RulesError> {
+        let player = top.controller;
+        let source = top.card;
+        let ability = top.ability_id;
+        if destination == LibrarySearchDestination::Hand
+            && selected.is_some_and(|card| self.is_commander(card))
+        {
+            self.format.commander_selected_returns.insert(
+                top.id,
+                commander_replacement::SelectedReturns::Search {
+                    selected,
+                    destination,
+                    reveal_selected,
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format.commander_selected_returns.remove(&top.id);
         if let Some(card) = selected {
             if reveal_selected || ability == Some(TRANSMUTE_ABILITY_ID) {
                 self.record_event(GameEvent::CardRevealed {
@@ -14186,7 +15191,7 @@ impl Game {
         selected: &[ObjectId],
     ) -> Result<(), RulesError> {
         let player = decision.player;
-        let (ability, chosen_x, source_incarnation) = {
+        let chosen_x = {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "multi-card library search choice has no live stack item",
             ))?;
@@ -14211,7 +15216,7 @@ impl Game {
                     "multi-card library search choice no longer matches the live stack item",
                 ));
             }
-            (top.ability_id, top.chosen_x, top.source_incarnation)
+            top.chosen_x
         };
         let candidates = self.library_search_candidates(player, requirement, chosen_x)?;
         let expected_options = candidates
@@ -14238,10 +15243,43 @@ impl Game {
             ));
         }
 
-        self.stack.pop().ok_or(RulesError::IllegalAction(
-            "multi-card library search stack item disappeared before resolution",
-        ))?;
         self.complete_pending_decision(decision)?;
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "multi-card search lost its stack",
+        ))?;
+        self.finish_library_search_many_selection(top, destination, reveal_selected, selected)
+    }
+
+    fn finish_library_search_many_selection(
+        &mut self,
+        top: StackObject,
+        destination: LibrarySearchDestination,
+        reveal_selected: bool,
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let player = top.controller;
+        let source = top.card;
+        let source_incarnation = top.source_incarnation;
+        let ability = top.ability_id;
+        if destination == LibrarySearchDestination::Hand
+            && selected.iter().any(|card| self.is_commander(*card))
+        {
+            self.format.commander_selected_returns.insert(
+                top.id,
+                commander_replacement::SelectedReturns::SearchMany {
+                    selected: selected.to_vec(),
+                    destination,
+                    reveal_selected,
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format.commander_selected_returns.remove(&top.id);
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "multi-card search lost its stack",
+        ))?;
 
         let mut battlefield_entrants = Vec::new();
         let pre_event_sources = matches!(
@@ -14518,29 +15556,76 @@ impl Game {
                 "hand-recycle decision violates its private hand snapshot or stack provenance",
             ));
         }
-        let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
-            "hand-recycle stack ability disappeared before resolution",
-        ))?;
         self.complete_pending_decision(decision)?;
-        self.record_event(GameEvent::HandPutOnLibraryBottomThenDrawn {
-            player,
-            source,
-            source_incarnation,
-            cards: count,
-        });
-        for card in selected.iter().rev() {
-            self.move_to_zone(*card, Zone::Library)?;
-            let moved = self.players[player.0].library.pop();
-            if moved != Some(*card) {
-                return Err(RulesError::IllegalAction(
-                    "hand-recycle library move lost its exact card",
-                ));
+        let resolved = self
+            .stack
+            .last()
+            .cloned()
+            .ok_or(RulesError::IllegalAction("hand-recycle lost its stack"))?;
+        self.finish_hand_recycle_selection(resolved, selected, None)
+    }
+
+    fn finish_hand_recycle_selection(
+        &mut self,
+        resolved: StackObject,
+        selected: &[ObjectId],
+        remaining_draws: Option<usize>,
+    ) -> Result<(), RulesError> {
+        let player = resolved.controller;
+        let source = resolved.card;
+        let source_incarnation = resolved.source_incarnation;
+        let count = u8::try_from(selected.len())
+            .map_err(|_| RulesError::IllegalAction("hand-recycle exceeds decision range"))?;
+        if remaining_draws.is_none() {
+            self.format.commander_selected_returns.insert(
+                resolved.id,
+                commander_replacement::SelectedReturns::Recycle {
+                    selected: selected.to_vec(),
+                    remaining_draws: None,
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
             }
-            self.players[player.0].library.insert(0, *card);
+            self.record_event(GameEvent::HandPutOnLibraryBottomThenDrawn {
+                player,
+                source,
+                source_incarnation,
+                cards: count,
+            });
+            for card in selected.iter().rev() {
+                self.move_to_zone(*card, Zone::Library)?;
+                if self.zone_of(*card) != Some(Zone::Library) {
+                    continue;
+                }
+                let moved = self.players[player.0].library.pop();
+                if moved != Some(*card) {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle library move lost its exact card",
+                    ));
+                }
+                self.players[player.0].library.insert(0, *card);
+            }
         }
-        for _ in 0..count {
+        let mut remaining = remaining_draws.unwrap_or(usize::from(count));
+        while remaining > 0 {
+            self.format.commander_selected_returns.insert(
+                resolved.id,
+                commander_replacement::SelectedReturns::Recycle {
+                    selected: selected.to_vec(),
+                    remaining_draws: Some(remaining),
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
             self.draw_card_from_spell_effect(player)?;
+            remaining -= 1;
         }
+        self.format.commander_selected_returns.remove(&resolved.id);
+        self.stack
+            .pop()
+            .ok_or(RulesError::IllegalAction("hand-recycle lost its stack"))?;
         let ability = resolved.ability_id.ok_or(RulesError::IllegalAction(
             "hand-recycle stack item escaped its triggered-ability identity",
         ))?;
@@ -14621,10 +15706,45 @@ impl Game {
                 "private library partition no longer matches the live stack spell",
             ));
         }
-        self.stack.pop().ok_or(RulesError::IllegalAction(
-            "private library partition stack spell disappeared before resolution",
-        ))?;
         self.complete_pending_decision(decision)?;
+        let top_stack = self
+            .stack
+            .last()
+            .cloned()
+            .ok_or(RulesError::IllegalAction("partition lost its stack"))?;
+        self.finish_library_top_partition_selection(top_stack, cards, hand, top, bottom)
+    }
+
+    fn finish_library_top_partition_selection(
+        &mut self,
+        top_stack: StackObject,
+        cards: &[ObjectId],
+        hand: ObjectId,
+        top: Option<ObjectId>,
+        bottom: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let player = top_stack.controller;
+        let source = top_stack.card;
+        let count = u8::try_from(cards.len())
+            .map_err(|_| RulesError::IllegalAction("partition exceeds decision range"))?;
+        if self.is_commander(hand) {
+            self.format.commander_selected_returns.insert(
+                top_stack.id,
+                commander_replacement::SelectedReturns::Partition {
+                    cards: cards.to_vec(),
+                    hand,
+                    top,
+                    bottom: bottom.to_vec(),
+                },
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format.commander_selected_returns.remove(&top_stack.id);
+        self.stack
+            .pop()
+            .ok_or(RulesError::IllegalAction("partition lost its stack"))?;
         self.move_to_zone(hand, Zone::Hand)?;
         self.players[player.0]
             .library
@@ -14947,6 +16067,50 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer {
+                processed_players,
+                remaining_players,
+                selected: selections,
+            } => {
+                if remaining_players.first() != Some(&player) {
+                    return Err(RulesError::IllegalAction(
+                        "library-top choice player is not next in the resolving trigger",
+                    ));
+                }
+                if let Some(card) = selected {
+                    selections.push((player, card));
+                }
+                processed_players.push(player);
+                remaining_players.remove(0);
+                self.complete_pending_decision(decision)?;
+                if let Some(next_player) = remaining_players.first().copied() {
+                    let options = self.players[next_player.0]
+                        .hand
+                        .iter()
+                        .copied()
+                        .map(DecisionOption::Object)
+                        .collect::<Vec<_>>();
+                    let (min_selections, max_selections) =
+                        if options.is_empty() { (0, 0) } else { (1, 1) };
+                    self.open_pending_decision(
+                        next_player,
+                        DecisionVisibility::Private,
+                        DecisionKind::TriggeredEffectObject,
+                        min_selections,
+                        max_selections,
+                        options,
+                        DecisionContinuation::TriggeredEffectObject {
+                            source,
+                            controller,
+                            ability,
+                            kind,
+                        },
+                    )?;
+                    return Ok(());
+                }
+                let selections = selections.clone();
+                self.finish_trigger_library_top_choices(source, ability, selections)?;
+            }
             TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
                 remaining_players,
                 selected: selections,
@@ -15052,6 +16216,45 @@ impl Game {
                             permanent,
                         });
                         game.move_to_graveyard_or_remove_token(permanent)?;
+                    }
+                    Ok(())
+                })?;
+            }
+            TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource {
+                source_incarnation,
+            } => {
+                if player != controller || *source_incarnation != self.stack.last().map_or(0, |top| top.source_incarnation) {
+                    return Err(RulesError::IllegalAction(
+                        "Drake Familiar choice lost its controller or source-incarnation provenance",
+                    ));
+                }
+                if let Some(enchantment) = selected {
+                    let eligible = self.all_battlefield_cards().into_iter().any(|card| {
+                        card == enchantment
+                            && self.characteristics(card).is_ok_and(|value| {
+                                value.card_types.contains(&CardType::Enchantment)
+                            })
+                    });
+                    if !eligible {
+                        return Err(RulesError::IllegalAction(
+                            "Drake Familiar return choice is no longer a battlefield enchantment",
+                        ));
+                    }
+                }
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if let Some(enchantment) = selected {
+                        game.move_to_zone(enchantment, Zone::Hand)?;
+                    } else if game.zone_of(source) == Some(Zone::Battlefield)
+                        && game.object_has_incarnation(source, *source_incarnation)
+                        && game.controller_of(source).is_ok_and(|value| value == player)
+                    {
+                        game.record_event(GameEvent::SacrificedByEffect {
+                            source,
+                            player,
+                            permanent: source,
+                        });
+                        game.move_to_graveyard_or_remove_token(source)?;
                     }
                     Ok(())
                 })?;
@@ -15259,33 +16462,30 @@ impl Game {
                 entered_incarnation,
                 card_types,
             } => {
-                self.complete_pending_decision(decision)?;
-                self.finish_trigger_effect_object_choice(source, ability, |game| {
-                    if let Some(permanent) = selected {
-                        let candidates = game.controlled_permanents_sharing_card_types(
-                            player,
-                            *entered,
-                            card_types,
-                        );
-                        if !candidates.contains(&permanent) {
-                            return Err(RulesError::IllegalAction(
-                                "chosen return permanent no longer shares the entered permanent card type",
-                            ));
-                        }
-                        // The historical entering identity must be nonzero and
-                        // the stack effect must retain it. It need not still be
-                        // live: Cloudstone Curio's ability uses the trigger
-                        // event's last-known card types, not a resolution-time
-                        // query of that permanent.
-                        if *entered_incarnation == 0 {
-                            return Err(RulesError::IllegalAction(
-                                "entered-permanent trigger payload lacks an incarnation",
-                            ));
-                        }
-                        game.move_to_zone(permanent, Zone::Hand)?;
+                if let Some(permanent) = selected {
+                    let candidates = self.controlled_permanents_sharing_card_types(
+                        player,
+                        *entered,
+                        card_types,
+                    );
+                    if !candidates.contains(&permanent) {
+                        return Err(RulesError::IllegalAction(
+                            "chosen return permanent no longer shares the entered permanent card type",
+                        ));
                     }
-                    Ok(())
-                })?;
+                    // The historical entering identity must be nonzero and
+                    // the stack effect must retain it. It need not still be
+                    // live: Cloudstone Curio's ability uses the trigger
+                    // event's last-known card types, not a resolution-time
+                    // query of that permanent.
+                    if *entered_incarnation == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "entered-permanent trigger payload lacks an incarnation",
+                        ));
+                    }
+                }
+                self.complete_pending_decision(decision)?;
+                self.finish_chosen_trigger_return(source, ability, selected)?;
             }
         }
         Ok(())
@@ -15407,7 +16607,7 @@ impl Game {
 
     /// Hands the shared team turn's draw to the next teammate that owes one.
     fn open_next_team_turn_draw(&mut self) -> Result<(), RulesError> {
-        if self.pending_draw_replacement.is_some() {
+        if self.pending_draw_replacement.is_some() || self.pending_decision.is_some() {
             return Ok(());
         }
         while !self.pending_team_draws.is_empty() {
@@ -15488,6 +16688,25 @@ impl Game {
                 .copied()
                 .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
             self.move_to_zone(milled, Zone::Graveyard)?;
+        }
+        if self.started && self.is_commander(card) {
+            let incarnation = self.object(card)?.incarnation;
+            self.clear_pending_draw_replacement();
+            self.open_pending_decision(
+                player,
+                DecisionVisibility::Public,
+                DecisionKind::CommanderZoneReplacement,
+                0,
+                1,
+                vec![DecisionOption::Object(card)],
+                DecisionContinuation::CommanderDredgeReplacement {
+                    player,
+                    commander: card,
+                    incarnation,
+                    amount,
+                },
+            )?;
+            return Ok(());
         }
         self.move_to_zone(card, Zone::Hand)?;
         self.record_event(GameEvent::Dredged {
@@ -15621,6 +16840,11 @@ impl Game {
         card: ObjectId,
         found: Option<ObjectId>,
     ) -> Result<(), RulesError> {
+        if self.started && !self.format.commanders.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "live Commander transmute must use the stack-backed activate_transmute action",
+            ));
+        }
         self.require_priority(player)?;
         if !self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
@@ -16024,7 +17248,7 @@ impl Game {
                 continue;
             };
             if binding.kind == AttachmentKind::Aura
-                && self.target_matches_for_source(
+                && self.attachment_matches_for_source(
                     player,
                     aura,
                     Target::Permanent(source),
@@ -16291,7 +17515,7 @@ impl Game {
                         && attached_to_incarnation.is_some_and(|incarnation| {
                             self.object_has_incarnation(target, incarnation)
                         })
-                        && self.target_matches_for_source(
+                        && self.attachment_matches_for_source(
                             self.controller_of(attachment)
                                 .unwrap_or(self.objects[&attachment].controller),
                             attachment,
@@ -16327,6 +17551,61 @@ impl Game {
             }
             changed |= self.apply_creature_death_state_based_actions()?;
             if !changed {
+                if self.pending_decision.is_none() && !self.is_game_over() {
+                    while let Some((&card, &(incarnation, zone))) = self
+                        .format
+                        .commander_arrivals
+                        .iter()
+                        .min_by_key(|(card, _)| {
+                            let owner = self.format.commanders[card].owner.0;
+                            (
+                                (owner + self.players.len() - self.active_player.0)
+                                    % self.players.len(),
+                                **card,
+                            )
+                        })
+                    {
+                        if self.zone_of(card) != Some(zone)
+                            || !self.object_has_incarnation(card, incarnation)
+                            || self.players[self.format.commanders[&card].owner.0].lost
+                        {
+                            self.format.commander_arrivals.remove(&card);
+                            continue;
+                        }
+                        self.open_pending_decision(
+                            self.format.commanders[&card].owner,
+                            DecisionVisibility::Public,
+                            DecisionKind::CommanderReturn,
+                            0,
+                            1,
+                            vec![DecisionOption::Object(card)],
+                            DecisionContinuation::CommanderReturn {
+                                commander: card,
+                                incarnation,
+                                zone,
+                            },
+                        )?;
+                        return Ok(());
+                    }
+                    if !self.format.commander_returns.is_empty() {
+                        let returning = std::mem::take(&mut self.format.commander_returns);
+                        for (commander, incarnation, zone) in returning {
+                            if self.zone_of(commander) != Some(zone)
+                                || !self.object_has_incarnation(commander, incarnation)
+                            {
+                                return Err(RulesError::IllegalAction(
+                                    "stale simultaneous commander return",
+                                ));
+                            }
+                            self.move_to_zone(commander, Zone::Command)?;
+                            self.record_event(GameEvent::CommanderReturnedToCommandZone {
+                                commander,
+                                player: self.format.commanders[&commander].owner,
+                            });
+                        }
+                        continue;
+                    }
+                }
                 if self.pending_decision.is_none()
                     && let Some((controller, name, permanents)) = self.first_legend_rule_group()?
                 {
@@ -16422,6 +17701,7 @@ impl Game {
     /// corrupted state rather than report a misleading later rules error.
     #[allow(clippy::too_many_lines)] // One ordered audit keeps the invariant contract reviewable.
     pub fn validate_invariants(&self) -> Result<(), RulesError> {
+        self.validate_commander_replacement_state()?;
         if self.players.len() != self.seated_player_count
             || self.players.len() < 2
             || self.players.get(self.active_player.0).is_none()
@@ -16477,6 +17757,38 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "attacked-creature turn history has invalid incarnation provenance",
+            ));
+        }
+        if self
+            .damaged_creature_by_source_incarnations_this_turn
+            .iter()
+            .any(|(source, source_incarnation, target, target_incarnation)| {
+                source.0 == 0
+                    || target.0 == 0
+                    || *source_incarnation == 0
+                    || *target_incarnation == 0
+                    || self
+                        .objects
+                        .get(source)
+                        .is_some_and(|object| *source_incarnation > object.incarnation)
+                    || self
+                        .objects
+                        .get(target)
+                        .is_some_and(|object| *target_incarnation > object.incarnation)
+                    || !self.event_log.iter().any(|event| {
+                        matches!(
+                            event,
+                            GameEvent::DamageDealtToPermanent {
+                                source: event_source,
+                                permanent: event_target,
+                                amount,
+                            } if event_source == source && event_target == target && *amount > 0
+                        )
+                    })
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "source-to-creature damage turn history has invalid incarnation or receipt provenance",
             ));
         }
         if self
@@ -16561,7 +17873,21 @@ impl Game {
                 "deferred virtual source lacks one exact delayed-action or ability consumer",
             ));
         }
-        if !self.pending_trigger_events.is_empty() {
+        if !self.pending_trigger_events.is_empty()
+            && !matches!(
+                self.pending_decision
+                    .as_ref()
+                    .map(|decision| &decision.continuation),
+                Some(
+                    DecisionContinuation::WarpWorld { .. }
+                        | DecisionContinuation::CommanderReturn { .. }
+                        | DecisionContinuation::CommanderZoneReplacement { .. }
+                        | DecisionContinuation::SpellDredgeReplacement { .. }
+                        | DecisionContinuation::CommanderDredgeReplacement { .. }
+                        | DecisionContinuation::SpellCommanderDredgeReplacement { .. }
+                )
+            )
+        {
             return Err(RulesError::IllegalAction(
                 "pending trigger event escaped its enclosing rules action",
             ));
@@ -16611,13 +17937,20 @@ impl Game {
                 "trigger placement batch escaped without its target decision",
             ));
         }
-        if !self.pending_land_entry_trigger_batches.is_empty() {
+        if !self.pending_land_entry_trigger_batches.is_empty()
+            && !matches!(
+                self.pending_decision
+                    .as_ref()
+                    .map(|decision| &decision.continuation),
+                Some(DecisionContinuation::WarpWorld { .. })
+            )
+        {
             return Err(RulesError::IllegalAction(
                 "pending land-entry trigger escaped its resolving stack object",
             ));
         }
         if self.stack_effect_cursors.iter().any(|(stack_id, cursor)| {
-            *cursor == 0
+            (*cursor == 0 && !self.format.warp_world.contains_key(&(*stack_id, *cursor)))
                 || !matches!(
                     (self.stack.last(), self.pending_decision.as_ref()),
                     (
@@ -16625,6 +17958,10 @@ impl Game {
                         Some(PendingDecision {
                             continuation:
                                 DecisionContinuation::QuantityReplacement { effect_index, .. }
+                                | DecisionContinuation::CommanderZoneReplacement { effect_index, .. }
+                                | DecisionContinuation::SpellDredgeReplacement { effect_index, .. }
+                                | DecisionContinuation::SpellCommanderDredgeReplacement { effect_index, .. }
+                                | DecisionContinuation::WarpWorld { effect_index, .. }
                                 | DecisionContinuation::TargetPlayerPrivateDiscard {
                                     effect_index,
                                     ..
@@ -16651,7 +17988,11 @@ impl Game {
             .stack_target_legality_snapshots
             .iter()
             .any(|(stack_id, snapshot)| {
-                !self.stack_effect_cursors.contains_key(stack_id)
+                (!self.stack_effect_cursors.contains_key(stack_id)
+                    && !self
+                        .format
+                        .commander_stack_draws
+                        .contains_key(&(*stack_id, 0)))
                     || !matches!(
                         self.stack.last(),
                         Some(stack_object)
@@ -16757,9 +18098,14 @@ impl Game {
         self.validate_self_damage_prevention_counter_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
+        self.validate_global_creature_damage_prevention_event_order()?;
         let automatic_step_stable =
             !self.step.grants_priority() && !self.has_cleanup_priority_window();
-        if self.started && !self.is_game_over() && automatic_step_stable {
+        if self.started
+            && !self.is_game_over()
+            && automatic_step_stable
+            && self.pending_decision.is_none()
+        {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
             ));
@@ -17195,6 +18541,7 @@ impl Game {
                         TriggerCondition::EntersBattlefield
                             | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
                             | TriggerCondition::ControlledAuraEntersBattlefield
+                            | TriggerCondition::AuraBecomesAttachedToSource
                             | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
@@ -17212,7 +18559,9 @@ impl Game {
                             | TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
+                            | TriggerCondition::DamagedCreatureBySourceDiesThisTurn
                             | TriggerCondition::AnotherCreatureLeavesBattlefield
+                            | TriggerCondition::AnotherCreatureTokenLeavesBattlefield
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::ControlledNontokenCreatureDies
                             | TriggerCondition::ControllerSacrificesCreatureOfColor(_)
@@ -17622,7 +18971,7 @@ impl Game {
                 && !definition.keywords.contains(&Keyword::Flash)
                 && !self.spell_timing_exceptions.contains(&stack_object.card)
                 && (stack_index != 0
-                    || stack_object.controller != self.active_player
+                    || !self.is_active_seat(stack_object.controller)
                     || !self.step.is_main())
             {
                 return Err(RulesError::IllegalAction(
@@ -18676,6 +20025,30 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, binding) in &self.entry_attachment_bindings {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            let attachment = self.attachment_bindings.get(definition_id);
+            if binding.card_definition != *definition_id
+                || !definition.is_permanent()
+                || !definition.card_types.contains(&CardType::Artifact)
+                || !definition.effects.is_empty()
+                || attachment.is_none_or(|attachment| {
+                    attachment.kind != AttachmentKind::Equipment
+                        || !Self::attachment_target_requirement_is_permanent(attachment.target)
+                })
+                || attachment.is_some_and(|attachment| {
+                    self.entry_attachment_has_matching_trigger(*definition_id, attachment)
+                })
+                || self.entry_copy_bindings.contains_key(definition_id)
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-attachment binding has invalid source or lacks matching Equipment attachment data",
+                ));
+            }
+        }
         for (definition_id, binding) in &self.cost_reductions {
             let definition = self
                 .catalog
@@ -18748,7 +20121,12 @@ impl Game {
         }
         let mut effect_timestamps = BTreeSet::new();
         for ((source, incarnation), timestamp) in &self.static_source_timestamps {
-            let object = self.object(*source)?;
+            let Some(object) = self.objects.get(source) else {
+                if self.object_identity_is_live_or_historically_departed(*source) {
+                    continue;
+                }
+                return Err(RulesError::UnknownCard(*source));
+            };
             let has_printed_static_binding = object
                 .definition
                 .is_some_and(|definition| self.static_continuous_effects.contains_key(definition));
@@ -18856,22 +20234,34 @@ impl Game {
                 ));
             }
             if effect.change == ContinuousChange::RedirectDamageToAttachmentController {
-                let binding = self.attachment_binding_for(effect.source)?.ok_or(
-                    RulesError::IllegalAction(
+                let binding = self
+                    .historical_attachment_binding_for(effect.source)?
+                    .ok_or(RulesError::IllegalAction(
                         "attached damage redirection has no attachment binding",
-                    ),
-                )?;
-                let attachment = self.object(effect.source)?;
+                    ))?;
                 if !binding
                     .changes
                     .contains(&ContinuousChange::RedirectDamageToAttachmentController)
-                    || attachment.attached_to != Some(effect.target)
-                    || attachment.attached_to_incarnation != Some(effect.target_incarnation)
-                    || self.player(self.controller_of(effect.source)?)?.lost
                 {
                     return Err(RulesError::IllegalAction(
                         "attached damage redirection lacks live endpoint provenance",
                     ));
+                }
+                // CR 800.4a can remove the Equipment/Aura while an independent
+                // effect (or the loss transition itself) is still being
+                // audited. Historical binding is enough; a live object is not
+                // required after ObjectLeftGame.
+                if let Ok(attachment) = self.object(effect.source) {
+                    if attachment.attached_to != Some(effect.target)
+                        || attachment.attached_to_incarnation != Some(effect.target_incarnation)
+                        || self.player(self.controller_of(effect.source)?)?.lost
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "attached damage redirection lacks live endpoint provenance",
+                        ));
+                    }
+                } else if !self.departed_card_definitions.contains_key(&effect.source) {
+                    return Err(RulesError::UnknownCard(effect.source));
                 }
             }
             if matches!(
@@ -18983,7 +20373,7 @@ impl Game {
                     ))?;
             if self.zone_of(target) != Some(Zone::Battlefield)
                 || !self.object_has_incarnation(target, target_incarnation)
-                || !self.target_matches_for_source(
+                || !self.attachment_matches_for_source(
                     self.controller_of(attachment)?,
                     attachment,
                     Target::Permanent(target),
@@ -19047,7 +20437,11 @@ impl Game {
             ));
         }
         if let Some(pending) = &self.pending_damage_redirection {
-            self.object(pending.source)?;
+            if self.objects.get(&pending.source).is_none()
+                && !self.object_identity_is_live_or_historically_departed(pending.source)
+            {
+                return Err(RulesError::UnknownCard(pending.source));
+            }
             if pending.remaining <= 0
                 || !self.damage_target_is_current(
                     Target::Permanent(pending.protected),
@@ -19135,6 +20529,26 @@ impl Game {
             if !global_combat_prevention_ids.insert(prevention.id) {
                 return Err(RulesError::IllegalAction(
                     "global combat damage prevention identifiers are not unique",
+                ));
+            }
+        }
+        let mut global_creature_prevention_ids = BTreeSet::new();
+        for prevention in &self.global_creature_damage_preventions {
+            if prevention.id == 0
+                || prevention.id >= self.next_timestamp
+                || prevention.source.0 == 0
+                || prevention.source.0 >= self.next_object_id
+                || prevention.expires_turn < self.turn
+                || prevention.controller.0 >= self.players.len()
+                || (prevention.source_is_virtual
+                    && (self.objects.contains_key(&prevention.source)
+                        || self.virtual_spell_copies.contains_key(&prevention.source)))
+                || (!prevention.source_is_virtual
+                    && !self.object_identity_is_live_or_historically_departed(prevention.source))
+                || !global_creature_prevention_ids.insert(prevention.id)
+            {
+                return Err(RulesError::IllegalAction(
+                    "global creature-damage prevention has invalid identity or lifetime",
                 ));
             }
         }
@@ -20181,6 +21595,33 @@ impl Game {
         Ok(())
     }
 
+    /// Enforces restrictions that apply when a spell is cast but do not
+    /// remain part of target legality while the spell is on the stack. Dream
+    /// Leash can be cast only targeting a tapped permanent; an untap in
+    /// response does not make that target illegal at resolution.
+    fn validate_cast_time_target_restrictions(
+        &self,
+        effects: &[Effect],
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        let mut target_index = 0;
+        for effect in effects {
+            if matches!(effect, Effect::AttachSourceToTappedTarget { .. }) {
+                let target = *targets.get(target_index).ok_or(RulesError::IllegalAction(
+                    "tapped-target Aura is missing its target",
+                ))?;
+                let Target::Permanent(permanent) = target else {
+                    return Err(RulesError::IllegalTarget(target));
+                };
+                if !self.object(permanent)?.tapped {
+                    return Err(RulesError::IllegalTarget(target));
+                }
+            }
+            target_index += effect.target_requirements().into_iter().flatten().count();
+        }
+        Ok(())
+    }
+
     /// Validates target relationships that cannot be expressed by one target
     /// slot in isolation. Ordinary target shape, controller, and protection
     /// checks run first; this adds only cross-slot constraints owned by an
@@ -20812,10 +22253,12 @@ impl Game {
             }
             if matches!(
                 effect,
-                Effect::DiscardCombatDamagePlayer { .. } | Effect::DiscardCapturedPlayer { .. }
+                Effect::DiscardCombatDamagePlayer { .. }
+                    | Effect::DiscardCapturedPlayer { .. }
+                    | Effect::PutOneHandCardOnLibraryTopEachPlayer
             ) {
                 return Err(RulesError::IllegalAction(
-                    "combat-damage player discard effects are valid only on matching triggered abilities",
+                    "trigger-only player card-choice effects are valid only on matching triggered abilities",
                 ));
             }
             if matches!(effect, Effect::DrawTargetPlayerCards { count: 0 }) {
@@ -20903,6 +22346,7 @@ impl Game {
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachTappedCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::DealDamageToEachNonFlyingCreature { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
@@ -20929,6 +22373,7 @@ impl Game {
                 | Effect::CreateTokenForTargetOpponent { .. }
                 | Effect::AddOneManaOfTargetPlayersChosenColor
                 | Effect::AttachSourceToTarget { .. }
+                | Effect::AttachSourceToTappedTarget { .. }
                 | Effect::ChangeTargetOfTargetActivatedAbility
                 | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::ExchangeControlOfTargetCreatures
@@ -20937,12 +22382,14 @@ impl Game {
                 | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
+                | Effect::PutOneHandCardOnLibraryTopEachPlayer
                 | Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest
                 | Effect::DiscardTargetPlayer { .. }
                 | Effect::DiscardCombatDamagePlayer { .. }
                 | Effect::DiscardCapturedPlayer { .. }
                 | Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
                 | Effect::SacrificeControllerCreature
+                | Effect::ReturnAnyEnchantmentOrSacrificeSource
                 | Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }
                 | Effect::SacrificeUpkeepPlayerCreature
                 | Effect::SacrificeCapturedPlayerCreature { .. }
@@ -20951,6 +22398,7 @@ impl Game {
                 | Effect::SacrificeCapturedPlayerUntappedLand { .. }
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
+                | Effect::UntapControllerCreaturesIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
                 | Effect::ExileControllerHandLinkedToSource
@@ -20978,6 +22426,7 @@ impl Game {
                 | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
+                | Effect::GainLifeForEachControlledCreature
                 | Effect::GainLifeForEachCreatureCardInControllerGraveyard
                 | Effect::GainLifeForEachControlledCreatureOfColor { .. }
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
@@ -21001,6 +22450,7 @@ impl Game {
                 | Effect::AddTargetDamageShieldUntilEndOfTurn { .. }
                 | Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. }
                 | Effect::PreventAllCombatDamageUntilEndOfTurn
+                | Effect::PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
                 | Effect::RegenerateSource
@@ -21011,6 +22461,7 @@ impl Game {
                 | Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
                 | Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
                 | Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
+                | Effect::RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn
                 | Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
@@ -21024,6 +22475,7 @@ impl Game {
                 | Effect::DestroyCapturedCreature { .. }
                 | Effect::DestroyCapturedCombatParticipants { .. }
                 | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
+                | Effect::DestroyTargetCreatureWithManaValueEqualToChosenX
                 | Effect::TapTargetCreature
                 | Effect::UntapSource
                 | Effect::UntapTargetLand
@@ -21043,6 +22495,7 @@ impl Game {
                     ..
                 }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
+                | Effect::ReturnAllCreatureCardsFromEachGraveyardToHand
                 | Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
                 | Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
                 | Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand
@@ -21053,6 +22506,7 @@ impl Game {
                 | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
                 | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
                 | Effect::ReturnSourceAttachedPermanentToHand
+                | Effect::ReturnSourceAttachedPermanentAndAurasToOwnersHands
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
                 | Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting
@@ -21084,6 +22538,7 @@ impl Game {
                 | Effect::DestroyAllCreaturesWithManaValue { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
+                | Effect::CounterTargetSpellToOwnersHand
                 | Effect::CounterTargetNoncreatureSpell
                 | Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
                 | Effect::CounterTargetSpellUnlessControllerPays { .. }
@@ -21228,6 +22683,123 @@ impl Game {
             candidates.push(candidate);
         }
         Ok(candidates)
+    }
+
+    /// Returns the current legal endpoints for a non-targeting entry
+    /// attachment choice. `attachment_matches_for_source` intentionally
+    /// omits target-only Shroud checks while retaining the attachment's
+    /// ordinary type, controller, and protection restrictions.
+    fn entry_attachment_candidates(
+        &self,
+        entrant: ObjectId,
+        controller: PlayerId,
+        attachment_definition: &'static str,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let binding = self
+            .attachment_bindings
+            .get(attachment_definition)
+            .filter(|binding| binding.kind == AttachmentKind::Equipment)
+            .ok_or(RulesError::IllegalAction(
+                "entry attachment lacks a typed Equipment binding",
+            ))?;
+        let candidates = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|candidate| {
+                *candidate != entrant
+                    && self.attachment_matches_for_source(
+                        controller,
+                        entrant,
+                        Target::Permanent(*candidate),
+                        binding.target,
+                    )
+            })
+            .collect::<Vec<_>>();
+        Ok(candidates)
+    }
+
+    fn top_matches_permanent_entry_attachment(
+        &self,
+        top: &StackObject,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+    ) -> bool {
+        top.id == self.stack.last().map_or(StackObjectId(0), |item| item.id)
+            && top.card == entrant
+            && top.source_incarnation == entrant_incarnation
+            && top.controller == controller
+            && top.ability_id.is_none()
+            && top.effects.is_empty()
+            && self
+                .object(entrant)
+                .is_ok_and(|object| object.incarnation == entrant_incarnation)
+    }
+
+    fn open_permanent_entry_attachment_decision(
+        &mut self,
+        top: &StackObject,
+        binding: EntryAttachmentBinding,
+    ) -> Result<bool, RulesError> {
+        let attachment = self
+            .attachment_bindings
+            .get(binding.card_definition)
+            .filter(|attachment| attachment.kind == AttachmentKind::Equipment)
+            .cloned()
+            .ok_or(RulesError::IllegalAction(
+                "entry-attachment choice lost its typed Equipment binding",
+            ))?;
+        let candidates =
+            self.entry_attachment_candidates(top.card, top.controller, binding.card_definition)?;
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        self.open_pending_decision(
+            top.controller,
+            DecisionVisibility::Public,
+            DecisionKind::PermanentEntryAttachment,
+            u8::from(!binding.may_decline),
+            1,
+            candidates.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::PermanentEntryAttachment {
+                source_stack_item: top.id,
+                entrant: top.card,
+                entrant_incarnation: top.source_incarnation,
+                controller: top.controller,
+                attachment_definition: attachment.card_definition,
+            },
+        )?;
+        Ok(true)
+    }
+
+    fn suspend_top_permanent_for_entry_attachment_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "permanent entry-attachment choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let Some(binding) = self
+            .card_definition(top.card)
+            .ok()
+            .and_then(|definition| self.entry_attachment_bindings.get(definition.id))
+            .copied()
+        else {
+            return Ok(false);
+        };
+        if !self.top_matches_permanent_entry_attachment(
+            &top,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+        ) {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment binding reached an invalid permanent stack object",
+            ));
+        }
+        self.open_permanent_entry_attachment_decision(&top, binding)
     }
 
     fn top_matches_permanent_entry_copy(
@@ -21592,6 +23164,157 @@ impl Game {
         self.finish_resolved_permanent_entry_copy(&top, Some(&copy), Some(target))
     }
 
+    fn resolve_permanent_entry_attachment_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+        attachment_definition: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "entry-attachment choice has no live permanent spell",
+        ))?;
+        let binding = self
+            .entry_attachment_bindings
+            .get(attachment_definition)
+            .copied()
+            .ok_or(RulesError::IllegalAction(
+                "entry-attachment choice lost its entry binding",
+            ))?;
+        let candidates =
+            self.entry_attachment_candidates(entrant, controller, attachment_definition)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::PermanentEntryAttachment
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.min_selections != u8::from(!binding.may_decline)
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || expected_options.is_empty()
+            || top.id != source_stack_item
+            || !self.top_matches_permanent_entry_attachment(
+                &top,
+                entrant,
+                entrant_incarnation,
+                controller,
+            )
+            || self
+                .entry_attachment_bindings
+                .get(attachment_definition)
+                .is_none_or(|current| *current != binding)
+            || self
+                .attachment_bindings
+                .get(attachment_definition)
+                .is_none_or(|current| current.kind != AttachmentKind::Equipment)
+            || selected.is_some_and(|target| !candidates.contains(&target))
+            || (selected.is_none() && !binding.may_decline)
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment decision no longer matches its permanent entry",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        self.finish_resolved_permanent_entry_attachment(&top, attachment_definition, selected)
+    }
+
+    fn finish_resolved_permanent_entry_attachment(
+        &mut self,
+        top: &StackObject,
+        attachment_definition: &'static str,
+        selected_target: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        if !self.top_matches_permanent_entry_attachment(
+            top,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+        ) || !self
+            .card_definition(top.card)
+            .is_ok_and(|definition| definition.id == attachment_definition)
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment continuation escaped its permanent spell",
+            ));
+        }
+        let entry_binding = self
+            .entry_attachment_bindings
+            .get(attachment_definition)
+            .copied()
+            .ok_or(RulesError::IllegalAction(
+                "entry-attachment continuation lost its entry binding",
+            ))?;
+        let attachment = self
+            .attachment_bindings
+            .get(attachment_definition)
+            .cloned()
+            .filter(|binding| binding.kind == AttachmentKind::Equipment)
+            .ok_or(RulesError::IllegalAction(
+                "entry-attachment continuation lost its Equipment binding",
+            ))?;
+        let candidates =
+            self.entry_attachment_candidates(top.card, top.controller, attachment_definition)?;
+        if selected_target.is_some_and(|target| !candidates.contains(&target))
+            || (selected_target.is_none() && !entry_binding.may_decline && !candidates.is_empty())
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment target became illegal before the permanent entered",
+            ));
+        }
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "entry-attachment permanent disappeared before entering",
+        ))?;
+        if terminal.id != top.id {
+            return Err(RulesError::IllegalAction(
+                "entry-attachment continuation changed stack identity before entering",
+            ));
+        }
+        self.stack_effect_cursors.remove(&top.id);
+        self.record_event(GameEvent::SpellResolved { card: top.card });
+        let convoke_contributors = self
+            .convoke_contributor_provenance
+            .remove(&(top.card, top.source_incarnation))
+            .unwrap_or_default();
+        self.move_to_zone(top.card, Zone::Battlefield)?;
+        if let Some(target) = selected_target {
+            self.attach_with_binding(top.card, target, &attachment, false)?;
+        }
+        let definition_id = self.effective_definition_id(top.card)?.unwrap_or(
+            self.object(top.card)?
+                .definition
+                .ok_or(RulesError::IllegalAction(
+                    "entry-attachment permanent has no effective definition",
+                ))?,
+        );
+        let entering_is_land = self
+            .characteristics(top.card)?
+            .card_types
+            .contains(&CardType::Land);
+        self.capture_enter_triggers(
+            top.card,
+            definition_id,
+            top.controller,
+            &convoke_contributors,
+        )?;
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
+        if entering_is_land {
+            self.enqueue_land_entry_triggers(top.controller)?;
+        }
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers()?;
+        self.restore_priority_after_stack_resolution();
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         self.resolve_top_of_stack_with_optional_decision(None, None, None)
@@ -21611,6 +23334,7 @@ impl Game {
                 let occurrence = target_index;
                 target_index += 1;
                 self.stack_target_incarnation_matches(stack_object, occurrence, target)
+                    && self.stack_target_chosen_x_matches(stack_object, occurrence, target)
                     && self.target_matches_for_colors(
                         stack_object.controller,
                         target,
@@ -21704,6 +23428,13 @@ impl Game {
         if self.suspend_top_stack_item_for_activated_ability_retarget_choice()? {
             return Ok(());
         }
+        if self.suspend_top_for_commander_zone_replacement(
+            optional_decision,
+            counter_unless_payment,
+            counter_unless_discard_hand,
+        )? {
+            return Ok(());
+        }
         if self.suspend_top_stack_item_for_spell_copy_target_choice()? {
             return Ok(());
         }
@@ -21749,6 +23480,9 @@ impl Game {
         if self.suspend_top_stack_item_for_public_graveyard_creature_return_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_all_graveyard_creature_returns()? {
+            return Ok(());
+        }
         if self.suspend_top_stack_item_for_preserve_controlled_permanents_choice()? {
             return Ok(());
         }
@@ -21792,6 +23526,9 @@ impl Game {
         if self.suspend_top_permanent_for_entry_copy_choice()? {
             return Ok(());
         }
+        if self.suspend_top_permanent_for_entry_attachment_choice()? {
+            return Ok(());
+        }
         let next_effect_index = self
             .stack
             .last()
@@ -21818,6 +23555,7 @@ impl Game {
                 let occurrence = target_index;
                 target_index += 1;
                 self.stack_target_incarnation_matches(&stack_object, occurrence, target)
+                    && self.stack_target_chosen_x_matches(&stack_object, occurrence, target)
                     && self.target_matches_for_colors(
                         stack_object.controller,
                         target,
@@ -21941,7 +23679,14 @@ impl Game {
             if !should_pay {
                 trigger_payment_paid = false;
             }
-            if should_pay && next_effect_index == 0 && ability.mana_cost.mana_value() > 0 {
+            if should_pay
+                && next_effect_index == 0
+                && ability.mana_cost.mana_value() > 0
+                && !self
+                    .format
+                    .commander_stack_draws
+                    .contains_key(&(stack_object.id, next_effect_index))
+            {
                 let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
                 paid_pool
                     .pay(&ability.mana_cost)
@@ -21969,6 +23714,23 @@ impl Game {
             }
             if !trigger_payment_paid {
                 continue;
+            }
+            self.format
+                .commander_zone_choices
+                .retain(|(stack, index, _), _| *stack != stack_object.id || *index == effect_index);
+            if effect_index > next_effect_index {
+                self.stack.push(stack_object.clone());
+                self.stack_effect_cursors
+                    .insert(stack_object.id, effect_index);
+                if self.suspend_top_for_commander_zone_replacement(
+                    optional_decision,
+                    counter_unless_payment,
+                    counter_unless_discard_hand,
+                )? {
+                    return Ok(());
+                }
+                self.stack.pop();
+                self.stack_effect_cursors.remove(&stack_object.id);
             }
             if effect_index > next_effect_index
                 && self.suspend_resolving_stack_instruction_for_library_search_choice(
@@ -22010,6 +23772,31 @@ impl Game {
                 )?
             {
                 return Ok(());
+            }
+            if matches!(
+                effect,
+                Effect::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards
+            ) {
+                if self.resolve_warp_world_instruction(&stack_object, effect_index)? {
+                    return Ok(());
+                }
+                continue;
+            }
+            if let Some(paused) = self.resolve_commander_stack_draws(
+                &stack_object,
+                effect_index,
+                &target_resolution,
+                optional_decision,
+                counter_unless_payment,
+                counter_unless_discard_hand,
+            )? {
+                if paused {
+                    return Ok(());
+                }
+                if effect.target_requirement().is_some() {
+                    target_index += 1;
+                }
+                continue;
             }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
@@ -22461,6 +24248,9 @@ impl Game {
         self.flush_pending_dies_triggers()?;
         self.stack_target_legality_snapshots
             .remove(&stack_object.id);
+        self.format
+            .commander_zone_choices
+            .retain(|(stack, _, _), _| *stack != stack_object.id);
         self.restore_priority_after_stack_resolution();
         Ok(())
     }
@@ -23083,6 +24873,7 @@ impl Game {
         let amount = match effect {
             Some(
                 Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachTappedCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::DealDamageToEachNonFlyingCreature { amount },
             ) => *amount,
@@ -23143,6 +24934,15 @@ impl Game {
         let packets = match top.effects.get(effect_index) {
             Some(Effect::DealDamageToEachCreatureAndPlayer { .. }) => {
                 let mut packets = creature_packets(false)?;
+                packets.extend(player_packets());
+                packets
+            }
+            Some(Effect::DealDamageToEachTappedCreatureAndPlayer { .. }) => {
+                let mut packets = creature_packets(false)?;
+                packets.retain(|packet| {
+                    matches!(packet.target, Target::Permanent(card)
+                    if self.objects.get(&card).is_some_and(|object| object.tapped))
+                });
                 packets.extend(player_packets());
                 packets
             }
@@ -24144,6 +25944,44 @@ impl Game {
         )
     }
 
+    /// Captures the all-creature return set before applying the effect when
+    /// one or more eligible cards are commanders. This creates only the
+    /// optional commander-zone replacement decision; card choice is never
+    /// requested because the printed instruction returns every creature.
+    fn suspend_top_stack_item_for_all_graveyard_creature_returns(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.format.commanders.is_empty() {
+            return Ok(false);
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        if top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice() != [Effect::ReturnAllCreatureCardsFromEachGraveyardToHand]
+        {
+            return Ok(false);
+        }
+        let returns = self.all_graveyard_creature_card_snapshots()?;
+        if !returns
+            .iter()
+            .any(|snapshot| self.is_commander(snapshot.card))
+        {
+            return Ok(false);
+        }
+        let stack_item = top.id;
+        self.format.commander_selected_returns.insert(
+            stack_item,
+            commander_replacement::SelectedReturns::Creatures(returns),
+        );
+        if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+            return Ok(true);
+        }
+        self.format.commander_selected_returns.remove(&stack_item);
+        Ok(false)
+    }
+
     /// Suspends the target-free land-recursion spell at the controller's
     /// public zero-through-three selection boundary.  An empty candidate set
     /// has no decision to make and falls through to the ordinary no-op
@@ -24827,9 +26665,14 @@ impl Game {
         ) {
             return Ok(false);
         }
-        for _ in 0..3 {
-            self.draw_card_from_spell_effect(recipient)?;
+        let top = self
+            .stack
+            .pop()
+            .ok_or(RulesError::IllegalAction("conditional draw lost its stack"))?;
+        if self.resolve_commander_draw_sequence(&top, 0, recipient, 3, true, None, None, None)? {
+            return Ok(true);
         }
+        self.stack.push(top);
         // Drawing from an empty library is a terminal state-based action at
         // the next rules checkpoint.  Do not expose the follow-up discard
         // choice to a player who has already incurred that loss: the spell's
@@ -25809,6 +27652,17 @@ impl Game {
     /// Within one controller the public binding/source order remains stable
     /// until policy-supplied ordering is added as a later decision layer.
     fn flush_pending_trigger_events(&mut self) -> Result<(), RulesError> {
+        // Commander graveyard/exile returns are SBA choices. Retain captured
+        // triggers until that fixed point completes, before forming APNAP
+        // groups or asking for targets/order (CR 603.3, 903.9a).
+        if self.pending_decision.as_ref().is_some_and(|decision| {
+            matches!(
+                decision.continuation,
+                DecisionContinuation::CommanderReturn { .. }
+            )
+        }) {
+            return Ok(());
+        }
         let events = std::mem::take(&mut self.pending_trigger_events);
         if events.is_empty() {
             return Ok(());
@@ -25855,7 +27709,10 @@ impl Game {
             self.pending_decision
                 .as_ref()
                 .map(|decision| &decision.continuation),
-            Some(DecisionContinuation::TriggeredAbilityTargets { .. })
+            Some(
+                DecisionContinuation::TriggeredAbilityTargets { .. }
+                    | DecisionContinuation::TriggeredAbilityOrder { .. }
+            )
         ) {
             return Ok(());
         }
@@ -26584,6 +28441,7 @@ impl Game {
         ability_id: &'static str,
         pay: bool,
         target: Option<Target>,
+        mana_abilities: &[ResolutionPaymentManaAbility],
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             let choice =
@@ -26617,7 +28475,40 @@ impl Game {
                     ));
                 }
             }
+            if !pay && !mana_abilities.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "declining an optional trigger payment cannot name mana abilities",
+                ));
+            }
             if pay {
+                for activation in mana_abilities {
+                    match activation {
+                        ResolutionPaymentManaAbility::Bound(activation) => {
+                            game.activate_bound_mana_ability_impl(
+                                player,
+                                *activation,
+                                None,
+                                None,
+                            )?;
+                        }
+                        ResolutionPaymentManaAbility::BoundWithBundleChoice(activation) => {
+                            game.activate_bound_mana_ability_impl(
+                                player,
+                                activation.activation,
+                                Some(&activation.chosen_bundle),
+                                None,
+                            )?;
+                        }
+                        ResolutionPaymentManaAbility::IntrinsicLand(activation) => {
+                            game.activate_intrinsic_mana_ability_impl(
+                                player,
+                                activation.land,
+                                activation.color,
+                                None,
+                            )?;
+                        }
+                    }
+                }
                 if let Some(life_payment) = Self::optional_trigger_life_payment(&choice.ability)
                 {
                     if life_payment == 0 || game.players[player.0].life < i64::from(life_payment)
@@ -27072,6 +28963,45 @@ impl Game {
         })
     }
 
+    fn finish_chosen_trigger_return(
+        &mut self,
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "chosen return lost its stack ability",
+        ))?;
+        if top.card != source
+            || top.ability_id != Some(ability)
+            || !matches!(
+                top.effects.as_slice(),
+                [Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }]
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "chosen return no longer matches its stack ability",
+            ));
+        }
+        let stack = top.id;
+        if let Some(card) = selected.filter(|card| self.is_commander(*card)) {
+            self.format.commander_selected_returns.insert(
+                stack,
+                commander_replacement::SelectedReturns::TriggeredReturn(card),
+            );
+            if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+                return Ok(());
+            }
+        }
+        self.format.commander_selected_returns.remove(&stack);
+        self.finish_trigger_effect_object_choice(source, ability, |game| {
+            if let Some(card) = selected {
+                game.move_to_zone(card, Zone::Hand)?;
+            }
+            Ok(())
+        })
+    }
+
     fn finish_trigger_effect_object_choice(
         &mut self,
         source: ObjectId,
@@ -27103,6 +29033,55 @@ impl Game {
         Ok(())
     }
 
+    fn finish_trigger_library_top_choices(
+        &mut self,
+        source: ObjectId,
+        ability: &'static str,
+        selections: Vec<(PlayerId, ObjectId)>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "library-top trigger choice has no live stack ability",
+        ))?;
+        if top.card != source
+            || top.ability_id != Some(ability)
+            || !matches!(
+                top.effects.as_slice(),
+                [Effect::PutOneHandCardOnLibraryTopEachPlayer]
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "library-top trigger choices no longer match their stack ability",
+            ));
+        }
+        let stack = top.id;
+        for (chooser, card) in &selections {
+            if self.zone_of(*card) != Some(Zone::Hand) || self.object(*card)?.owner != *chooser {
+                return Err(RulesError::IllegalAction(
+                    "chosen library-top card left its chooser hand before resolution",
+                ));
+            }
+        }
+        self.format.commander_selected_returns.insert(
+            stack,
+            commander_replacement::SelectedReturns::LibraryTop(selections.clone()),
+        );
+        if self.suspend_top_for_commander_zone_replacement(None, None, None)? {
+            return Ok(());
+        }
+        self.format.commander_selected_returns.remove(&stack);
+        self.finish_trigger_effect_object_choice(source, ability, |game| {
+            for (chooser, card) in selections {
+                if game.zone_of(card) != Some(Zone::Hand) || game.object(card)?.owner != chooser {
+                    return Err(RulesError::IllegalAction(
+                        "chosen library-top card left its chooser hand before resolution",
+                    ));
+                }
+                game.move_to_zone(card, Zone::Library)?;
+            }
+            Ok(())
+        })
+    }
+
     #[allow(clippy::too_many_lines)] // One effect-object suspension gate keeps each stack shape explicit.
     fn suspend_top_trigger_for_effect_object_choice(&mut self) -> Result<bool, RulesError> {
         if self.pending_decision.is_some() {
@@ -27124,9 +29103,14 @@ impl Game {
                     .filter(|player| !player.lost)
                     .map(|player| player.id)
                     .collect::<Vec<_>>();
-                for player in &players {
-                    self.draw_card_from_spell_effect(*player)?;
+                self.format.commander_group_draws.entry(top.id).or_insert_with(|| players.clone());
+                while let Some(player) = self.format.commander_group_draws[&top.id].first().copied() {
+                    self.stack.pop().ok_or(RulesError::IllegalAction("group draw lost its stack"))?;
+                    if self.resolve_commander_draw_sequence(&top, 0, player, 1, true, None, None, None)? { return Ok(true); }
+                    self.stack.push(top.clone());
+                    self.format.commander_group_draws.get_mut(&top.id).expect("group draw queue").remove(0);
                 }
+                self.format.commander_group_draws.remove(&top.id);
                 TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
                     remaining_players: players,
                     selected: Vec::new(),
@@ -27143,8 +29127,25 @@ impl Game {
                     selected: Vec::new(),
                 }
             }
+            [Effect::PutOneHandCardOnLibraryTopEachPlayer] => {
+                TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer {
+                    processed_players: Vec::new(),
+                    remaining_players: (0..self.players.len())
+                        .map(|offset| {
+                            PlayerId((self.active_player.0 + offset) % self.players.len())
+                        })
+                        .filter(|player| !self.players[player.0].lost)
+                        .collect(),
+                    selected: Vec::new(),
+                }
+            }
             [Effect::SacrificeControllerCreature] => {
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            }
+            [Effect::ReturnAnyEnchantmentOrSacrificeSource] => {
+                TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource {
+                    source_incarnation: top.source_incarnation,
+                }
             }
             [Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }] => {
                 if !top.targets.is_empty() {
@@ -27210,7 +29211,13 @@ impl Game {
             } => *remaining_players.first().ok_or(RulesError::IllegalAction(
                 "a continuing game has no player for trigger discard choice",
             ))?,
+            TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer {
+                remaining_players, ..
+            } => *remaining_players.first().ok_or(RulesError::IllegalAction(
+                "a continuing game has no player for trigger library-top choice",
+            ))?,
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            | TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. }
             | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
             | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
@@ -27229,6 +29236,9 @@ impl Game {
             TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
                 self.players[chooser.0].hand.clone()
             }
+            TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer { .. } => {
+                self.players[chooser.0].hand.clone()
+            }
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
             | TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature { .. }
@@ -27241,6 +29251,15 @@ impl Game {
                         && self.characteristics(*card).is_ok_and(|characteristics| {
                             characteristics.card_types.contains(&CardType::Creature)
                         })
+                })
+                .collect(),
+            TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. } => self
+                .all_battlefield_cards()
+                .into_iter()
+                .filter(|card| {
+                    self.characteristics(*card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Enchantment)
+                    })
                 })
                 .collect(),
             TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature {
@@ -27291,6 +29310,36 @@ impl Game {
             .collect::<Vec<_>>();
         if options.is_empty()
             && matches!(
+                &kind,
+                TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. }
+            )
+        {
+            let source_incarnation = match &kind {
+                TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource {
+                    source_incarnation,
+                } => *source_incarnation,
+                _ => unreachable!("matched Drake Familiar decision kind"),
+            };
+            self.finish_trigger_effect_object_choice(top.card, ability, |game| {
+                if game.zone_of(top.card) == Some(Zone::Battlefield)
+                    && game.object_has_incarnation(top.card, source_incarnation)
+                    && game
+                        .controller_of(top.card)
+                        .is_ok_and(|value| value == chooser)
+                {
+                    game.record_event(GameEvent::SacrificedByEffect {
+                        source: top.card,
+                        player: chooser,
+                        permanent: top.card,
+                    });
+                    game.move_to_graveyard_or_remove_token(top.card)?;
+                }
+                Ok(())
+            })?;
+            return Ok(true);
+        }
+        if options.is_empty()
+            && matches!(
                 kind,
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
                     | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
@@ -27310,13 +29359,17 @@ impl Game {
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                 (0, u8::from(!options.is_empty()))
             }
+            TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. } => {
+                (0, 1)
+            }
             _ if options.is_empty() => (0, 0),
             _ => (1, 1),
         };
         self.open_pending_decision(
             chooser,
             match &kind {
-                TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
+                TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. }
+                | TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer { .. } => {
                     DecisionVisibility::Private
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
@@ -27325,6 +29378,7 @@ impl Game {
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
                 | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
+                | TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. }
                 | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
@@ -27937,6 +29991,7 @@ impl Game {
         departing_permanents: impl IntoIterator<Item = ObjectId>,
     ) -> Result<(), RulesError> {
         let departing_permanents = departing_permanents.into_iter().collect::<Vec<_>>();
+        self.enqueue_damaged_creature_death_triggers(&departing_permanents)?;
         let graveyard_observer_sources = self.all_battlefield_cards();
         for departing_permanent in &departing_permanents {
             self.enqueue_another_creature_leaves_battlefield_triggers(*departing_permanent)?;
@@ -27955,6 +30010,84 @@ impl Game {
         Ok(())
     }
 
+    /// Captures Trophy-Hunter-shaped observers for exact creature incarnations
+    /// that have both positive committed source damage and are now leaving the
+    /// battlefield for a graveyard. This runs before any member of a
+    /// simultaneous departure batch moves, so a source dying in that same
+    /// batch still observes the event through last-known battlefield state.
+    /// An earlier source departure cannot match because it is no longer live
+    /// at this observation boundary (and a returned source has a new
+    /// incarnation).
+    fn enqueue_damaged_creature_death_triggers(
+        &mut self,
+        dying_permanents: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let mut observed = BTreeSet::new();
+        for dying in dying_permanents {
+            if self.zone_of(*dying) != Some(Zone::Battlefield)
+                || !self
+                    .characteristics(*dying)?
+                    .card_types
+                    .contains(&CardType::Creature)
+            {
+                continue;
+            }
+            let target_incarnation = self.object(*dying)?.incarnation;
+            let sources = self
+                .damaged_creature_by_source_incarnations_this_turn
+                .iter()
+                .filter_map(
+                    |(source, source_incarnation, target, recorded_target_incarnation)| {
+                        (*target == *dying && *recorded_target_incarnation == target_incarnation)
+                            .then_some((*source, *source_incarnation))
+                    },
+                )
+                .collect::<Vec<_>>();
+            for (source, source_incarnation) in sources {
+                if !self.object_has_incarnation(source, source_incarnation)
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                {
+                    continue;
+                }
+                let Some(definition) = self.effective_definition_id(source)? else {
+                    continue;
+                };
+                let controller = self.controller_of(source)?;
+                let source_colors = self.characteristics(source)?.colors;
+                let triggers = self
+                    .triggered_abilities
+                    .get(definition)
+                    .into_iter()
+                    .flat_map(|abilities| abilities.values())
+                    .filter(|ability| {
+                        ability.condition == TriggerCondition::DamagedCreatureBySourceDiesThisTurn
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                for ability in triggers {
+                    if observed.insert((
+                        source,
+                        source_incarnation,
+                        *dying,
+                        target_incarnation,
+                        ability.id,
+                    )) {
+                        self.pending_trigger_events
+                            .push(PendingTriggeredAbilityEvent {
+                                source,
+                                source_incarnation,
+                                source_colors: source_colors.clone(),
+                                controller,
+                                ability,
+                                payload: TriggerEventPayload::None,
+                            });
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Captures every battlefield permanent with an "another creature leaves
     /// the battlefield" trigger before the departing object changes zones.
     /// The source incarnation and colors are sampled while the source still
@@ -27963,6 +30096,7 @@ impl Game {
         &mut self,
         leaving_creature: ObjectId,
     ) -> Result<(), RulesError> {
+        let leaving_token = self.object(leaving_creature)?.token.is_some();
         if self.zone_of(leaving_creature) != Some(Zone::Battlefield)
             || !self
                 .characteristics(leaving_creature)?
@@ -27985,6 +30119,9 @@ impl Game {
                     .flat_map(|abilities| abilities.values())
                     .any(|ability| {
                         ability.condition == TriggerCondition::AnotherCreatureLeavesBattlefield
+                            || (leaving_token
+                                && ability.condition
+                                    == TriggerCondition::AnotherCreatureTokenLeavesBattlefield)
                     });
                 if !observes {
                     return None;
@@ -28007,6 +30144,9 @@ impl Game {
                 .flat_map(|abilities| abilities.values())
                 .filter(|ability| {
                     ability.condition == TriggerCondition::AnotherCreatureLeavesBattlefield
+                        || (leaving_token
+                            && ability.condition
+                                == TriggerCondition::AnotherCreatureTokenLeavesBattlefield)
                 })
                 .cloned()
                 .collect::<Vec<_>>();
@@ -28050,7 +30190,7 @@ impl Game {
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
                 let controller = self.controller_of(source).ok()?;
-                (controller != graveyard_owner).then(|| {
+                self.are_opponents(controller, graveyard_owner).then(|| {
                     Some((
                         source,
                         self.card_definition(source).ok()?.id,
@@ -28210,6 +30350,32 @@ impl Game {
         })
     }
 
+    fn source_prevents_damage_to_creature_of_color(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: ObjectId,
+    ) -> bool {
+        let Some(source_characteristics) =
+            self.damage_source_characteristics(source, source_incarnation)
+        else {
+            return false;
+        };
+        self.characteristics(target)
+            .is_ok_and(|target_characteristics| {
+                target_characteristics
+                    .card_types
+                    .contains(&CardType::Creature)
+                    && source_characteristics.keywords.iter().any(|keyword| {
+                        matches!(
+                            keyword,
+                            Keyword::PreventDamageToCreaturesOfColor(color)
+                                if target_characteristics.colors.contains(color)
+                        )
+                    })
+            })
+    }
+
     fn target_prevents_damage_from_controlled_source(
         &self,
         source: ObjectId,
@@ -28356,6 +30522,12 @@ impl Game {
             !self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation);
         let mut candidates =
             self.damage_amount_replacement_candidates(target, prevention_allowed, used)?;
+        candidates.extend(self.creature_damage_prevention_candidates(
+            source,
+            source_incarnation,
+            prevention_allowed,
+            used,
+        ));
         match target {
             Target::Permanent(permanent) => {
                 candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
@@ -28389,6 +30561,11 @@ impl Game {
                 }
                 if prevention_allowed {
                     if self.target_prevents_damage_from_colors(permanent, source_colors)
+                        || self.source_prevents_damage_to_creature_of_color(
+                            source,
+                            source_incarnation,
+                            permanent,
+                        )
                         || self.target_prevents_damage_from_controlled_source(
                             source,
                             source_incarnation,
@@ -28697,6 +30874,20 @@ impl Game {
                     "combat-only prevention reached the ordinary damage pipeline",
                 ));
             }
+            DamageReplacementChoice::CreatureDamagePrevention {
+                id,
+                source: prevention_source,
+            } => {
+                self.prevent_creature_damage_and_gain_life(
+                    id,
+                    prevention_source,
+                    pending.source,
+                    pending.source_incarnation,
+                    pending.target,
+                    pending.amount,
+                )?;
+                pending.amount = 0;
+            }
             DamageReplacementChoice::Redirect {
                 id,
                 source: redirect_source,
@@ -28827,6 +31018,11 @@ impl Game {
             }
             DamageReplacementChoice::SourceColorPrevention { permanent } => {
                 if !(self.target_prevents_damage_from_colors(permanent, source_colors)
+                    || self.source_prevents_damage_to_creature_of_color(
+                        pending.source,
+                        pending.source_incarnation,
+                        permanent,
+                    )
                     || self.target_prevents_damage_from_controlled_source(
                         pending.source,
                         pending.source_incarnation,
@@ -28958,6 +31154,12 @@ impl Game {
                     permanent,
                     amount,
                 });
+                self.record_damaged_creature_source_incarnation(
+                    source,
+                    source_incarnation,
+                    permanent,
+                    amount,
+                )?;
                 self.enqueue_damage_triggers(source, amount)?;
                 self.enqueue_received_damage_triggers(source, permanent, amount)?;
             }
@@ -28974,6 +31176,31 @@ impl Game {
                 )));
             }
         }
+        Ok(())
+    }
+
+    /// Remembers only positive committed damage to a creature, retaining the
+    /// exact battlefield incarnation of both endpoints. Callers run after
+    /// prevention/replacement and before the state-based-action pass.
+    fn record_damaged_creature_source_incarnation(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        permanent: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if amount <= 0
+            || self.zone_of(permanent) != Some(Zone::Battlefield)
+            || !self
+                .characteristics(permanent)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let target_incarnation = self.object(permanent)?.incarnation;
+        self.damaged_creature_by_source_incarnations_this_turn
+            .insert((source, source_incarnation, permanent, target_incarnation));
         Ok(())
     }
 
@@ -29111,6 +31338,178 @@ impl Game {
             expires_turn: self.turn,
         });
         Ok(())
+    }
+
+    fn install_global_creature_damage_prevention(
+        &mut self,
+        source: ObjectId,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        self.player(controller)?;
+        let source_is_virtual = self.virtual_spell_copies.contains_key(&source);
+        if source_is_virtual
+            && self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "a virtual creature-prevention source must be resolving",
+            ));
+        }
+        if !source_is_virtual {
+            self.object(source)?;
+        }
+        let id = self.next_timestamp;
+        self.global_creature_damage_preventions
+            .push(GlobalCreatureDamagePrevention {
+                id,
+                source,
+                source_is_virtual,
+                controller,
+                expires_turn: self.turn,
+            });
+        self.next_timestamp += 1;
+        self.record_event(GameEvent::GlobalCreatureDamagePreventionCreated {
+            id,
+            source,
+            controller,
+            expires_turn: self.turn,
+        });
+        Ok(())
+    }
+
+    fn creature_damage_prevention_candidates(
+        &self,
+        damage_source: ObjectId,
+        source_incarnation: u64,
+        prevention_allowed: bool,
+        used: &[DamageReplacementChoice],
+    ) -> Vec<DamageReplacementChoice> {
+        if !prevention_allowed
+            || !self
+                .damage_source_characteristics(damage_source, source_incarnation)
+                .is_some_and(|characteristics| {
+                    characteristics.card_types.contains(&CardType::Creature)
+                })
+        {
+            return Vec::new();
+        }
+        self.global_creature_damage_preventions
+            .iter()
+            .filter(|prevention| prevention.expires_turn >= self.turn)
+            .map(
+                |prevention| DamageReplacementChoice::CreatureDamagePrevention {
+                    id: prevention.id,
+                    source: prevention.source,
+                },
+            )
+            .filter(|choice| !used.contains(choice))
+            .collect()
+    }
+
+    fn prevent_creature_damage_and_gain_life(
+        &mut self,
+        id: u64,
+        prevention_source: ObjectId,
+        damage_source: ObjectId,
+        damage_source_incarnation: u64,
+        target: Target,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        let prevention = self
+            .global_creature_damage_preventions
+            .iter()
+            .find(|prevention| {
+                prevention.id == id
+                    && prevention.source == prevention_source
+                    && prevention.expires_turn >= self.turn
+            })
+            .cloned()
+            .ok_or(RulesError::IllegalAction(
+                "global creature-damage prevention disappeared before selection",
+            ))?;
+        if amount <= 0
+            || self.damage_cannot_be_prevented_for_incarnation(
+                damage_source,
+                damage_source_incarnation,
+            )
+            || !self
+                .damage_source_characteristics(damage_source, damage_source_incarnation)
+                .is_some_and(|characteristics| {
+                    characteristics.card_types.contains(&CardType::Creature)
+                })
+        {
+            return Err(RulesError::IllegalAction(
+                "global creature-damage prevention no longer applies to this packet",
+            ));
+        }
+        self.record_event(GameEvent::DamagePrevented {
+            source: damage_source,
+            target,
+            amount,
+        });
+        self.record_event(GameEvent::CreatureDamagePrevented {
+            replacement_id: id,
+            source: damage_source,
+            prevented_by: prevention_source,
+            controller: prevention.controller,
+            target,
+            amount,
+        });
+        if !self.player(prevention.controller)?.lost {
+            self.adjust_life(prevention.controller, i64::from(amount));
+            self.record_event(GameEvent::LifeGained {
+                player: prevention.controller,
+                amount,
+            });
+            self.enqueue_life_gain_triggers(prevention.controller);
+        }
+        Ok(())
+    }
+
+    fn apply_automatic_creature_damage_prevention(
+        &mut self,
+        damage_source: ObjectId,
+        source_incarnation: u64,
+        target: Target,
+        amount: i32,
+    ) -> Result<i32, RulesError> {
+        if amount <= 0 {
+            return Ok(amount);
+        }
+        let prevention_allowed =
+            !self.damage_cannot_be_prevented_for_incarnation(damage_source, source_incarnation);
+        let Some(replacement) = self
+            .creature_damage_prevention_candidates(
+                damage_source,
+                source_incarnation,
+                prevention_allowed,
+                &[],
+            )
+            .into_iter()
+            .next()
+        else {
+            return Ok(amount);
+        };
+        let DamageReplacementChoice::CreatureDamagePrevention { id, source } = replacement else {
+            unreachable!("creature damage prevention helper returned a different replacement")
+        };
+        let affected_player = self.affected_player_for_damage_target(target)?;
+        self.record_event(GameEvent::DamageReplacementApplied {
+            affected_player,
+            target,
+            replacement,
+        });
+        self.prevent_creature_damage_and_gain_life(
+            id,
+            source,
+            damage_source,
+            source_incarnation,
+            target,
+            amount,
+        )?;
+        Ok(0)
     }
 
     fn combat_damage_prevented_by(&self, source: ObjectId) -> Option<ObjectId> {
@@ -29403,10 +31802,10 @@ impl Game {
 
     /// Lists every represented replacement for one prospective combat-damage
     /// packet. The source-specific mill-and-counter replacement applies only
-    /// to a player recipient, while ordinary damage replacements and
-    /// target-free combat prevention can apply to either a player or creature
-    /// packet. The affected player therefore orders every concurrent option
-    /// before a combat packet commits.
+    /// to a player recipient, while ordinary damage replacements, combat
+    /// prevention, and creature-source prevention can apply to either a player
+    /// or creature packet. The affected player therefore orders every
+    /// concurrent option before a combat packet commits.
     fn combat_damage_replacement_candidates(
         &self,
         source: ObjectId,
@@ -29852,10 +32251,21 @@ impl Game {
             Target::Permanent(permanent),
             amount,
         )?;
+        let amount = self.apply_automatic_creature_damage_prevention(
+            source,
+            source_incarnation,
+            Target::Permanent(permanent),
+            amount,
+        )?;
         let (prevented, consumes_shield) =
             if self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation) {
                 (0, false)
             } else if self.target_prevents_damage_from_colors(permanent, source_colors)
+                || self.source_prevents_damage_to_creature_of_color(
+                    source,
+                    source_incarnation,
+                    permanent,
+                )
                 || self.target_prevents_damage_from_controlled_source(
                     source,
                     source_incarnation,
@@ -29903,6 +32313,12 @@ impl Game {
                 permanent,
                 amount: remaining,
             });
+            self.record_damaged_creature_source_incarnation(
+                source,
+                source_incarnation,
+                permanent,
+                remaining,
+            )?;
             self.enqueue_damage_triggers(source, remaining)?;
             self.enqueue_received_damage_triggers(source, permanent, remaining)?;
         }
@@ -29970,6 +32386,12 @@ impl Game {
         amount: i32,
     ) -> Result<(), RulesError> {
         let amount = self.apply_automatic_damage_amount_replacements(
+            source,
+            source_incarnation,
+            Target::Player(player),
+            amount,
+        )?;
+        let amount = self.apply_automatic_creature_damage_prevention(
             source,
             source_incarnation,
             Target::Player(player),
@@ -30267,6 +32689,11 @@ impl Game {
                     }
                 }
             }
+            Effect::PutOneHandCardOnLibraryTopEachPlayer => {
+                return Err(RulesError::IllegalAction(
+                    "each-player library-top choices must resolve through the typed trigger boundary",
+                ));
+            }
             Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest => {
                 if self
                     .players
@@ -30384,7 +32811,7 @@ impl Game {
                     self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
-                        amount,
+                        amount: i32::from(amount),
                     });
                     self.enqueue_life_gain_triggers(controller);
                 }
@@ -30785,7 +33212,8 @@ impl Game {
                 }
                 self.remove_counter(source, target, *counter, *amount)?;
             }
-            Effect::DealDamageToEachCreatureAndPlayer { amount } => {
+            Effect::DealDamageToEachCreatureAndPlayer { amount }
+            | Effect::DealDamageToEachTappedCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the
                 // board. The resolution path invokes state-based actions only
                 // after every effect finishes, so simultaneous all-creature
@@ -30796,6 +33224,8 @@ impl Game {
                     .copied()
                     .filter(|candidate| {
                         self.zone_of(*candidate) == Some(Zone::Battlefield)
+                            && (!matches!(effect, Effect::DealDamageToEachTappedCreatureAndPlayer { .. })
+                                || self.objects[candidate].tapped)
                             && self
                                 .characteristics(*candidate)
                                 .is_ok_and(|characteristics| {
@@ -30928,7 +33358,7 @@ impl Game {
                     self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
-                        amount,
+                        amount: i32::from(amount),
                     });
                     self.enqueue_life_gain_triggers(controller);
                 }
@@ -30952,15 +33382,17 @@ impl Game {
                 self.adjust_life(controller, i64::from(*amount));
                 self.record_event(GameEvent::LifeGained {
                     player: controller,
-                    amount: *amount,
+                    amount: i32::from(*amount),
                 });
                 self.enqueue_life_gain_triggers(controller);
             }
-            Effect::GainLifeForEachCreature => {
+            Effect::GainLifeForEachCreature | Effect::GainLifeForEachControlledCreature => {
                 let count = self
                     .all_battlefield_cards()
                     .into_iter()
                     .filter(|card| {
+                        if matches!(effect, Effect::GainLifeForEachControlledCreature)
+                            && self.objects[card].controller != controller { return false; }
                         self.characteristics(*card).is_ok_and(|characteristics| {
                             characteristics.card_types.contains(&CardType::Creature)
                         })
@@ -30975,7 +33407,7 @@ impl Game {
                     self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
-                        amount,
+                        amount: i32::from(amount),
                     });
                     self.enqueue_life_gain_triggers(controller);
                 }
@@ -30991,7 +33423,7 @@ impl Game {
                     self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
-                        amount,
+                        amount: i32::from(amount),
                     });
                     self.enqueue_life_gain_triggers(controller);
                 }
@@ -31019,7 +33451,7 @@ impl Game {
                     self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
-                        amount,
+                        amount: i32::from(amount),
                     });
                     self.enqueue_life_gain_triggers(controller);
                 }
@@ -31166,7 +33598,9 @@ impl Game {
                 }
                 // An empty snapshot is a legal same-count no-op.
             }
-            Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. } => {
+            Effect::AttachSourceAndModifyTargetPt { .. }
+            | Effect::AttachSourceToTarget { .. }
+            | Effect::AttachSourceToTappedTarget { .. } => {
                 return Err(RulesError::IllegalAction(
                     "aura attachment bypassed permanent-spell resolution",
                 ));
@@ -31201,6 +33635,18 @@ impl Game {
             Effect::DrawControllerIfManaColorSpent { color } => {
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
                     self.draw_card_from_spell_effect(controller)?;
+                }
+            }
+            Effect::UntapControllerCreaturesIfManaColorSpent { color } => {
+                if mana_spent.is_some_and(|spent| spent.contains(color)) {
+                    let creatures = self.all_battlefield_cards().into_iter().filter(|card|
+                        self.objects[card].controller == controller && self.objects[card].tapped
+                        && self.characteristics(*card).is_ok_and(|state| state.card_types.contains(&CardType::Creature))
+                    ).collect::<Vec<_>>();
+                    for card in creatures {
+                        self.objects.get_mut(&card).unwrap().tapped = false;
+                        self.record_event(GameEvent::PermanentUntapped { source, card });
+                    }
                 }
             }
             Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent {
@@ -31676,6 +34122,9 @@ impl Game {
             Effect::PreventAllCombatDamageUntilEndOfTurn => {
                 self.install_global_combat_damage_prevention(source)?;
             }
+            Effect::PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn => {
+                self.install_global_creature_damage_prevention(source, controller)?;
+            }
             Effect::RegenerateTargetCreature => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
@@ -31852,20 +34301,16 @@ impl Game {
                     }
                 }
             }
-            Effect::DestroyTargetCreatureWithManaValueAtMostChosenX => {
+            Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
+            | Effect::DestroyTargetCreatureWithManaValueEqualToChosenX => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
-                let x_value = usize::from(chosen_x.ok_or(RulesError::IllegalAction(
+                let x_value = chosen_x.ok_or(RulesError::IllegalAction(
                     "chosen-X resolution lacks the selected X value",
-                ))?);
-                let mana_value = if self.object(target)?.token.is_some() {
-                    0
-                } else {
-                    usize::from(self.card_definition(target)?.mana_cost.mana_value())
-                };
-                if mana_value <= x_value {
+                ))?;
+                if effect.chosen_x_allows_mana_value(self.permanent_mana_value(target)?, x_value) {
                     self.destroy_permanent(source, target)?;
                 }
             }
@@ -32135,6 +34580,25 @@ impl Game {
                     )?;
                 }
             }
+            Effect::RadianceAddChosenColorProtectionToTargetAndSharedColorCreaturesUntilEndOfTurn => {
+                let color = chosen_color.ok_or(RulesError::IllegalAction(
+                    "Radiance protection resolved without a chosen color",
+                ))?;
+                if !color.is_colored() {
+                    return Err(RulesError::IllegalAction(
+                        "Radiance protection retained a non-card color",
+                    ));
+                }
+                let target = Self::target_permanent(target)?;
+                for creature in self.radiance_creatures_sharing_color(target)? {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::AddKeyword(Keyword::Protection(color)),
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
             Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn => {
                 let color = chosen_color.ok_or(RulesError::IllegalAction(
                     "chosen-color replacement resolved without a chosen color",
@@ -32341,6 +34805,10 @@ impl Game {
                 let target = Self::target_spell(target)?;
                 self.counter_target_spell(source, target)?;
             }
+            Effect::CounterTargetSpellToOwnersHand => {
+                let target = Self::target_spell(target)?;
+                self.counter_target_spell_to_zone(source, target, Zone::Hand)?;
+            }
             Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
                 color,
             } => {
@@ -32527,6 +34995,12 @@ impl Game {
             Effect::ReturnSourceAttachedPermanentToHand => {
                 self.return_source_attached_permanent_to_hand(source, source_incarnation)?;
             }
+            Effect::ReturnSourceAttachedPermanentAndAurasToOwnersHands => {
+                self.return_source_attached_permanent_and_auras_to_owners_hands(
+                    source,
+                    source_incarnation,
+                )?;
+            }
             Effect::DestroyTargetArtifactOrEnchantment => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(
@@ -32558,6 +35032,11 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::ReturnAnyEnchantmentOrSacrificeSource => {
+                return Err(RulesError::IllegalAction(
+                    "Drake Familiar's target-free return-or-sacrifice instruction must resolve through its typed choice",
+                ));
             }
             Effect::ReturnTargetCardToHand => {
                 let target = Self::target_permanent(target)?;
@@ -32661,6 +35140,21 @@ impl Game {
                     debug_assert_eq!(self.object(card)?.owner, player);
                     if self.zone_of(card) == Some(Zone::Graveyard) {
                         self.move_to_zone(card, Zone::Hand)?;
+                    }
+                }
+            }
+            Effect::ReturnAllCreatureCardsFromEachGraveyardToHand => {
+                // Snapshot both players' eligible cards before moving any of
+                // them, then return every card to its owner's hand as one
+                // resolution instruction. There is no player selection in
+                // the printed effect.
+                let returns = self.all_graveyard_creature_card_snapshots()?;
+                for snapshot in returns {
+                    if self.zone_of(snapshot.card) == Some(Zone::Graveyard)
+                        && self.object_has_incarnation(snapshot.card, snapshot.incarnation)
+                    {
+                        debug_assert_eq!(self.object(snapshot.card)?.owner, snapshot.player);
+                        self.move_to_zone(snapshot.card, Zone::Hand)?;
                     }
                 }
             }
@@ -32826,7 +35320,7 @@ impl Game {
                 }
             }
             Effect::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards => {
-                self.resolve_warp_world()?;
+                return Err(RulesError::IllegalAction("Warp World bypassed its instruction continuation"));
             }
             Effect::ReturnControlledCreatureToHand => {
                 let target = Self::target_permanent(target)?;
@@ -32895,6 +35389,11 @@ impl Game {
                 }
                 let owner = self.object(target)?.owner;
                 self.move_to_zone(target, Zone::Library)?;
+                if self.zone_of(target) != Some(Zone::Library) {
+                    // A chosen commander replacement performed a different
+                    // zone transition; never pop an unrelated library card.
+                    return Ok(());
+                }
                 // The ordinary zone mover uses the final library slot as the
                 // draw top. It must have placed this exact card at that slot;
                 // only then move it below every pre-existing library card.
@@ -33060,6 +35559,32 @@ impl Game {
                 Target::Player(_) | Target::BasicLandType(_) | Target::ActivatedAbility(_) => None,
             })
             .collect()
+    }
+
+    fn stack_target_chosen_x_matches(
+        &self,
+        stack_object: &StackObject,
+        occurrence: usize,
+        target: Target,
+    ) -> bool {
+        let (Some(x), Target::Permanent(card)) = (stack_object.chosen_x, target) else {
+            return true;
+        };
+        let effect = stack_object
+            .effects
+            .iter()
+            .flat_map(|effect| {
+                effect
+                    .target_requirements()
+                    .into_iter()
+                    .flatten()
+                    .map(move |_| effect)
+            })
+            .nth(occurrence);
+        effect.is_none_or(|effect| {
+            self.permanent_mana_value(card)
+                .is_ok_and(|value| effect.chosen_x_allows_mana_value(value, x))
+        })
     }
 
     /// Returns whether a target occurrence still names the same rules object
@@ -33363,10 +35888,14 @@ impl Game {
                 (Target::Permanent(card), TargetRequirement::ControlledLand) => self
                     .controller_of(card)
                     .is_ok_and(|target_controller| target_controller == controller),
-                (Target::Permanent(card), TargetRequirement::OpponentCreature) => self
-                    .controller_of(card)
-                    .is_ok_and(|target_controller| target_controller != controller),
-                (Target::Player(player), TargetRequirement::Opponent) => player != controller,
+                (Target::Permanent(card), TargetRequirement::OpponentCreature) => {
+                    self.controller_of(card).is_ok_and(|target_controller| {
+                        self.are_opponents(controller, target_controller)
+                    })
+                }
+                (Target::Player(player), TargetRequirement::Opponent) => {
+                    self.are_opponents(controller, player)
+                }
                 _ => true,
             }
     }
@@ -33425,17 +35954,48 @@ impl Game {
         source_colors: &BTreeSet<Color>,
     ) -> bool {
         self.target_matches_for_controller(controller, target, requirement)
-            && !self.permanent_has_shroud_for_target(target)
+            && !self.permanent_cannot_be_targeted_by(controller, target)
             && !self.permanent_has_protection_from_colors_for_target(target, source_colors)
     }
 
-    /// Shroud is a target-selection rule: it applies to every permanent
-    /// target requirement, regardless of the source controller or color, but
-    /// never to a player, spell, or ability stack target.
-    fn permanent_has_shroud_for_target(&self, target: Target) -> bool {
-        matches!(target, Target::Permanent(card) if self.zone_of(card) == Some(Zone::Battlefield) && self.characteristics(card).is_ok_and(|characteristics| {
-            characteristics.keywords.contains(&Keyword::Shroud)
-        }))
+    /// CR 303.4f / 702.18: enchanting is not targeting. Shroud stops an Aura
+    /// spell's target, not direct attached entry or an existing attachment.
+    /// Protection still prohibits enchanting/equipping independently of targets.
+    fn attachment_matches_for_source(
+        &self,
+        controller: PlayerId,
+        source: ObjectId,
+        target: Target,
+        requirement: TargetRequirement,
+    ) -> bool {
+        self.target_matches_for_controller(controller, target, requirement)
+            && self.characteristics(source).is_ok_and(|characteristics| {
+                !self.permanent_has_protection_from_colors_for_target(
+                    target,
+                    &characteristics.colors,
+                )
+            })
+    }
+
+    /// Shroud and hexproof are permanent target-selection rules. Shroud
+    /// applies regardless of who controls the targeting spell or ability;
+    /// hexproof applies only when that player is an opponent of the target's
+    /// current controller. Neither affects player, spell, or ability targets.
+    fn permanent_cannot_be_targeted_by(&self, controller: PlayerId, target: Target) -> bool {
+        let Target::Permanent(card) = target else {
+            return false;
+        };
+        if self.zone_of(card) != Some(Zone::Battlefield) {
+            return false;
+        }
+        let Ok(characteristics) = self.characteristics(card) else {
+            return false;
+        };
+        characteristics.keywords.contains(&Keyword::Shroud)
+            || (characteristics.keywords.contains(&Keyword::Hexproof)
+                && self.controller_of(card).is_ok_and(|target_controller| {
+                    self.are_opponents(controller, target_controller)
+                }))
     }
 
     fn permanent_has_protection_from_colors_for_target(
@@ -33563,6 +36123,8 @@ impl Game {
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
             self.attacked_creature_incarnations_this_turn.clear();
+            self.damaged_creature_by_source_incarnations_this_turn
+                .clear();
             self.creature_cards_put_into_graveyard_from_battlefield_this_turn
                 .clear();
             self.library_search_prevented_until = None;
@@ -33637,10 +36199,7 @@ impl Game {
                 // skips its first draw. Multiplayer games do not skip it.
                 if self.format.has_teams() {
                     self.open_team_turn_draws()?;
-                } else if self.players.len() != 2
-                    || self.turn != 1
-                    || self.active_player != PlayerId(0)
-                {
+                } else if self.players.len() != 2 || self.turn != 1 {
                     self.open_pending_draw_replacement(self.active_player)?;
                 }
             }
@@ -33682,7 +36241,13 @@ impl Game {
     /// turn-based action, so it gives no priority and the same Cleanup pass
     /// resumes once the selected cards are discarded.
     fn open_cleanup_discard_decision(&mut self) -> Result<bool, RulesError> {
-        let player = self.active_player;
+        let Some(player) = self.active_seats().into_iter().find(|player| {
+            !self.players[player.0].lost
+                && !self.pending_cleanup_discards.contains_key(player)
+                && self.players[player.0].hand.len() > DEFAULT_MAX_HAND_SIZE
+        }) else {
+            return Ok(false);
+        };
         let hand_snapshot = self.recipient_hand_snapshot(player)?;
         let excess = hand_snapshot.len().saturating_sub(DEFAULT_MAX_HAND_SIZE);
         if excess == 0 {
@@ -33794,6 +36359,14 @@ impl Game {
             .collect::<Vec<_>>();
         self.global_combat_damage_preventions
             .retain(|prevention| prevention.expires_turn != self.turn);
+        let expired_global_creature_preventions = self
+            .global_creature_damage_preventions
+            .iter()
+            .filter(|prevention| prevention.expires_turn == self.turn)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.global_creature_damage_preventions
+            .retain(|prevention| prevention.expires_turn != self.turn);
         let expired_combat_authorities = self
             .combat_declaration_authorities
             .iter()
@@ -33828,6 +36401,13 @@ impl Game {
         for prevention in expired_global_combat_preventions {
             self.record_event(GameEvent::GlobalCombatDamagePreventionExpired {
                 source: prevention.source,
+            });
+        }
+        for prevention in expired_global_creature_preventions {
+            self.record_event(GameEvent::GlobalCreatureDamagePreventionExpired {
+                id: prevention.id,
+                source: prevention.source,
+                controller: prevention.controller,
             });
         }
         for authority in expired_combat_authorities {
@@ -33865,11 +36445,11 @@ impl Game {
         {
             if !combat.removed_from_combat.contains(&creature)
                 && self.zone_of(creature) == Some(Zone::Battlefield)
-                && self
-                    .characteristics(creature)?
-                    .keywords
-                    .iter()
-                    .any(|keyword| matches!(keyword, Keyword::FirstStrike | Keyword::DoubleStrike))
+                && self.characteristics(creature).is_ok_and(|characteristics| {
+                    characteristics.keywords.iter().any(|keyword| {
+                        matches!(keyword, Keyword::FirstStrike | Keyword::DoubleStrike)
+                    })
+                })
             {
                 return Ok(true);
             }
@@ -33961,6 +36541,15 @@ impl Game {
             if self.zone_of(attacker) != Some(Zone::Battlefield) {
                 continue;
             }
+            let defending_player = if let Some(choice) = combat.attacker_defenders.get(&attacker) {
+                let seats = self.defending_seats_for(*choice);
+                let Some(seat) = seats.into_iter().find(|seat| !self.players[seat.0].lost) else {
+                    continue;
+                };
+                seat
+            } else {
+                defending_player
+            };
             let attacker_eligible = eligible(attacker);
             let attacker_power = self
                 .characteristics(attacker)?
@@ -34134,7 +36723,7 @@ impl Game {
     /// Resolves the owner-relative permanent/library exchange used by the
     /// RAV Warp World definition. Revealed nonpermanents retain their public
     /// top-to-bottom order when they return to the library bottom.
-    fn resolve_warp_world(&mut self) -> Result<(), RulesError> {
+    fn begin_warp_world(&mut self) -> Result<warp_world::PendingWarp, RulesError> {
         let living_players = self
             .players
             .iter()
@@ -34160,6 +36749,7 @@ impl Game {
         }
 
         let mut entering = Vec::new();
+        let mut enchantments = Vec::new();
         let mut bottom_by_owner = vec![Vec::new(); self.players.len()];
         for player in &living_players {
             let revealed = self.players[player.0]
@@ -34170,45 +36760,54 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             for card in revealed {
-                let (definition_id, is_permanent) = self
-                    .card_definition(card)
-                    .map(|definition| (definition.id, definition.is_permanent()))?;
+                let (definition_id, first_wave, enchantment) =
+                    self.card_definition(card).map(|definition| {
+                        (
+                            definition.id,
+                            definition.card_types.iter().any(|kind| {
+                                matches!(
+                                    kind,
+                                    CardType::Artifact | CardType::Creature | CardType::Land
+                                )
+                            }),
+                            definition.card_types.contains(&CardType::Enchantment),
+                        )
+                    })?;
                 self.record_event(GameEvent::CardRevealed {
                     player: *player,
                     card,
                     definition: definition_id,
                 });
-                if is_permanent {
+                if first_wave {
                     entering.push(card);
+                } else if enchantment {
+                    enchantments.push(card);
                 } else {
                     bottom_by_owner[player.0].push(card);
                 }
             }
         }
 
-        let pre_entry_sources = self.all_battlefield_cards();
-        for card in &entering {
-            self.move_to_battlefield_for_simultaneous_entry(*card)?;
-        }
-        for card in &entering {
-            let mut entry_sources = pre_entry_sources.clone();
-            entry_sources.push(*card);
-            self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
-        }
-        if !entering.is_empty() {
-            self.capture_simultaneous_entry_triggers_and_land_entries(&entering)?;
-        }
-        for (owner_index, bottom) in bottom_by_owner.into_iter().enumerate() {
-            if bottom.is_empty() {
-                continue;
-            }
-            let library = &mut self.players[owner_index].library;
-            library.retain(|card| !bottom.contains(card));
-            for card in bottom.into_iter().rev() {
-                library.insert(0, card);
-            }
-        }
-        Ok(())
+        let mut order = living_players;
+        order.sort_by_key(|player| {
+            (player.0 + self.players.len() - self.active_player.0) % self.players.len()
+        });
+        entering.sort_by_key(|card| {
+            order
+                .iter()
+                .position(|player| *player == self.objects[card].owner)
+        });
+        enchantments.sort_by_key(|card| {
+            order
+                .iter()
+                .position(|player| *player == self.objects[card].owner)
+        });
+        Ok(warp_world::PendingWarp::new(
+            entering,
+            enchantments,
+            bottom_by_owner,
+            order,
+        ))
     }
 
     /// Removes a permanent from the live combat membership while retaining a
@@ -34218,6 +36817,9 @@ impl Game {
         let Some(combat) = self.combat.as_mut() else {
             return;
         };
+        for blocks in combat.submitted_blocks.values_mut() {
+            blocks.retain(|block| block.attacker != card && block.blocker != card);
+        }
         if combat.attackers.contains(&card) {
             combat.attackers.retain(|attacker| *attacker != card);
             combat.hasty_attackers.remove(&card);
@@ -34632,6 +37234,7 @@ impl Game {
             let token_incarnation = self.object(card)?.incarnation;
             if was_battlefield {
                 if capture_zone_transition_observers {
+                    self.enqueue_damaged_creature_death_triggers(&[card])?;
                     self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                     self.enqueue_another_creature_dies_triggers(card)?;
                     self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
@@ -34690,6 +37293,8 @@ impl Game {
                 self.remove_from_combat(card);
             }
             self.remove_from_all_zones(card);
+            self.static_source_timestamps
+                .retain(|(id, _), _| *id != card);
             self.objects.remove(&card);
             self.regeneration_shields.remove(&card);
             self.record_event(GameEvent::TokenCeasedToExist { token: card });
@@ -34716,6 +37321,7 @@ impl Game {
             .transpose()?;
         let definition = self.card_definition(card)?.id;
         if was_battlefield && capture_zone_transition_observers {
+            self.enqueue_damaged_creature_death_triggers(&[card])?;
             self.enqueue_another_creature_dies_triggers(card)?;
             self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
         }
@@ -34861,6 +37467,15 @@ impl Game {
         source: ObjectId,
         target: ObjectId,
     ) -> Result<(), RulesError> {
+        self.counter_target_spell_to_zone(source, target, Zone::Graveyard)
+    }
+
+    fn counter_target_spell_to_zone(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        destination: Zone,
+    ) -> Result<(), RulesError> {
         if source == target {
             return Err(RulesError::IllegalAction(
                 "a resolving spell cannot counter itself",
@@ -34881,11 +37496,27 @@ impl Game {
                 source,
             });
         } else {
+            if destination == Zone::Hand && !self.exile_on_resolution.contains(&target) {
+                self.record_event(GameEvent::CounteredSpellHandReplacement {
+                    card: target,
+                    source,
+                });
+            }
             self.record_event(GameEvent::SpellCountered {
                 card: target,
                 source,
             });
-            self.move_to_spell_terminal_zone(target)?;
+            if destination == Zone::Graveyard || self.exile_on_resolution.contains(&target) {
+                self.move_to_spell_terminal_zone(target)?;
+            } else {
+                self.spell_timing_exceptions.remove(&target);
+                let incarnation = self.object(target)?.incarnation;
+                self.convoke_contributor_provenance
+                    .remove(&(target, incarnation));
+                self.pending_creature_spell_entry_counters
+                    .remove(&(target, incarnation));
+                self.move_to_zone(target, destination)?;
+            }
         }
         Ok(())
     }
@@ -35090,31 +37721,6 @@ impl Game {
         self.move_to_zone_with_zone_transition_observers(card, zone, true, true)
     }
 
-    /// Applies CR 903.9a to one prospective zone change and returns the zone
-    /// the card actually reaches. Every non-commander move is returned
-    /// unchanged, which is why an ordinary game never sees this rule.
-    fn commander_zone_replacement(
-        &mut self,
-        card: ObjectId,
-        previous_zone: Option<Zone>,
-        zone: Zone,
-    ) -> Zone {
-        if previous_zone != Some(Zone::Battlefield)
-            || !matches!(zone, Zone::Graveyard | Zone::Exile)
-        {
-            return zone;
-        }
-        let Some(record) = self.format.commanders.get(&card) else {
-            return zone;
-        };
-        let owner = record.owner;
-        self.record_event(GameEvent::CommanderReturnedToCommandZone {
-            commander: card,
-            player: owner,
-        });
-        Zone::Command
-    }
-
     /// Moves one permanent into the battlefield during a larger simultaneous
     /// entry event.  The caller snapshots which replacement sources existed
     /// before the batch, then applies those entry restrictions to every
@@ -35202,11 +37808,84 @@ impl Game {
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
-        // CR 903.9a: a commander that would go from the battlefield to a
-        // graveyard or exile goes to the command zone instead. This is a
-        // replacement, so the card never reaches the replaced zone and no
-        // "dies" event is observed for it.
-        let zone = self.commander_zone_replacement(card, previous_zone, zone);
+        if matches!(zone, Zone::Hand | Zone::Library) {
+            let chosen = self.format.commander_zone_choices.iter().find_map(
+                |(key, (incarnation, from, to, accept))| {
+                    (key.2 == card
+                        && object.incarnation == *incarnation
+                        && previous_zone == *from
+                        && zone == *to)
+                        .then_some((*key, *accept))
+                },
+            );
+            if let Some((key, accept)) = chosen {
+                self.format.commander_zone_choices.remove(&key);
+                if accept {
+                    self.move_to_zone_with_zone_transition_observers(
+                        card,
+                        Zone::Command,
+                        capture_zone_transition_observers,
+                        apply_static_entry_restriction,
+                    )?;
+                    self.record_event(GameEvent::CommanderReturnedToCommandZone {
+                        commander: card,
+                        player: object.owner,
+                    });
+                    return Ok(());
+                }
+            } else if let Some(accept) = self.consume_commander_activation_choice(
+                card,
+                object.incarnation,
+                previous_zone,
+                zone,
+            ) {
+                if accept {
+                    self.move_to_zone_with_zone_transition_observers(
+                        card,
+                        Zone::Command,
+                        capture_zone_transition_observers,
+                        apply_static_entry_restriction,
+                    )?;
+                    self.record_event(GameEvent::CommanderReturnedToCommandZone {
+                        commander: card,
+                        player: object.owner,
+                    });
+                    return Ok(());
+                }
+            } else if self.format.commander_draw_choice.is_some_and(
+                |(chosen, incarnation, from, _)| {
+                    chosen == card
+                        && incarnation == object.incarnation
+                        && previous_zone == Some(from)
+                        && zone == Zone::Hand
+                },
+            ) {
+                let (_, _, _, accept) = self
+                    .format
+                    .commander_draw_choice
+                    .take()
+                    .expect("matched draw choice");
+                if accept {
+                    self.move_to_zone_with_zone_transition_observers(
+                        card,
+                        Zone::Command,
+                        capture_zone_transition_observers,
+                        apply_static_entry_restriction,
+                    )?;
+                    self.record_event(GameEvent::CommanderReturnedToCommandZone {
+                        commander: card,
+                        player: object.owner,
+                    });
+                    return Ok(());
+                }
+            } else if self.started && self.is_commander(card) && previous_zone != Some(zone) {
+                return Err(RulesError::IllegalAction(
+                    "commander hand/library move requires a resumable owner replacement decision",
+                ));
+            }
+        }
+        // CR 903.9a is an SBA, not a replacement: observers must see the
+        // actual graveyard/exile arrival, including ordinary dies triggers.
         // A token never acquires a normal non-graveyard zone identity.  This
         // covers bounce, exile, and library-return effects while preserving
         // the dedicated graveyard path, which additionally records Dies
@@ -35383,6 +38062,14 @@ impl Game {
                 object: card,
                 incarnation: self.object(card)?.incarnation,
             });
+        }
+        if advanced_incarnation && self.format.commanders.contains_key(&card) {
+            self.format.commander_arrivals.remove(&card);
+            if matches!(zone, Zone::Graveyard | Zone::Exile) {
+                self.format
+                    .commander_arrivals
+                    .insert(card, (self.object(card)?.incarnation, zone));
+            }
         }
         if creature_card_to_own_graveyard_from_battlefield {
             let incarnation = self.object(card)?.incarnation;
@@ -36040,6 +38727,16 @@ impl Game {
                 "creature-target trigger requires one optional target-free graveyard-return effect",
             ));
         }
+        if ability.condition == TriggerCondition::DamagedCreatureBySourceDiesThisTurn
+            && (ability.mana_cost != ManaCost::new(0)
+                || ability.optional
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::AddPlusOneCounterToSource])
+        {
+            return Err(RulesError::IllegalAction(
+                "source-damaged-creature dies trigger requires one target-free source-counter effect",
+            ));
+        }
         if ability.condition != TriggerCondition::CreatureBecomesTarget
             && ability
                 .effects
@@ -36414,6 +39111,20 @@ impl Game {
                 "controlled Aura-entry trigger requires one optional target-free token effect",
             ));
         }
+        if ability.condition == TriggerCondition::AuraBecomesAttachedToSource
+            && (ability.mana_cost != ManaCost::new(0)
+                || !ability.optional
+                || !ability.targets.is_empty()
+                || !matches!(
+                    ability.effects.as_slice(),
+                    [Effect::CreateToken { token, count: 2 }]
+                        if token == &TokenSpec::saproling()
+                ))
+        {
+            return Err(RulesError::IllegalAction(
+                "Aura-attachment-to-source trigger requires one optional target-free two-Saproling effect",
+            ));
+        }
         if ability.condition == TriggerCondition::GraveyardToHand
             && (!ability.targets.is_empty()
                 || !matches!(
@@ -36712,6 +39423,7 @@ impl Game {
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachTappedCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount }
@@ -37006,6 +39718,17 @@ impl Game {
                                 "library-search attachment receipt lacks selected-card movement",
                             ))?;
                 }
+                let commander_replacement = expected_zone == Zone::Hand
+                    && matches!(events.get(preceding_index),
+                    Some(GameEvent::CommanderReturnedToCommandZone { commander, player: owner }) if commander == card && owner == player);
+                if commander_replacement {
+                    preceding_index =
+                        preceding_index
+                            .checked_sub(1)
+                            .ok_or(RulesError::IllegalAction(
+                                "commander library-search replacement lacks zone movement",
+                            ))?;
+                }
                 let move_index = match events.get(preceding_index) {
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
                         preceding_index
@@ -37018,7 +39741,8 @@ impl Game {
                 };
                 if !matches!(
                     events.get(move_index),
-                    Some(GameEvent::CardMoved { card: moved, to }) if moved == card && *to == expected_zone
+                    Some(GameEvent::CardMoved { card: moved, to }) if moved == card
+                        && *to == if commander_replacement { Zone::Command } else { expected_zone }
                 ) {
                     return Err(RulesError::IllegalAction(
                         "library-search receipt lacks movement to its declared destination",
@@ -37123,6 +39847,15 @@ impl Game {
                         "multi-card library-search reveal lacks a prior selected-card movement",
                     ))?;
                 }
+                let replaced = expected_zone == Zone::Hand
+                    && matches!(events.get(preceding),
+                    Some(GameEvent::CommanderReturnedToCommandZone { commander, player: owner })
+                        if commander == card && owner == player);
+                if replaced {
+                    preceding = preceding.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "batch commander return lacks movement",
+                    ))?;
+                }
                 let move_index = match events.get(preceding) {
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
                         preceding.checked_sub(1).ok_or(RulesError::IllegalAction(
@@ -37134,7 +39867,7 @@ impl Game {
                 if !matches!(
                     events.get(move_index),
                     Some(GameEvent::CardMoved { card: moved, to })
-                        if moved == card && *to == expected_zone
+                        if moved == card && *to == if replaced { Zone::Command } else { expected_zone }
                 ) {
                     return Err(RulesError::IllegalAction(
                         "multi-card library-search receipt lacks ordered selected-card movement",
@@ -37286,12 +40019,41 @@ impl Game {
             else {
                 continue;
             };
+            let mut completed_at = index.checked_sub(1);
+            while let Some(at) = completed_at {
+                if let (
+                    Some(GameEvent::DecisionCompleted {
+                        decision,
+                        player: owner,
+                        kind: DecisionKind::CommanderZoneReplacement,
+                    }),
+                    Some(GameEvent::DecisionOpened {
+                        decision: opened,
+                        player: chooser,
+                        kind: DecisionKind::CommanderZoneReplacement,
+                        visibility: DecisionVisibility::Private,
+                        min_selections: 0,
+                        max_selections: 1,
+                    }),
+                ) = (
+                    self.event_log.get(at),
+                    at.checked_sub(1)
+                        .and_then(|prior| self.event_log.get(prior)),
+                ) && decision == opened
+                    && owner == chooser
+                    && owner == player
+                {
+                    completed_at = at.checked_sub(2);
+                } else {
+                    break;
+                }
+            }
             if *cards == 0
                 || source.0 == 0
                 || *source_incarnation == 0
                 || self.players.get(player.0).is_none()
                 || !matches!(
-                    index.checked_sub(1).and_then(|prior| self.event_log.get(prior)),
+                    completed_at.and_then(|prior| self.event_log.get(prior)),
                     Some(GameEvent::DecisionCompleted {
                         player: decision_player,
                         kind: DecisionKind::HandToLibraryBottomDraw,
@@ -37306,16 +40068,15 @@ impl Game {
             let mut cursor = index + 1;
             let mut moved = BTreeSet::new();
             for _ in 0..*cards {
-                let Some(GameEvent::CardMoved {
-                    card,
-                    to: Zone::Library,
-                }) = self.event_log.get(cursor)
-                else {
+                let Some(GameEvent::CardMoved { card, to }) = self.event_log.get(cursor) else {
                     return Err(RulesError::IllegalAction(
                         "hand-recycle receipt lacks an ordered hand-to-library movement",
                     ));
                 };
-                if !moved.insert(*card)
+                let replaced =
+                    *to == Zone::Command && self.commander_cost_move_receipts(cursor, *card);
+                if (*to != Zone::Library && !replaced)
+                    || !moved.insert(*card)
                     || !matches!(
                         self.event_log.get(cursor + 1),
                         Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card
@@ -37325,17 +40086,45 @@ impl Game {
                         "hand-recycle library movement lacks unique incarnation provenance",
                     ));
                 }
-                cursor += 2;
+                cursor += if replaced { 3 } else { 2 };
             }
             let mut draws = 0_u8;
             while draws < *cards {
-                let Some(GameEvent::CardMoved {
-                    card,
-                    to: Zone::Hand,
+                while let Some(GameEvent::DecisionOpened {
+                    decision,
+                    player: owner,
+                    kind: DecisionKind::CommanderZoneReplacement,
+                    visibility: DecisionVisibility::Private,
+                    min_selections: 0,
+                    max_selections: 1,
                 }) = self.event_log.get(cursor)
-                else {
+                {
+                    if owner != player {
+                        return Err(RulesError::IllegalAction(
+                            "hand-recycle draw choice has wrong owner",
+                        ));
+                    }
+                    if matches!(self.event_log.get(cursor + 1), Some(GameEvent::DecisionCompleted {
+                        decision: completed, player: chooser, kind: DecisionKind::CommanderZoneReplacement
+                    }) if decision == completed && chooser == owner) {
+                        cursor += 2;
+                    } else if cursor + 1 == self.event_log.len()
+                        && self.pending_decision.as_ref().is_some_and(|pending| pending.id == *decision)
+                        && self.stack.last().is_some_and(|top| top.card == *source && top.source_incarnation == *source_incarnation
+                            && matches!(self.format.commander_selected_returns.get(&top.id),
+                                Some(commander_replacement::SelectedReturns::Recycle { remaining_draws: Some(remaining), .. })
+                                    if *remaining == usize::from(*cards - draws))) {
+                        return Ok(());
+                    } else { return Err(RulesError::IllegalAction("hand-recycle draw choice lacks its completion")); }
+                }
+                let Some(GameEvent::CardMoved { card, to }) = self.event_log.get(cursor) else {
                     break;
                 };
+                let replaced =
+                    *to == Zone::Command && self.commander_cost_move_receipts(cursor, *card);
+                if *to != Zone::Hand && !replaced {
+                    break;
+                }
                 if !matches!(
                     self.event_log.get(cursor + 1),
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card
@@ -37345,7 +40134,7 @@ impl Game {
                     ));
                 }
                 draws += 1;
-                cursor += 2;
+                cursor += if replaced { 3 } else { 2 };
             }
             if !matches!(
                 self.event_log.get(cursor),
@@ -39118,6 +41907,15 @@ impl Game {
 
         for (index, event) in self.event_log.iter().enumerate() {
             match event {
+                GameEvent::CounteredSpellHandReplacement { card, source } => {
+                    if !matches!(self.event_log.get(index + 1), Some(GameEvent::SpellCountered { card: countered, source: counter_source })
+                        if countered == card && counter_source == source)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "counter-to-hand replacement lacks its matching counter receipt",
+                        ));
+                    }
+                }
                 GameEvent::SpellCast { card, .. } => {
                     if !open_casts.insert(*card) {
                         return Err(RulesError::IllegalAction(
@@ -39909,6 +42707,149 @@ impl Game {
         Ok(())
     }
 
+    /// Audits the exact independent current-turn creature-damage prevention
+    /// records and their controller provenance. The record survives its
+    /// resolving spell's move to the graveyard and therefore is validated by
+    /// both its creation receipt and its live identity, not by a live source.
+    fn validate_global_creature_damage_prevention_event_order(&self) -> Result<(), RulesError> {
+        let mut created = BTreeMap::<u64, (ObjectId, PlayerId, u32)>::new();
+        let mut expired = BTreeMap::<u64, (ObjectId, PlayerId)>::new();
+        for event in &self.event_log {
+            match event {
+                GameEvent::GlobalCreatureDamagePreventionCreated {
+                    id,
+                    source,
+                    controller,
+                    expires_turn,
+                } => {
+                    if *id == 0
+                        || source.0 == 0
+                        || controller.0 >= self.players.len()
+                        || *expires_turn == 0
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "global creature-prevention receipt has an invalid identity or lifetime",
+                        ));
+                    }
+                    let has_effect_definition = self
+                        .card_definition(*source)
+                        .is_ok_and(|definition| {
+                            definition.effects.iter().any(|effect| {
+                                matches!(
+                                    effect,
+                                    Effect::PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn
+                                )
+                            })
+                        });
+                    let has_effect_ability = self.event_log.iter().any(|prior| {
+                        matches!(
+                            prior,
+                            GameEvent::AbilityActivated {
+                                source: activation_source,
+                                definition,
+                                ability,
+                                ..
+                            } if activation_source == source
+                                && self
+                                    .activated_ability_for_definition(definition, ability)
+                                    .is_some_and(|binding| binding.effects.iter().any(|effect| {
+                                        matches!(
+                                            effect,
+                                            Effect::PreventAllCreatureDamageAndGainLifeEqualToDamagePreventedUntilEndOfTurn
+                                        )
+                                    }))
+                        )
+                    });
+                    if !has_effect_definition && !has_effect_ability {
+                        return Err(RulesError::IllegalAction(
+                            "global creature-prevention receipt lacks a matching effect",
+                        ));
+                    }
+                    if created
+                        .insert(*id, (*source, *controller, *expires_turn))
+                        .is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "global creature-prevention receipt reuses an effect identifier",
+                        ));
+                    }
+                }
+                GameEvent::GlobalCreatureDamagePreventionExpired {
+                    id,
+                    source,
+                    controller,
+                } => {
+                    if expired.insert(*id, (*source, *controller)).is_some()
+                        || created
+                            .get(id)
+                            .is_none_or(|(created_source, created_controller, _)| {
+                                created_source != source || created_controller != controller
+                            })
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "global creature-prevention expiry lacks its exact creation receipt",
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut live = BTreeMap::<u64, (ObjectId, PlayerId, u32)>::new();
+        for prevention in &self.global_creature_damage_preventions {
+            if prevention.id == 0
+                || prevention.id >= self.next_timestamp
+                || prevention.source.0 == 0
+                || prevention.source.0 >= self.next_object_id
+                || prevention.expires_turn < self.turn
+                || prevention.controller.0 >= self.players.len()
+                || (prevention.source_is_virtual
+                    && (self.objects.contains_key(&prevention.source)
+                        || self.virtual_spell_copies.contains_key(&prevention.source)))
+                || (!prevention.source_is_virtual
+                    && !self.object_identity_is_live_or_historically_departed(prevention.source))
+                || live
+                    .insert(
+                        prevention.id,
+                        (
+                            prevention.source,
+                            prevention.controller,
+                            prevention.expires_turn,
+                        ),
+                    )
+                    .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "global creature-prevention live record has invalid identity or lifetime",
+                ));
+            }
+        }
+        for (id, created_values) in &created {
+            let expired_value = expired.get(id).copied();
+            let live_value = live.get(id).copied();
+            match (expired_value, live_value) {
+                (Some((source, controller)), None)
+                    if source == created_values.0 && controller == created_values.1 => {}
+                (None, Some(values)) if values == *created_values => {}
+                _ => {
+                    return Err(RulesError::IllegalAction(
+                        "global creature-prevention receipts disagree with live state",
+                    ));
+                }
+            }
+        }
+        if created
+            .keys()
+            .any(|id| !expired.contains_key(id) && !live.contains_key(id))
+            || live.keys().any(|id| !created.contains_key(id))
+            || expired.keys().any(|id| !created.contains_key(id))
+        {
+            return Err(RulesError::IllegalAction(
+                "global creature-prevention receipts omit a live or historical identity",
+            ));
+        }
+        Ok(())
+    }
+
     /// Validates the public provenance emitted by the calculated activated
     /// cost pipeline.  The binding registry is immutable after setup, but the
     /// contributing permanents are intentionally historical here: a legal
@@ -40006,7 +42947,8 @@ impl Game {
                                 card,
                                 to: Zone::Hand,
                             }) if card == permanent
-                        ) {
+                        ) && !self.commander_cost_move_receipts(previous + 1, *permanent)
+                        {
                             return Err(RulesError::IllegalAction(
                                 "activated return-cost receipt lacks its immediate hand move",
                             ));
@@ -40022,7 +42964,8 @@ impl Game {
                             self.event_log.get(previous + 1),
                             Some(GameEvent::CardMoved { card: moved_card, to: Zone::Library })
                                 if moved_card == card
-                        ) {
+                        ) && !self.commander_cost_move_receipts(previous + 1, *card)
+                        {
                             return Err(RulesError::IllegalAction(
                                 "activated hand-to-library cost receipt lacks its immediate library move",
                             ));
@@ -40221,7 +43164,18 @@ impl Game {
                 ));
             }
             if context.source_incarnation == 0
-                || self.object(context.source)?.incarnation < context.source_incarnation
+                || match self.object(context.source) {
+                    Ok(object) => object.incarnation < context.source_incarnation,
+                    Err(RulesError::UnknownCard(missing))
+                        if missing == context.source
+                            && self.object_identity_is_live_or_historically_departed(
+                                context.source,
+                            ) =>
+                    {
+                        false
+                    }
+                    Err(error) => return Err(error),
+                }
             {
                 return Err(RulesError::IllegalAction(
                     "activated-cost receipt has an invalid source incarnation",
@@ -40335,10 +43289,20 @@ impl Game {
             let adjustment_matches = |adjustment: &ActivatedAbilityCostAdjustment,
                                       increase: bool|
              -> Result<bool, RulesError> {
-                if adjustment.source_incarnation == 0
-                    || self.object(adjustment.source)?.incarnation < adjustment.source_incarnation
-                {
+                if adjustment.source_incarnation == 0 {
                     return Ok(false);
+                }
+                // CR 800.4a can remove a historical tax source after this
+                // receipt was committed. The modifier identity is the catalog
+                // binding, recovered from departed-card provenance the same
+                // way spell-cost and Aura audits recover a missing object.
+                if let Ok(object) = self.object(adjustment.source) {
+                    if object.incarnation < adjustment.source_incarnation {
+                        return Ok(false);
+                    }
+                } else if !self.object_identity_is_live_or_historically_departed(adjustment.source)
+                {
+                    return Err(RulesError::UnknownCard(adjustment.source));
                 }
                 let source_definition = self.card_definition(adjustment.source)?.id;
                 Ok(self
@@ -41372,7 +44336,7 @@ impl Game {
                 || !matches!(
                     events.get(index + 1),
                     Some(GameEvent::LifeGained { player, amount: gained })
-                        if player == controller && gained == amount
+                        if player == controller && gained == &i32::from(*amount)
                 )
             {
                 return Err(RulesError::IllegalAction(
@@ -41642,7 +44606,13 @@ impl Game {
             else {
                 continue;
             };
-            if *source_incarnation == 0 || *amount <= 0 || self.player(*player)?.lost {
+            // Audit the recipient at the event's boundary, not at the end of
+            // the replay. A later loss must not invalidate earlier combat.
+            self.player(*player)?;
+            let already_lost = self.event_log[..index].iter().any(|previous| {
+                matches!(previous, GameEvent::PlayerLost { player: departed, .. } if departed == player)
+            });
+            if *source_incarnation == 0 || *amount <= 0 || already_lost {
                 return Err(RulesError::IllegalAction(
                     "combat mill-and-counter replacement receipt has invalid provenance",
                 ));
@@ -42093,7 +45063,20 @@ impl Game {
         card: ObjectId,
         must_move_to_graveyard: bool,
     ) -> Result<(), RulesError> {
-        let destination_is_valid = matches!(
+        let hand_replacement = index
+            .checked_sub(1)
+            .and_then(|previous| events.get(previous))
+            .is_some_and(|event| {
+                matches!((event, events.get(index)),
+                (GameEvent::CounteredSpellHandReplacement { card: replaced, source },
+                 Some(GameEvent::SpellCountered { card: countered, source: counter_source }))
+                if *replaced == card && *countered == card && source == counter_source)
+            });
+        let replaced_destination = hand_replacement
+            && (matches!(events.get(index + 1), Some(GameEvent::CardMoved { card: moved, to: Zone::Hand }) if *moved == card)
+                || (matches!(events.get(index + 1), Some(GameEvent::CardMoved { card: moved, to: Zone::Command }) if *moved == card)
+                    && matches!(events.get(index + 3), Some(GameEvent::CommanderReturnedToCommandZone { commander, .. }) if *commander == card)));
+        let destination_is_valid = replaced_destination || matches!(
             events.get(index + 1),
             Some(GameEvent::CardMoved {
                 card: moved_card,
@@ -42385,6 +45368,8 @@ impl Game {
             self.step = Step::Untap;
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
+            self.damaged_creature_by_source_incarnations_this_turn
+                .clear();
             self.creature_cards_put_into_graveyard_from_battlefield_this_turn
                 .clear();
             self.combat = None;
@@ -42478,7 +45463,14 @@ impl Game {
                 self.combat_declaration_authority(self.active_player)
             }
             (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => {
-                self.combat_declaration_authority(combat.defending_player.unwrap_or(self.priority))
+                let next = if !self.format.has_teams() && combat.defending_seats.len() > 1 {
+                    combat.defending_seats.iter().copied().find(|seat| {
+                        !self.players[seat.0].lost && !combat.submitted_blocks.contains_key(seat)
+                    })
+                } else {
+                    combat.defending_player
+                };
+                self.combat_declaration_authority(next.unwrap_or(self.priority))
             }
             _ => self.priority,
         }
@@ -42500,6 +45492,66 @@ impl Game {
                 | DecisionOption::CardName(_) => None,
             })
             .collect()
+    }
+
+    fn decision_legal_target_selection(&self, decision: &PendingDecision) -> Option<Vec<Target>> {
+        let DecisionContinuation::TriggeredAbilityTargets {
+            controller,
+            source_colors,
+            ability,
+            effects,
+            ..
+        } = &decision.continuation
+        else {
+            return None;
+        };
+        let slots: Vec<_> = ability
+            .targets
+            .iter()
+            .map(|requirement| {
+                self.legal_trigger_targets_for_colors(*controller, source_colors, *requirement)
+            })
+            .collect();
+        fn complete(
+            game: &Game,
+            controller: PlayerId,
+            requirements: &[TargetRequirement],
+            effects: &[Effect],
+            slots: &[Vec<Target>],
+            chosen: &mut Vec<Target>,
+        ) -> bool {
+            let index = chosen.len();
+            if index == slots.len() {
+                return game
+                    .validate_effect_target_relations(controller, effects, chosen)
+                    .is_ok();
+            }
+            for target in &slots[index] {
+                if requirements[index] == TargetRequirement::DistinctCreature
+                    && chosen.iter().enumerate().any(|(i, prior)| {
+                        requirements[i] == TargetRequirement::DistinctCreature && prior == target
+                    })
+                {
+                    continue;
+                }
+                chosen.push(*target);
+                if complete(game, controller, requirements, effects, slots, chosen) {
+                    return true;
+                }
+                chosen.pop();
+            }
+            false
+        }
+        let mut chosen = Vec::new();
+        complete(
+            self,
+            *controller,
+            &ability.targets,
+            effects,
+            &slots,
+            &mut chosen,
+        )
+        .then_some(chosen)
     }
 
     fn decision_target_candidates(decision: &PendingDecision) -> Vec<Target> {
@@ -42679,6 +45731,61 @@ impl Game {
         }
 
         match &decision.continuation {
+            DecisionContinuation::WarpWorld { .. } => self.validate_warp_world_decision(decision)?,
+            DecisionContinuation::CommanderDredgeReplacement { .. } => {
+                self.validate_commander_dredge_replacement(decision)?;
+            }
+            DecisionContinuation::SpellDredgeReplacement {
+                stack,
+                effect_index,
+                player,
+                ..
+            } => self.validate_spell_dredge_replacement(
+                decision,
+                *stack,
+                *effect_index,
+                *player,
+            )?,
+            DecisionContinuation::SpellCommanderDredgeReplacement {
+                stack,
+                effect_index,
+                player,
+                commander,
+                incarnation,
+                amount,
+                ..
+            } => self.validate_spell_commander_dredge_replacement(
+                decision,
+                *stack,
+                *effect_index,
+                *player,
+                *commander,
+                *incarnation,
+                *amount,
+            )?,
+            DecisionContinuation::CommanderActivationReplacement { .. } => {
+                self.validate_commander_activation_replacement(decision)?;
+            }
+            DecisionContinuation::CommanderDrawReplacement { .. } => {
+                self.validate_commander_draw_replacement(decision)?;
+            }
+            DecisionContinuation::CommanderZoneReplacement { .. } => {
+                self.validate_commander_zone_replacement(decision)?;
+            }
+            DecisionContinuation::CommanderReturn { commander, incarnation, zone } => {
+                if decision.kind != DecisionKind::CommanderReturn
+                    || decision.visibility != DecisionVisibility::Public
+                    || self.format.commanders.get(commander).map(|record| record.owner) != Some(decision.player)
+                    || decision.min_selections != 0 || decision.max_selections != 1
+                    || decision.options != vec![DecisionOption::Object(*commander)]
+                    || !matches!(zone, Zone::Graveyard | Zone::Exile)
+                    || self.zone_of(*commander) != Some(*zone)
+                    || !self.object_has_incarnation(*commander, *incarnation)
+                    || self.format.commander_arrivals.get(commander) != Some(&(*incarnation, *zone))
+                {
+                    return Err(RulesError::IllegalAction("commander return decision violates arrival provenance"));
+                }
+            }
             DecisionContinuation::LibrarySearch {
                 source,
                 effect_index,
@@ -43156,6 +46263,66 @@ impl Game {
                             ),
                         )
                     }
+                    TriggeredEffectObjectDecisionKind::PutHandCardOnLibraryTopEachPlayer {
+                        processed_players,
+                        remaining_players,
+                        selected,
+                    } => {
+                        let expected_order = (0..self.players.len())
+                            .map(|offset| {
+                                PlayerId((self.active_player.0 + offset) % self.players.len())
+                            })
+                            .filter(|player| !self.players[player.0].lost)
+                            .collect::<Vec<_>>();
+                        let selected_players = selected
+                            .iter()
+                            .map(|(player, _)| *player)
+                            .collect::<Vec<_>>();
+                        let processed_len = processed_players.len();
+                        if processed_len >= expected_order.len()
+                            || processed_players != &expected_order[..processed_len]
+                            || remaining_players != &expected_order[processed_len..]
+                            || remaining_players.first() != Some(&decision.player)
+                            || selected_players.len() > processed_len
+                            || selected_players
+                                != processed_players
+                                    .iter()
+                                    .filter_map(|player| {
+                                        selected
+                                            .iter()
+                                            .any(|(selected_player, _)| selected_player == player)
+                                            .then_some(*player)
+                                    })
+                                    .collect::<Vec<_>>()
+                            || processed_players.iter().any(|player| {
+                                !selected_players.contains(player)
+                                    && !self.players[player.0].hand.is_empty()
+                            })
+                            || selected.iter().any(|(player, card)| {
+                                self.zone_of(*card) != Some(Zone::Hand)
+                                    || self
+                                        .object(*card)
+                                        .map_or(true, |object| object.owner != *player)
+                            })
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "library-top decision continuation has stale APNAP or hand provenance",
+                            ));
+                        }
+                        (
+                            self.players[decision.player.0]
+                                .hand
+                                .iter()
+                                .copied()
+                                .map(DecisionOption::Object)
+                                .collect::<Vec<_>>(),
+                            DecisionVisibility::Private,
+                            matches!(
+                                top.effects.as_slice(),
+                                [Effect::PutOneHandCardOnLibraryTopEachPlayer]
+                            ),
+                        )
+                    }
                     TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => (
                         self.all_battlefield_cards()
                             .into_iter()
@@ -43173,6 +46340,27 @@ impl Game {
                             top.effects.as_slice(),
                             [Effect::SacrificeControllerCreature]
                         ),
+                    ),
+                    TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource {
+                        source_incarnation,
+                    } => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| {
+                                self.characteristics(*card).is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Enchantment)
+                                })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        *source_incarnation > 0
+                            && *source_incarnation == top.source_incarnation
+                            && decision.player == *controller
+                            && matches!(
+                                top.effects.as_slice(),
+                                [Effect::ReturnAnyEnchantmentOrSacrificeSource]
+                            ),
                     ),
                     TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
                         remaining_players,
@@ -43350,10 +46538,14 @@ impl Game {
                 };
                 let expected_min = match kind {
                     TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => 0,
+                    TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. } => 0,
                     _ => u8::from(!expected_options.is_empty()),
                 };
                 let expected_max = match kind {
-                    TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => 1,
+                    TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
+                        u8::from(!expected_options.is_empty())
+                    }
+                    TriggeredEffectObjectDecisionKind::ReturnAnyEnchantmentOrSacrificeSource { .. } => 1,
                     _ => expected_min,
                 };
                 if decision.kind != DecisionKind::TriggeredEffectObject
@@ -44552,6 +47744,60 @@ impl Game {
                     ));
                 }
             }
+            DecisionContinuation::PermanentEntryAttachment {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                attachment_definition,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "entry-attachment decision escaped its permanent spell",
+                ))?;
+                let binding = self
+                    .entry_attachment_bindings
+                    .get(*attachment_definition)
+                    .copied()
+                    .ok_or(RulesError::IllegalAction(
+                        "entry-attachment decision lost its binding",
+                    ))?;
+                let attachment_is_equipment = self
+                    .attachment_bindings
+                    .get(*attachment_definition)
+                    .is_some_and(|attachment| attachment.kind == AttachmentKind::Equipment);
+                let expected_options = self
+                    .entry_attachment_candidates(
+                        *entrant,
+                        *controller,
+                        *attachment_definition,
+                    )?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::PermanentEntryAttachment
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || decision.min_selections != u8::from(!binding.may_decline)
+                    || decision.max_selections != 1
+                    || expected_options.is_empty()
+                    || decision.options != expected_options
+                    || top.id != *source_stack_item
+                    || !self.top_matches_permanent_entry_attachment(
+                        top,
+                        *entrant,
+                        *entrant_incarnation,
+                        *controller,
+                    )
+                    || !self
+                        .card_definition(*entrant)
+                        .is_ok_and(|definition| definition.id == *attachment_definition)
+                    || !attachment_is_equipment
+                {
+                    return Err(RulesError::IllegalAction(
+                        "entry-attachment decision violates spell or endpoint provenance",
+                    ));
+                }
+            }
             DecisionContinuation::CleanupDiscard {
                 player,
                 hand_snapshot,
@@ -44568,7 +47814,7 @@ impl Game {
                 if decision.kind != DecisionKind::CleanupDiscard
                     || decision.visibility != DecisionVisibility::Private
                     || decision.player != *player
-                    || *player != self.active_player
+                    || !self.is_active_seat(*player)
                     || self.step != Step::Cleanup
                     || !self.cleanup_repeat_required
                     || !self.stack.is_empty()
@@ -44763,11 +48009,15 @@ impl Game {
         let controller = self.controller_of(card)?;
         let characteristics = self.characteristics(card)?;
         let effective_definition = self.effective_definition_id(card)?;
-        let mana_colors = effective_definition
-            .and_then(|definition| self.catalog.get(definition))
-            .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
-        let basic_land_type = effective_definition
-            .and_then(|definition| self.basic_land_types.get(definition).copied());
+        let basic_land_type = characteristics.basic_land_type;
+        let mana_colors = basic_land_type.map_or_else(
+            || {
+                effective_definition
+                    .and_then(|definition| self.catalog.get(definition))
+                    .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone())
+            },
+            |land_type| BTreeSet::from([land_type.intrinsic_mana_color()]),
+        );
         let on_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
         let is_creature = characteristics.card_types.contains(&CardType::Creature);
         let summoning_sick = is_creature
@@ -44904,6 +48154,20 @@ impl Game {
             self.players[player.0].lost = true;
             self.record_event(GameEvent::PlayerLost { player, reason });
             self.remove_departing_players_objects(player)?;
+            let abandoned = self.combat.as_ref().map_or_else(Vec::new, |combat| {
+                combat
+                    .attacker_defenders
+                    .iter()
+                    .filter_map(|(attacker, choice)| {
+                        let seats = self.defending_seats_for(*choice);
+                        (!seats.is_empty() && seats.iter().all(|seat| self.players[seat.0].lost))
+                            .then_some(*attacker)
+                    })
+                    .collect()
+            });
+            for attacker in abandoned {
+                self.remove_from_combat(attacker);
+            }
             if self.combat.as_ref().is_some_and(|combat| {
                 combat.defending_player == Some(player) && self.every_combat_defender_left(combat)
             }) {
@@ -44925,6 +48189,7 @@ impl Game {
                 combat.must_be_blocked_attackers.clear();
                 combat.landwalk_attackers.clear();
                 combat.attacker_defenders.clear();
+                combat.submitted_blocks.clear();
                 combat.blockers.clear();
                 combat.damage_ordered_attackers.clear();
                 combat.removed_from_combat.clear();
@@ -44932,6 +48197,17 @@ impl Game {
                 combat.fear_qualified_blockers.clear();
                 combat.black_evasion_qualified_blockers.clear();
                 combat.first_strike_damage_sources.clear();
+            }
+            if self.step == Step::DeclareBlockers
+                && self
+                    .combat
+                    .as_ref()
+                    .is_some_and(|combat| combat.attackers.is_empty())
+            {
+                self.combat
+                    .as_mut()
+                    .expect("combat present")
+                    .blockers_declared = true;
             }
         }
         Ok(())

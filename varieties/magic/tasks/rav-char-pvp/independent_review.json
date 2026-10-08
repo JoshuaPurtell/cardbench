@@ -1,0 +1,34 @@
+{
+  "schema_version": "cardbench.magic.independent-review.v1",
+  "status": "passed",
+  "reviewer": "independent code-review subagent",
+  "reviewed_at_utc": "2026-09-23",
+  "reviewed_files": {
+    "adapters/harbor/bundles/set_pvp/README.md": "893494fe069959a9b8452c33b07624933eb6d703c13f88696336f76fa4a31b68",
+    "adapters/harbor/bundles/set_pvp/instruction.md": "f565320975d1f4f44a1b7236a19b7943f5e47f643ec65ba121bf1a663cd13e5a",
+    "adapters/harbor/bundles/set_pvp/tests/test.sh": "f81d3af177822fdb09764b4dd106951aec6864306c5545bf06e30a27aeccac2c",
+    "adapters/harbor/scripts/run_harbor.py": "0b57414985f476962458eb590d9c5e19c4ba946b50d74a987c4c141a8de49187",
+    "varieties/magic/DATA_PROVENANCE.md": "ad208c8bb3c483ffb320e0a57a22526d51f6464a4e702d7ffa85ed9f05f02cbb",
+    "varieties/magic/README.md": "d33992ae96d84cdfeb6abb9379829673bdcd072da3f8854877db0d522cd54b16",
+    "varieties/magic/scripts/materialize_char_task.py": "16dba0da6fee8098a71408ea9e3cf28b2477f69e789b4047b28a0f0dd2a20fad",
+    "varieties/magic/scripts/score_char_pvp.py": "5977eb189be80cebbead4d78967166bc29578ed485debd709a9ec035285c7869",
+    "varieties/magic/session/Cargo.toml": "9a8fc4cf064e29e5bca81309d66df746e6b987234d468eb7e2887a4098b7fbda",
+    "varieties/magic/session/src/bin/rav_char_pvp.rs": "79317a8b6619dba52adbd80fb86b5d9bdda56d81b4a961bf5746c7447723f082",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/char.rs": "a3d3ab7d81485b9fb705a3b47c7754ebcc04a73c8af99e75de99860b5c7969b2",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs": "ac722be761586fc5f56553849ef108a0c132d1068b5871b917348213da716bf9",
+    "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs": "0a6afc977bc46389342b4be301047f64d279de39b75266c7ce86c13f4976d0e1",
+    "varieties/magic/tasks/rav-char-pvp/README.md": "abb765b0f00555a245ce368ddc4a2fd015ea82074035fa4e978413923a37545d",
+    "varieties/magic/tasks/rav-char-pvp/features.toml": "c5ea53ecb89a6e09df396d89deddf110b73aabdf3018dbc98eea57e9a86d2364"
+  },
+  "findings_resolved": [
+    "Require agent UID isolation and prove the host checkout and Git metadata are inaccessible before any Codex launch.",
+    "Exclude runner credentials and logs from the scorer input by verifying the manifest and staging only manifest-listed files.",
+    "Require creature characteristics for the creature-target trace.",
+    "Gate deterministic replay on successful reference authority execution and report task smoke reward as zero until semantic scoring.",
+    "Check Char identity, printed {2}{R} cost, red color, and instant type before play; check its gameplay effects through ordered full-game events so source mutants and compile-valid stubs fail semantically.",
+    "Require exactly five relevant Char events: cast, target damage, controller damage, resolution, and graveyard move.",
+    "Bind the reviewed task feature contract, task README, Magic README, and provenance record to the review receipt."
+  ],
+  "candidate_trial_run": false,
+  "review_scope": "RAV Char pilot task contract, Rust authority, RAV registration, materialization/scoring, Harbor route, bundle instructions, Magic docs, and provenance."
+}

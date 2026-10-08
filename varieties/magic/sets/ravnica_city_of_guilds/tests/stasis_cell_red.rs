@@ -33,6 +33,14 @@ fn stasis_cell_is_full_fidelity_aura() {
         RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&cell.id),
         "Stasis Cell must be promoted only with its attachment and reattachment behavior"
     );
+    assert!(cell.supported_rules.contains(&"enchanted-creature-cannot-attack-or-block"));
+    assert!(cell.supported_rules.contains(&"pay-three-generic-blue-to-reattach-to-target-creature"));
+    let ability = rav_activated_ability_bindings()
+        .into_iter()
+        .find(|binding| binding.card_definition == cell.id)
+        .expect("Stasis Cell reattachment ability is bound");
+    assert_eq!(ability.ability.mana_cost, ManaCost::with_colors(3, [Color::Blue]));
+    assert!(!ability.ability.sorcery_speed);
 }
 
 fn stasis_game() -> Game {
@@ -64,7 +72,7 @@ fn stasis_cell_reattaches_and_moves_its_restrictions() {
     let cell = game
         .add_card(PlayerId(0), "RAV-STASIS-CELL", Zone::Hand)
         .expect("Cell enters hand");
-    let islands = (0..8)
+    let islands = (0..9)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
                 .expect("Island enters")
@@ -105,27 +113,8 @@ fn stasis_cell_reattaches_and_moves_its_restrictions() {
 
     game.pass_priority(PlayerId(0))
         .expect("pass to first target controller");
-    let before_rejected_activation = game.event_log.clone();
-    assert!(
-        game.activate_ability(
-            PlayerId(1),
-            AbilityActivation {
-                source: first_target,
-                ability_id: "target-player-discard",
-                sacrifice_sources: vec![],
-                additional_tap_creatures: vec![],
-                discard_cards: vec![],
-                targets: vec![Target::Player(PlayerId(0))],
-            },
-        )
-        .is_err()
-    );
-    assert_eq!(
-        game.event_log, before_rejected_activation,
-        "rejection is atomic"
-    );
     game.pass_priority(PlayerId(1))
-        .expect("pass back to Cell controller");
+        .expect("opponent passes before the Cell activation");
 
     for island in islands.iter().skip(5) {
         game.activate_mana_ability(PlayerId(0), *island, Color::Blue)

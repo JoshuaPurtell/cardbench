@@ -8,8 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
-    PolicyAction, Step, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, Color, DefenderChoice, Effect, Game, GameEvent, ManaCost,
+    PlayerId, PolicyAction, Step, Target, TargetRequirement, Zone,
 };
 
 const FILLER: &str = "DEFENDER-DEPARTURE-FILLER";
@@ -167,11 +167,11 @@ fn departed_defender_does_not_retarget_declared_attackers_to_next_survivor() {
     game.submit_policy_move(
         attacker_controller,
         "test.defender-departure.v1",
-        PolicyAction::DeclareAttackers {
-            attackers: vec![attacker],
+        PolicyAction::DeclareAttackersAgainst {
+            attackers: vec![(attacker, DefenderChoice::Player(original_defender))],
         },
     )
-    .expect("the turn-four creature may attack the next seated opponent");
+    .expect("the turn-four creature may attack a named next seated opponent");
     game.submit_policy_move(
         attacker_controller,
         "test.defender-departure.v1",

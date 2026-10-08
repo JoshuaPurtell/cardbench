@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 138
+definition_id = "RAV-RAIN-OF-EMBERS"
+card_name = "Rain of Embers"
+printed_mana_cost = "{1}{R}"
+colors = ["red"]
+card_types = ["sorcery"]
+abilities = ["Rain of Embers deals 1 damage to each creature and each player"]
+source_authority = "RAV printing identity and characteristics, with the complete executable effect in the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-sorcery-cast"
+summary = "Cast Rain of Embers from a shuffled library in a two-player constructed game and record its exact {1}{R} payment, resolution, and graveyard movement."
+trace_required = true
+
+[[features]]
+id = "global-creature-damage-batch"
+summary = "Deal exactly one damage from Rain of Embers to every creature on both players' battlefields, including the Elves of Deep Shadow and Watchwolves."
+trace_required = true
+
+[[features]]
+id = "each-player-damaged"
+summary = "Deal exactly one damage from Rain of Embers to each player and observe both life totals change from 20 to 19."
+trace_required = true
+
+[[features]]
+id = "post-batch-state-based-actions"
+summary = "Every creature and player damage event precedes the state-based deaths of both 1/1 Elves; the two 3/3 Watchwolves remain on the battlefield with one damage marked."
+trace_required = true
+
+[[features]]
+id = "global-damage-and-cost-mutations"
+summary = "Reference mutations to damage amount, player coverage, and the red cost each fail the trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["120.3-120.6 Damage results and marked damage", "601.2 Casting spells and paying costs", "608.2-608.3 Resolving spells", "704.5g Lethal-damage state-based action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Rain of Embers"
+collector_number = 138
+url = "https://scryfall.com/card/rav/138/rain-of-embers"
+retained_data = "Public card identity, mana cost, color, type, and one-damage global creature-and-player operation needed by the trace"

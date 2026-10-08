@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 265
+definition_id = "RAV-LEASHLING"
+card_name = "Leashling"
+printed_mana_cost = "{6}"
+colors = []
+card_types = ["artifact", "creature"]
+power = 3
+toughness = 3
+keywords = []
+abilities = ["put a card from hand on top of library as activation cost; return this source to its owner's hand on resolution"]
+source_authority = "RAV printing identity and mechanics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "cast-and-enter-as-three-three-artifact-creature"
+summary = "Cast Leashling for six actual mana in a shuffled, legal 60-card PvP game and resolve the artifact creature onto the battlefield."
+trace_required = true
+
+[[features]]
+id = "unblocked-combat-damage"
+summary = "Leashling attacks as a live 3/3 creature, deals its actual combat damage, and the match reaches a terminal result."
+trace_required = true
+
+[[features]]
+id = "hand-card-library-top-activation-cost"
+summary = "Submit one owned hand card as the activation cost and check its cost provenance, library move, and incarnation advance before the ability reaches the stack."
+trace_required = true
+
+[[features]]
+id = "source-owner-hand-resolution"
+summary = "Resolve the activated ability and check that the exact live Leashling source returns to its owner's hand."
+trace_required = true
+
+[[features]]
+id = "response-window-source-departure"
+summary = "In a separate terminal full-game trace, respond with Last Gasp, move the Leashling source to its owner's graveyard, and verify its historical ability does not return that departed source."
+trace_required = true
+
+[[features]]
+id = "deterministic-replay-and-semantic-mutations"
+summary = "Replay both complete matches deterministically and detect removal of the hand-card cost, source-return effect, or 3/3 body."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities, costs, and priority", "608.2 Resolving abilities and source-relative effects", "701.17 Putting a card on top of its owner's library", "701.26 Returning a permanent to its owner's hand", "117 Priority and response windows", "510 Combat damage and terminal game state"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Leashling"
+collector_number = 265
+url = "https://scryfall.com/card/rav/265/leashling"
+retained_data = "Public card identity, cost, artifact-creature type, 3/3 body, and CardBench-authored mechanic names needed to define the trace"

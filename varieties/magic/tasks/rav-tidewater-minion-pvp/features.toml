@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 71
+definition_id = "RAV-TIDEWATER-MINION"
+card_name = "Tidewater Minion"
+printed_mana_cost = "{3}{U}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+printed_subtypes = ["Elemental", "Minion"]
+runtime_subtypes_asserted = false
+power = 4
+toughness = 4
+keywords = ["Defender"]
+abilities = ["{T}: Untap target permanent.", "{4}: Tidewater Minion loses defender until end of turn."]
+source_authority = "Original RAV #71 identity, {3}{U}{U} cost, Elemental Minion subtype, 4/4 body, Defender, tap-to-untap-target-permanent, and generic-{4} temporary Defender removal; current Oracle only changes self-reference to this creature"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-five-mana-creature-cast"
+summary = "Cast Tidewater Minion from a shuffled 60-card deck for exactly {3}{U}{U}; preserve its 4/4 body, Defender, and printed subtypes in metadata."
+trace_required = true
+
+[[features]]
+id = "tap-untap-opposing-nonland-permanent"
+summary = "Tap Tidewater Minion to target the opponent's already-tapped Boros Signet, observe that exact target on the ability stack, untap it, and resolve from the same Minion incarnation."
+trace_required = true
+
+[[features]]
+id = "four-generic-temporary-defender-removal"
+summary = "Pay the exact generic {4} cost, resolve source-relative Defender removal, attack with Tidewater Minion, and observe the effect expire and Defender return after a turn."
+trace_required = true
+
+[[features]]
+id = "full-game-replay-and-mutations"
+summary = "Finish a complete PvP game with a Player 0 win, deterministic replay, printed-cost/body/target/effect/binding mutations, and parse-valid side-effect source rejected before any candidate function call."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["302.6: summoning sickness and tap-symbol activated costs", "602.2: activating activated abilities", "608.2: target legality and effect resolution", "701.21: untapping permanents", "611.2a: until-end-of-turn effects", "702.3: Defender", "508-510: combat declarations and damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original RAV printing and current Oracle record"
+card = "Tidewater Minion"
+collector_number = 71
+url = "https://scryfall.com/card/rav/71/tidewater-minion"
+retained_data = "Public identity, cost, color, Elemental Minion subtype, 4/4 body, Defender, both activated costs, target, scope, and effects"
+
+[[source_references]]
+source = "Wizards Gatherer record"
+card = "Tidewater Minion"
+collector_number = 71
+url = "https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=83679"
+retained_data = "Official public identity and card record"
+
+[source_reconciliation]
+printed_wording = "Defender. {4}: Tidewater Minion loses defender until end of turn. {T}: Untap target permanent."
+oracle_wording = "Defender. {4}: This creature loses defender until end of turn. {T}: Untap target permanent."
+semantic_difference = "The first ability changes only from naming Tidewater Minion to this creature; cost, duration, source-relative effect, tap cost, and arbitrary permanent target remain the same."
+subtype_limit = "The printed creature subtypes are Elemental Minion; CardDefinition does not currently expose a subtype field, so executable state asserts Creature only while metadata retains both subtypes."
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The trace follows original RAV #71 printed semantics; the current Oracle wording is reconciled without changing printed costs or effects."

@@ -1,0 +1,3 @@
+# Stinkweed Imp task bundle
+
+Implement the candidate-owned definition and combat-damage ability for RAV #107. The printed identity is black `{2}{B}`, Creature — Imp, 1/2, Flying, Dredge 5. Imp is retained as public type-line identity but the current `CardDefinition` model has no subtype field. The authority validates exact candidate AST before candidate calls, then proves that Stinkweed Imp dealt exactly 1 combat damage to a specific Watchwolf and destroyed that same object, died, replaced a draw with exactly five cards milled, returned as the same object, and was recast in a deterministic terminal game. The task reports zero reward and zero card credit.

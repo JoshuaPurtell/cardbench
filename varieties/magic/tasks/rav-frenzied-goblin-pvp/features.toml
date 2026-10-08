@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 125
+definition_id = "RAV-FRENZIED-GOBLIN"
+card_name = "Frenzied Goblin"
+printed_mana_cost = "{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["optional {R} attack trigger; target creature cannot block this turn"]
+source_authority = "RAV printing identity and mechanics; CardBench-authored semantic summary, not an Oracle-text reproduction"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "red-one-one-cast-and-entry"
+summary = "Cast Frenzied Goblin for actual red mana in a shuffled legal 60-card PvP game and resolve it to the battlefield."
+trace_required = true
+
+[[features]]
+id = "attack-trigger-optional-payment"
+summary = "Attacking with Frenzied Goblin causes its candidate-owned optional attack trigger to be stacked; its controller has and pays red mana."
+trace_required = true
+
+[[features]]
+id = "conditional-creature-target"
+summary = "Choose the real opposing Watchwolf only when it is among the trigger's legal creature targets; preserve the Goblin source incarnation through resolution."
+trace_required = true
+
+[[features]]
+id = "cannot-block-and-combat-damage"
+summary = "The effect makes Watchwolf unable to block for the turn, the blocker declaration is empty, and Frenzied Goblin deals its unblocked combat damage."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-replay-and-mutations"
+summary = "Continue the same match to a terminal pilot win, check ordered typed events and deterministic complete-log replay, and detect removal or semantic replacement of the cannot-block effect in the game trace."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Colors", "106.1-106.4 Mana", "117 Timing and Priority", "302.6 Summoning Sickness", "508.1 Declare Attackers", "509.1 Declare Blockers", "603.2 Trigger Events", "603.3 Trigger Placement", "608.2 Resolve Abilities", "611.2c Until-end-of-turn Effects", "510 Combat Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Frenzied Goblin"
+collector_number = 125
+url = "https://scryfall.com/card/rav/125/frenzied-goblin"
+retained_data = "Public card identity and cost, red color, creature type, 1/1 body, and the mechanic names needed to define the trace"

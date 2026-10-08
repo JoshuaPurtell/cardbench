@@ -1,0 +1,42 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-trophy-hunter"
+definition_id = "RAV-TROPHY-HUNTER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "trophy_hunter_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/trophy_hunter.rs"
+authority_bin = "rav-trophy-hunter-task-pvp"
+materializer = "varieties/magic/scripts/materialize_trophy_hunter_task.py"
+scorer = "varieties/magic/scripts/score_trophy_hunter_pvp.py"
+review_scope = "Trophy Hunter #187 identity, {2}{G} cast and 2/3 body, normalized pinned literal source and restrictive AST guard before candidate calls, compile-valid side-effect injection rejection, printed {1}{G}, tap flying-creature damage activation, positive committed damage provenance, this-turn same-incarnation death trigger, source counter, terminal game, replay, mutations, off-registry task tooling and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/trophy_hunter_card/README.md",
+  "adapters/harbor/bundles/trophy_hunter_card/instruction.md",
+  "adapters/harbor/bundles/trophy_hunter_card/tests/test.sh",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/scripts/materialize_trophy_hunter_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_trophy_hunter_pvp.py",
+  "varieties/magic/session/src/bin/rav_trophy_hunter_task_pvp.rs",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/engine/tests/source_damaged_creature_dies_trigger_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/README.md",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/trophy_hunter.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/trophy_hunter_red.rs",
+  "varieties/magic/tasks/rav-trophy-hunter-pvp/README.md",
+  "varieties/magic/tasks/rav-trophy-hunter-pvp/features.toml",
+  "varieties/magic/tasks/rav-trophy-hunter-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Trophy Hunter candidate differs from the RAV #187 feature contract"
+
+[mutation]
+find = "amount: 1,\n                target: TargetRequirement::FlyingCreature"
+replace = "amount: 2,\n                target: TargetRequirement::FlyingCreature"
+expected_diagnostic = "Trophy Hunter candidate differs from the RAV #187 feature contract"

@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-birds-of-paradise"
+definition_id = "RAV-BIRDS-OF-PARADISE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "birds_of_paradise_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/birds_of_paradise.rs"
+authority_bin = "rav-birds-of-paradise-pvp"
+materializer = "varieties/magic/scripts/materialize_birds_of_paradise_task.py"
+scorer = "varieties/magic/scripts/score_birds_of_paradise_pvp.py"
+review_scope = "Birds of Paradise identity, green casting cost, live 0/1 Flying characteristics, tap-for-chosen-color mana ability, cast-payment binding, typed Forest payment, combat continuation, mutations, deterministic materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/birds_of_paradise_card/README.md",
+  "adapters/harbor/bundles/birds_of_paradise_card/instruction.md",
+  "adapters/harbor/bundles/birds_of_paradise_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_birds_of_paradise_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_birds_of_paradise_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_birds_of_paradise_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/birds_of_paradise.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-birds-of-paradise-pvp/README.md",
+  "varieties/magic/tasks/rav-birds-of-paradise-pvp/features.toml",
+  "varieties/magic/tasks/rav-birds-of-paradise-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Birds of Paradise definition or chosen-color mana ability differs"
+
+[mutation]
+find = "ManaAbilityOutput::Choice(Color::ALL.into_iter().collect())"
+replace = "ManaAbilityOutput::Fixed(Color::Green)"
+expected_diagnostic = "Birds of Paradise definition or chosen-color mana ability differs"

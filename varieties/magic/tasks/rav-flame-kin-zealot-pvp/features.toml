@@ -1,0 +1,68 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 206
+definition_id = "RAV-FLAME-KIN-ZEALOT"
+card_name = "Flame-Kin Zealot"
+printed_mana_cost = "{1}{R}{R}{W}"
+colors = ["red", "white"]
+card_types = ["creature"]
+printed_subtypes = ["Elemental", "Berserker"]
+runtime_subtypes_asserted = false
+power = 2
+toughness = 2
+keywords = []
+abilities = ["mandatory enters-the-battlefield trigger gives creatures you control +1/+1 and Haste until end of turn"]
+source_authority = "Original RAV #206 printing identity, including Elemental Berserker subtype, and functional wording; current Oracle is used only to interpret the legacy 'comes into play' phrase and resolution-time creature membership; CardDefinition cannot assert subtypes"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "printed-rw-2-2-creature"
+summary = "Cast the red-white {1}{R}{R}{W} 2/2 Creature from an ordinary shuffled legal 60-card deck and capture the exact payment and entry receipts."
+trace_required = true
+
+[[features]]
+id = "mandatory-target-free-team-trigger"
+summary = "Verify the enters-the-battlefield trigger is mandatory, target-free, stacked from the Zealot's entry, and resolves successfully."
+trace_required = true
+
+[[features]]
+id = "resolution-time-team-pump-and-haste"
+summary = "At trigger resolution, the Zealot itself and every sampled creature its controller currently controls gain exactly +1/+1 and Haste until end of turn; opposing creatures are unchanged."
+trace_required = true
+
+[[features]]
+id = "same-turn-haste-combat"
+summary = "Show the just-entered Flame-Kin Zealot declared as an attacker in the same turn after its ETB trigger resolves, then continue the full duel to a terminal result."
+trace_required = true
+
+[[features]]
+id = "replay-and-semantic-mutations"
+summary = "Replay the fixed seed deterministically and detect mutations to cast cost, base power/toughness, trigger presence or condition, pump amount, Haste effect, and compile-valid side-effect source injection before candidate calls."
+trace_required = true
+
+[[features]]
+id = "source-guard-before-candidate-execution"
+summary = "Pin the normalized literal module and AST shape before invoking candidate functions; reject a compile-valid injected process-exit side effect before it can execute or produce a game report."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.1-302.6 Creatures and summoning sickness", "601.2 Casting and payment", "603.2 and 603.6a Triggered abilities and enters-the-battlefield triggers", "608.2 Resolving triggered abilities", "702.10 Haste"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Original RAV printing and card scan"
+card = "Flame-Kin Zealot"
+collector_number = 206
+url = "https://www.mtg.wtf/card/rav/206/Flame-Kin-Zealot"
+retained_data = "Public identity, cost, colors, type, power/toughness, and the CardBench-authored semantic operations required by the trace"
+
+[[source_references]]
+source = "Current Oracle text and ruling, consulted for rules interpretation"
+card = "Flame-Kin Zealot"
+url = "https://www.mtg.wtf/card/rav/206/Flame-Kin-Zealot"
+retained_data = "Terminology reconciliation from 'comes into play' to 'enters' and the resolution-time affected-creature set; no Oracle wording replaces the printed RAV compatibility target"

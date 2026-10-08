@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 6
+definition_id = "RAV-CAREGIVER"
+card_name = "Caregiver"
+printed_mana_cost = "{W}"
+colors = ["white"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = []
+abilities = ["{W}, sacrifice Caregiver: prevent the next 1 damage that would be dealt to target creature or player this turn"]
+source_authority = "RAV printing identity and characteristics, with the activated operation represented in a candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "white-creature-cast-and-characteristics"
+summary = "Pay exactly {W}, cast Caregiver, and verify its live white 1/1 creature characteristics on the battlefield."
+trace_required = true
+
+[[features]]
+id = "white-activation-sacrifices-source"
+summary = "Pay exactly {W} for prevent-one-damage, sacrifice Caregiver itself as the activation cost, and verify its graveyard movement before the ability is stacked."
+trace_required = true
+
+[[features]]
+id = "targeted-one-damage-prevention"
+summary = "Resolve the ability targeting its controller, create exactly one damage shield, and prevent an attacking Elves of Deep Shadow's next point of combat damage without recording that damage as dealt."
+trace_required = true
+
+[[features]]
+id = "terminal-combat-replay-mutants"
+summary = "Cast Watchwolf after using Caregiver, win the same legal full game through empty blocks, and validate ordered typed events, deterministic replay, and four compiled cost, sacrifice, and shield mutants."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 priority and timing", "202.1-202.2 colored mana costs and payment", "302.1 creature characteristics", "601.2 casting spells and paying costs", "602.2 activating abilities, selecting targets, and paying costs", "608.2 resolving activated abilities", "615.3-615.7 prevention effects and one-point damage shields", "611.2a end-of-turn duration", "508 declaring attackers", "509 declaring blockers", "510 combat damage", "704 state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Caregiver"
+collector_number = 6
+url = "https://scryfall.com/card/rav/6/caregiver"
+retained_data = "Public card identity, mana cost, color, type, power, toughness, and activated operation needed by the trace"
+
+[[rules_cutoff]]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

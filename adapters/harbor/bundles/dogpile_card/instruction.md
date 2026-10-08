@@ -1,0 +1,1 @@
+Implement `varieties/magic/sets/ravnica_city_of_guilds/src/cards/dogpile.rs` as a declarative candidate module exposing `definition()`. Preserve Dogpile's red `{3}{R}` instant identity. Its any-target effect deals damage equal to the number of attacking creatures when it resolves. Do not change other files.

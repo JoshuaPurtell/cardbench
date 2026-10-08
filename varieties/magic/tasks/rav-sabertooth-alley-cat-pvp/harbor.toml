@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-sabertooth-alley-cat"
+definition_id = "RAV-SABERTOOTH-ALLEY-CAT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "sabertooth_alley_cat_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sabertooth_alley_cat.rs"
+authority_bin = "rav-sabertooth-alley-cat-pvp"
+materializer = "varieties/magic/scripts/materialize_sabertooth_alley_cat_task.py"
+scorer = "varieties/magic/scripts/score_sabertooth_alley_cat_pvp.py"
+review_scope = "RAV Sabertooth Alley Cat identity and candidate-owned definition; legal shuffled 60-card PvP; actual {1}{R}{R} payment; atomic rejection of a block without a Mountain; later Mountain-enabled Cat block; combat damage and graveyard transitions; deterministic replay; terminal duel win; printed-cost, power, and restriction gameplay mutations; source-contract stub rejection; and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/sabertooth_alley_cat_card/README.md",
+  "adapters/harbor/bundles/sabertooth_alley_cat_card/instruction.md",
+  "adapters/harbor/bundles/sabertooth_alley_cat_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_sabertooth_alley_cat_task.py",
+  "varieties/magic/scripts/score_sabertooth_alley_cat_pvp.py",
+  "varieties/magic/session/src/bin/rav_sabertooth_alley_cat_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/sabertooth_alley_cat.rs",
+  "varieties/magic/tasks/rav-sabertooth-alley-cat-pvp/README.md",
+  "varieties/magic/tasks/rav-sabertooth-alley-cat-pvp/features.toml",
+  "varieties/magic/tasks/rav-sabertooth-alley-cat-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Sabertooth Alley Cat typed definition differs from its feature contract"
+
+[mutation]
+find = "CannotBlockUnlessControlsMountain"
+replace = "CannotBlock"
+expected_diagnostic = "Sabertooth Alley Cat typed definition differs from its feature contract"

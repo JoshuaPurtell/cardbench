@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-swamp"
+definition_id = "RAV-SWAMP"
+expansion = "RAV"
+variant = "single-card"
+bundle = "swamp_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/swamp.rs"
+authority_bin = "rav-swamp-pvp"
+materializer = "varieties/magic/scripts/materialize_swamp_task.py"
+scorer = "varieties/magic/scripts/score_swamp_pvp.py"
+review_scope = "RAV Swamp identity, intrinsic black mana, full-game PvP trace, materialization, and Harbor scoring"
+review_files = [
+  "adapters/harbor/bundles/swamp_card/README.md",
+  "adapters/harbor/bundles/swamp_card/instruction.md",
+  "adapters/harbor/bundles/swamp_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_swamp_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_swamp_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_swamp_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/swamp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-swamp-pvp/README.md",
+  "varieties/magic/tasks/rav-swamp-pvp/features.toml",
+  "varieties/magic/tasks/rav-swamp-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "candidate Swamp definition or intrinsic mana binding differs from its RAV identity"
+
+[mutation]
+find = "land_type: BasicLandType::Swamp"
+replace = "land_type: BasicLandType::Mountain"
+expected_diagnostic = "candidate Swamp definition or intrinsic mana binding differs from its RAV identity"

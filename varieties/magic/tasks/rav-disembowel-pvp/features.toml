@@ -1,0 +1,51 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 85
+definition_id = "RAV-DISEMBOWEL"
+card_name = "Disembowel"
+printed_mana_cost = "{X}{B}"
+colors = ["black"]
+card_types = ["instant"]
+keywords = []
+abilities = ["chosen-x-targeted-creature-destruction", "target-mana-value-equals-chosen-x"]
+source_authority = "CardBench-authored semantic summary and RAV printing identity; the candidate module owns the executable definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "identity-cost-and-x-payment"
+summary = "Cast the black instant in a shuffled 60-card duel with chosen X=1 and exactly one generic mana plus {B} paid; both payments may be black."
+trace_required = true
+
+[[features]]
+id = "target-mana-value-equality"
+summary = "Target the opponent's War-Torch Goblin, establish that its mana value is 1, and destroy it only when the chosen X is exactly 1. An X=2 probe must reject the same target."
+trace_required = true
+
+[[features]]
+id = "destruction-zone-and-resolution"
+summary = "Record the exact Disembowel spell and Goblin identities, cast and resolution receipts, destruction receipt, and the Goblin's move to its owner's graveyard."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the full duel to a seat-zero win and reproduce the ordered event log for the same seed."
+trace_required = true
+
+[[features]]
+id = "semantic-mutation-sensitivity"
+summary = "Detect removal of destruction, replacement of exact mana-value equality with an at-most comparison, and a changed printed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["107.3 and 202.3: X and mana value", "601.2: casting and chosen X", "106: paying mana costs", "115: targets", "608.2b-608.3: target legality and spell resolution", "701.7: destroy", "704: state-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Only rules effective by the cutoff are in scope."

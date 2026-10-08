@@ -1,0 +1,60 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 129
+definition_id = "RAV-GREATER-FORGELING"
+card_name = "Greater Forgeling"
+printed_mana_cost = "{3}{R}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 3
+toughness = 4
+keywords = []
+abilities = ["{1}{R}: Greater Forgeling gets +3/-3 until end of turn"]
+source_authority = "RAV printing identity and candidate-owned definition and activated self-pump binding; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "No art, scans, flavor, or rules-text corpus; source contract follows the RAV printing"
+
+[[features]]
+id = "identity-and-base-characteristics"
+summary = "Cast Greater Forgeling for {3}{R}{R} and verify the red 3/4 creature characteristics."
+trace_required = true
+
+[[features]]
+id = "activated-self-pump-cost-and-stack"
+summary = "Pay exactly {1}{R}, put the source's self-pump on the stack, and resolve +3/-3."
+trace_required = true
+
+[[features]]
+id = "live-power-toughness-and-cleanup"
+summary = "Observe a live 6/1 after resolution, then verify cleanup restores the printed 3/4."
+trace_required = true
+
+[[features]]
+id = "same-turn-combat-and-full-game"
+summary = "Attack after the pump resolves, deal 6 combat damage, and continue a legal deterministic shuffled game to a seat-zero win."
+trace_required = true
+
+[[features]]
+id = "compiled-gameplay-mutations"
+summary = "Reject incorrect pump power or toughness, activation cost, base power, and printed casting cost through PvP behavior."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "117 Priority", "202.1-202.2 Mana cost and color", "302.1 Creature characteristics", "601.2 Casting spells and paying costs", "602.1-602.2 Activated abilities, costs, and stack placement", "608.2 Resolving spells and abilities", "613.4 Power/toughness modification layer", "514 Cleanup step and until-end-of-turn effects", "510.1-510.2 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Greater Forgeling"
+collector_number = 129
+url = "https://scryfall.com/card/rav/129/greater-forgeling"
+retained_data = "Public card identity, cost, color, creature type, power/toughness, and self-pump ability needed by the trace"
+
+[rules_cutoff]
+as_of = "2026-09-23"
+effective_release = "2026-08-07"
+note = "The Sep 21 Reality Fracture bulletin is future-effective as of this cutoff."

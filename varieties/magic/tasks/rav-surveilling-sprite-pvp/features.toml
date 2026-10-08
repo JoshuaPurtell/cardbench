@@ -1,0 +1,50 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 67
+definition_id = "RAV-SURVEILLING-SPRITE"
+card_name = "Surveilling Sprite"
+printed_mana_cost = "{1}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+power = 1
+toughness = 1
+keywords = ["Flying"]
+abilities = ["When Surveilling Sprite dies, you may draw a card."]
+source_authority = "RAV printing identity, characteristics, and optional dies-draw ability represented by candidate-owned definition and triggered-ability binding"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "cast-and-flying-evasion"
+summary = "Pay exactly {1}{U}, resolve Surveilling Sprite, and attack over a live Lurking Informant that can block; the opponent leaves it unblocked because it has Flying."
+trace_required = true
+
+[[features]]
+id = "char-damage-and-dies-trigger"
+summary = "The opponent pays {2}{R} for Char and deals four damage to the same Sprite. Verify the lethal-damage state-based action, graveyard move, and optional trigger stacking only after the dies event."
+trace_required = true
+
+[[features]]
+id = "accepted-and-declined-draw"
+summary = "Use two deterministic ordinary shuffled games to resolve the optional trigger once by drawing a card and once by declining; the source is already in the graveyard and accepted card movement precedes ability resolution."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-mutations"
+summary = "Both shuffled games end in a clean seat-zero win. In-game mutations remove Flying, change the casting cost or power, remove the trigger or draw effect, and make the trigger mandatory; each must be detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "302.6 Summoning sickness", "510 Combat damage", "601.2 Casting spells and paying costs", "603.2 and 603.6c Dies-trigger events", "603.5 Optional triggered abilities", "608.2 Resolving a triggered ability", "702.9 Flying"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Surveilling Sprite"
+collector_number = 67
+url = "https://scryfall.com/card/rav/67/surveilling-sprite"
+retained_data = "Public card identity, mana cost, color, creature type, power/toughness, Flying, and optional dies-draw behavior needed by the PvP trace"

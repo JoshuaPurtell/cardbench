@@ -1,0 +1,53 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-tattered-drake"
+definition_id = "RAV-TATTERED-DRAKE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "tattered_drake_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/tattered_drake.rs"
+authority_bin = "rav-tattered-drake-pvp"
+materializer = "varieties/magic/scripts/materialize_tattered_drake_task.py"
+scorer = "varieties/magic/scripts/score_tattered_drake_pvp.py"
+review_scope = "Tattered Drake single-card full-game Flying and self-regeneration task; 291-name/306-printing RAV catalog denominator; RAV source contract; engine ordered event projection, spell and activated-ability payment, spell resolution, Flying block legality, damage, and regeneration replacement trust paths; task authority, source module, scorer, materializer, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/tattered_drake_card/README.md",
+  "adapters/harbor/bundles/tattered_drake_card/instruction.md",
+  "adapters/harbor/bundles/tattered_drake_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/protocol/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_tattered_drake_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/scripts/materialize_tattered_drake_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_tattered_drake_pvp.py",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/tattered_drake.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tattered_drake_compatibility.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tattered_drake_flying_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tattered_drake_full_fidelity_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/tattered_drake_regeneration_full_fidelity.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-tattered-drake-pvp/README.md",
+  "varieties/magic/tasks/rav-tattered-drake-pvp/features.toml",
+  "varieties/magic/tasks/rav-tattered-drake-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Tattered Drake identity, cost, or printed characteristics differ"
+
+[mutation]
+find = "mana_cost: ManaCost::with_colors(4, [Color::Blue])"
+replace = "mana_cost: ManaCost::new(2)"
+expected_diagnostic = "Tattered Drake identity, cost, or printed characteristics differ"

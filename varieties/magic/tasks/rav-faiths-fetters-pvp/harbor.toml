@@ -1,0 +1,34 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-faiths-fetters"
+definition_id = "RAV-FAITHS-FETTERS"
+expansion = "RAV"
+variant = "single-card"
+bundle = "faiths_fetters_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/faiths_fetters.rs"
+authority_bin = "rav-faiths-fetters-pvp"
+materializer = "varieties/magic/scripts/materialize_faiths_fetters_task.py"
+scorer = "varieties/magic/scripts/score_faiths_fetters_pvp.py"
+review_scope = "Faith's Fetters full-game diagnostic, 291-name/306-printing denominator, exact cost, permanent Aura attachment, attack/block/nonmana activation restrictions, four-life trigger, terminal combat, replay, gameplay mutations, authority source contract, and task bundle"
+review_files = [
+  "adapters/harbor/bundles/faiths_fetters_card/README.md",
+  "adapters/harbor/bundles/faiths_fetters_card/instruction.md",
+  "adapters/harbor/bundles/faiths_fetters_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_faiths_fetters_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_faiths_fetters_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_faiths_fetters_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/faiths_fetters.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-faiths-fetters-pvp/README.md",
+  "varieties/magic/tasks/rav-faiths-fetters-pvp/features.toml",
+  "varieties/magic/tasks/rav-faiths-fetters-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Faith's Fetters literal is outside the task source contract"
+
+[mutation]
+find = "Keyword::CannotAttackOrBlock"
+replace = "Keyword::Flying"
+expected_diagnostic = "Faith's Fetters literal is outside the task source contract"

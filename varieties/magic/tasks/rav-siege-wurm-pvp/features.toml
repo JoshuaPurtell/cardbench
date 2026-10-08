@@ -1,0 +1,48 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 183
+definition_id = "RAV-SIEGE-WURM"
+card_name = "Siege Wurm"
+printed_mana_cost = "{5}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+power = 5
+toughness = 5
+keywords = ["Convoke", "Trample"]
+abilities = ["Convoke — tap creatures to pay for the spell; a creature tapped for a colored mana requirement pays that colored mana", "Trample — assign lethal damage to blockers and any excess to the defending player"]
+source_authority = "RAV printed identity, {5}{G}{G} cost, green 5/5 Creature type, Convoke payment, Trample combat damage, lethal-damage state-based action, and graveyard movement represented by the candidate-owned definition"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "green-five-five-exact-cost"
+summary = "Cast Siege Wurm as a green 5/5 creature with exact cost {5}{G}{G}."
+trace_required = true
+
+[[features]]
+id = "seven-distinct-convoke-payers"
+summary = "Tap seven distinct creatures for Convoke, with exactly two green contributions and five generic contributions, and pay no mana from the pool."
+trace_required = true
+
+[[features]]
+id = "trample-through-lethal-blocker"
+summary = "A RAV Watchwolf blocks the 5/5 Wurm; it receives exactly 3 lethal damage and the opponent receives exactly 2 trample damage."
+trace_required = true
+
+[[features]]
+id = "full-game-terminal-replay-and-mutants"
+summary = "Record the blocker state-based action and graveyard move, continue the shuffled duel to a terminal pilot win, replay deterministically, and detect removed Convoke, removed Trample, and changed printed cost."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2 Casting spells and paying costs", "702.50 Convoke", "702.19 Trample", "508.1 Declaring attackers", "509.1 Declaring blockers", "510.1 Combat damage", "704.5g Lethal-damage state-based action"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

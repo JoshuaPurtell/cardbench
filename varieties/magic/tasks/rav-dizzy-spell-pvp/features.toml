@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 43
+definition_id = "RAV-DIZZY-SPELL"
+card_name = "Dizzy Spell"
+printed_mana_cost = "{U}"
+colors = ["blue"]
+card_types = ["instant"]
+keywords = ["Transmute {1}{U}{U}"]
+abilities = ["Target creature gets -3/-0 until end of turn"]
+source_authority = "RAV printed identity, collector number, {U} Instant cost, exact -3/-0 until end of turn effect, and Transmute {1}{U}{U} represented by the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "blue-instant-and-transmute-cost"
+summary = "Verify Dizzy Spell's exact {U} Instant identity and Transmute {1}{U}{U}, including the paid cost and activated ability receipts."
+trace_required = true
+
+[[features]]
+id = "private-search-and-same-object-cast"
+summary = "Resolve a controller-private Transmute search for a physical Dizzy Spell card, move it to hand, then cast that same object."
+trace_required = true
+
+[[features]]
+id = "attacking-target-minus-three-power"
+summary = "After an opposing Watchwolf is declared attacking, cast Dizzy Spell at that exact object; verify layer-seven 3/3 to 0/3, same incarnation, and zero combat damage from it."
+trace_required = true
+
+[[features]]
+id = "terminal-replay-and-semantic-mutants"
+summary = "Continue the shuffled game to a terminal pilot win, replay deterministically, and detect five semantic gameplay mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601.2: casting the instant spell", "117: instant-speed priority", "109.5 and 115: target identity and legality", "608.2: resolving a targeted spell", "613.4: power/toughness layer", "602: activated abilities", "702.53: Transmute", "701.19: library search and shuffle"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

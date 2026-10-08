@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 142
+definition_id = "RAV-SELL-SWORD-BRUTE"
+card_name = "Sell-Sword Brute"
+printed_mana_cost = "{1}{R}"
+colors = ["red"]
+card_types = ["creature"]
+power = 2
+toughness = 2
+keywords = []
+abilities = ["when this creature dies, it deals 2 damage to its controller"]
+source_authority = "RAV printing identity and characteristics, with the dies-trigger binding delegated to the candidate-owned module"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-23"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "red-creature-cast-and-entry"
+summary = "Cast Sell-Sword Brute in a legal shuffled 60-card PvP deck with actual generic and red mana, resolve it, and observe its battlefield entry."
+trace_required = true
+
+[[features]]
+id = "candidate-owned-dies-trigger"
+summary = "Last Gasp causes Sell-Sword Brute to die; its candidate-owned mandatory and untargeted trigger is stacked only after its move to the graveyard."
+trace_required = true
+
+[[features]]
+id = "controller-damage-and-incarnation"
+summary = "Resolve the same source incarnation's trigger and verify a typed two-damage event against the Brute's controller."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-replay"
+summary = "Continue the same match to a terminal pilot win, check ordered typed events, and reproduce the complete event log on deterministic replay."
+trace_required = true
+
+[[features]]
+id = "dies-trigger-semantic-mutations"
+summary = "Removing the candidate trigger or changing its damage amount to one must reach and fail the gameplay trace oracle."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106.1-106.4 Mana", "117 Timing and Priority", "302.1 Creatures", "601.2 Casting Spells", "603.2 Trigger Events", "603.6c Dies Triggers", "608.2 Resolving Spells and Abilities", "120.2 Dealing Damage", "704.5f Toughness-zero state-based action", "510 Combat Damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Sell-Sword Brute"
+collector_number = 142
+url = "https://scryfall.com/card/rav/142/sell-sword-brute"
+retained_data = "Public card identity, mana cost, color, creature type, 2/2 body, and the controller-damage operation required by this trace"

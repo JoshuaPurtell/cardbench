@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 187
+definition_id = "RAV-TROPHY-HUNTER"
+card_name = "Trophy Hunter"
+printed_mana_cost = "{2}{G}"
+colors = ["green"]
+card_types = ["creature"]
+abilities = ["{1}{G}, tap: deal 1 damage to target creature with flying; if a creature damaged by this exact source this turn is put into a graveyard from the battlefield, put a +1/+1 counter on this source"]
+source_authority = "RAV printing identity and characteristics; semantic summary and bindings are CardBench-authored and candidate-owned"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "candidate-source-integrity"
+summary = "Before any candidate call, match the pinned normalized literal source contract and exact card-binding AST shape, then reject a compile-valid injected side-effect candidate."
+trace_required = true
+
+[[features]]
+id = "green-creature-cast-and-characteristics"
+summary = "Cast Trophy Hunter from a shuffled legal 60-card deck for exactly {2}{G}; verify its base 2/3 characteristics."
+trace_required = true
+
+[[features]]
+id = "targeted-flying-creature-damage"
+summary = "Pay exactly {1}{G} and tap Trophy Hunter to activate the instant-speed ability, select a legal flying creature, and verify one positive committed damage from that exact source incarnation to the selected target incarnation."
+trace_required = true
+
+[[features]]
+id = "source-aware-damage-death-trigger"
+summary = "Verify that the damaged creature's battlefield-to-graveyard move triggers this exact Trophy Hunter incarnation and that resolution puts one +1/+1 counter on it. Distinguish prevention, unrelated deaths, prior-turn damage, later incarnations, and simultaneous source/recipient death."
+trace_required = true
+
+[[features]]
+id = "terminal-game-replay-mutations"
+summary = "Continue the full duel to a terminal win, replay the same seed deterministically, and detect gameplay mutations to damage, trigger condition/effect, cost, and base characteristics."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Priority", "120 Damage", "302.1 Creatures", "601.2 Casting", "602.2 Activating abilities", "603 Triggered abilities", "608.2 Resolving spells and abilities", "704.5 State-based actions"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing"
+card = "Trophy Hunter"
+collector_number = 187
+url = "https://scryfall.com/card/rav/187/trophy-hunter"
+retained_data = "Public card identity, mana cost, color, type, power/toughness, activated damage ability, and source-aware damaged-creature death trigger needed by the trace"

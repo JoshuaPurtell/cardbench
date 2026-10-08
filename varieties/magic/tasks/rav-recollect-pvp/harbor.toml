@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-recollect"
+definition_id = "RAV-RECOLLECT"
+expansion = "RAV"
+variant = "single-card"
+bundle = "recollect_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/recollect.rs"
+authority_bin = "rav-recollect-pvp"
+materializer = "varieties/magic/scripts/materialize_recollect_task.py"
+scorer = "varieties/magic/scripts/score_recollect_pvp.py"
+review_scope = "Recollect RAV #178 identity, exact {2}{G} cost and green color, target-any-card-in-own-graveyard constraint, exact target resolution from the graveyard to the pilot's hand, Recollect's terminal zone move, deterministic replay, full PvP game, and semantic mutations"
+review_files = [
+  "adapters/harbor/bundles/recollect_card/README.md",
+  "adapters/harbor/bundles/recollect_card/instruction.md",
+  "adapters/harbor/bundles/recollect_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/scripts/materialize_recollect_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_recollect_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_recollect_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/recollect.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-recollect-pvp/README.md",
+  "varieties/magic/tasks/rav-recollect-pvp/features.toml",
+  "varieties/magic/tasks/rav-recollect-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Recollect identity or own-graveyard return effect differs"
+
+[mutation]
+find = "Effect::ReturnTargetCreatureCardToHand"
+replace = "Effect::ReturnTargetCardToHand"
+expected_diagnostic = "Recollect identity or own-graveyard return effect differs"

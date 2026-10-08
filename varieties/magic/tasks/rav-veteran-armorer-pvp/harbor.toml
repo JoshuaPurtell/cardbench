@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-veteran-armorer"
+definition_id = "RAV-VETERAN-ARMORER"
+expansion = "RAV"
+variant = "single-card"
+bundle = "veteran_armorer_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/veteran_armorer.rs"
+authority_bin = "rav-veteran-armorer-pvp"
+materializer = "varieties/magic/scripts/materialize_veteran_armorer_task.py"
+scorer = "varieties/magic/scripts/score_veteran_armorer_pvp.py"
+review_scope = "RAV Veteran Armorer identity and candidate-owned static +0/+1 binding, actual white and green/white cast payments, live 3/3-to-3/4 change on another controlled creature, source self-exclusion, combat and terminal game, deterministic replay, targeted +0/+0 semantic mutation, compile-valid stub rejection, and generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/veteran_armorer_card/README.md",
+  "adapters/harbor/bundles/veteran_armorer_card/instruction.md",
+  "adapters/harbor/bundles/veteran_armorer_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/README.md",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/scripts/materialize_veteran_armorer_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_veteran_armorer_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/session/src/bin/rav_veteran_armorer_pvp.rs",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/veteran_armorer.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-veteran-armorer-pvp/README.md",
+  "varieties/magic/tasks/rav-veteran-armorer-pvp/features.toml",
+  "varieties/magic/tasks/rav-veteran-armorer-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Veteran Armorer did not give another controlled creature +0/+1 while excluding itself"
+
+[mutation]
+find = "toughness: 1"
+replace = "toughness: 0"
+expected_diagnostic = "Veteran Armorer did not give another controlled creature +0/+1 while excluding itself"

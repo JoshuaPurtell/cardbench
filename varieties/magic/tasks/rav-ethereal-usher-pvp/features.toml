@@ -1,0 +1,70 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 47
+definition_id = "RAV-ETHEREAL-USHER"
+card_name = "Ethereal Usher"
+printed_mana_cost = "{5}{U}"
+colors = ["blue"]
+card_types = ["creature"]
+subtypes = ["Spirit"]
+power = 2
+toughness = 3
+keywords = ["Transmute {1}{U}{U}"]
+abilities = ["{U}, {T}: Target creature is unblockable this turn"]
+source_authority = "RAV printed identity and mechanics; Oracle only interprets rules questions under RAV_PVP_SOURCE_CONTRACT.md"
+oracle_reconciliation = "Current Oracle says the target can't be blocked this turn and modernizes Transmute's reminder from converted mana cost to mana value; those phrasings preserve the RAV unblockable effect and comparison behavior."
+public_identity_record = "https://mtg.wtf/card/rav/47/Ethereal-Usher"
+model_limitations = "Creature subtype Spirit is retained as printed public identity but is not asserted by CardDefinition, which has no subtype field. The tested cost, color, Creature type, 2/3 body, unblockable activation, and Transmute are represented."
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary; no art, scans, flavor, or rules-text corpus"
+
+[[features]]
+id = "exact-blue-six-mana-identity"
+summary = "Cast Ethereal Usher in a shuffled legal PvP game for actual {5}{U} payment and observe the exact 2/3 creature characteristics; Spirit is source identity only because the model has no subtype field."
+trace_required = true
+
+[[features]]
+id = "unblockable-activation-target-and-duration"
+summary = "Pay {U}, tap the Usher, target the pilot's exact Watchwolf, resolve its unblockable effect, reject a real opposing Watchwolf's attempted block, and observe expiration next turn."
+trace_required = true
+
+[[features]]
+id = "transmute-private-search-and-shuffle"
+summary = "At active-player precombat main with an empty stack, pay {1}{U}{U}, discard the source, privately find and reveal a second physical Ethereal Usher by equal mana value, move it to hand, and shuffle."
+trace_required = true
+
+[[features]]
+id = "terminal-game-replay-and-mutations"
+summary = "Continue to a normal seat-zero victory, require ordered projected events and identical replay, and detect changes to cast cost/body, activation cost/effect, and Transmute presence/cost."
+trace_required = true
+
+[[features]]
+id = "pre-call-literal-source-security"
+summary = "Check canonical normalized module source and direct literal AST before invoking either candidate function; reject a compile-valid injected side effect with zero candidate calls."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["105.2 Color", "106.1-106.4 Mana", "117 Priority and timing", "302.6 Summoning sickness", "601.2 Casting", "602.1-602.2 Activated abilities", "608.2 Resolving abilities", "611.2 Until-end-of-turn effects", "508.1 Attacking", "509.1 Blocking and unblockability", "510 Combat damage", "702.53 Transmute", "701.19 Searching and shuffling"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "RAV printing identity record"
+card = "Ethereal Usher"
+collector_number = 47
+url = "https://mtg.wtf/card/rav/47/Ethereal-Usher"
+retained_data = "Public identity, mana cost, blue Creature — Spirit type line, 2/3 body, unblockable activation, and Transmute cost; Spirit is not represented as an asserted engine subtype"
+
+[[source_references]]
+source = "Current Oracle wording consulted for interpretation"
+card = "Ethereal Usher"
+url = "https://scryfall.com/card/rav/47/ethereal-usher"
+retained_data = "Rules interpretation only: can't-be-blocked phrasing corresponds to the printed unblockable effect; mana value phrasing updates converted mana cost without changing its comparison"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

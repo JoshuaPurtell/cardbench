@@ -1,0 +1,55 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 177
+definition_id = "RAV-PRIMORDIAL-SAGE"
+card_name = "Primordial Sage"
+printed_mana_cost = "{4}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+card_supertypes = []
+card_subtypes = ["Spirit"]
+keywords = []
+abilities = ["Controller-owned optional trigger after that player's creature spell; acceptance draws one card, decline leaves the library unchanged"]
+source_authority = "RAV #177 card printing and current card record; Comprehensive Rules for casting, triggered ability timing, optional triggers, and drawing"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary from public card records; no artwork, scans, flavor text, or rules-text corpus"
+
+[[features]]
+id = "printed-green-creature-characteristics"
+summary = "Verify {4}{G}{G}, green identity, creature type, and 4/5 base characteristics."
+trace_required = true
+
+[[features]]
+id = "controller-creature-cast-trigger-order"
+summary = "Verify the Sage's controller casting a creature spell creates a controller-owned optional trigger that resolves above the cast spell."
+trace_required = true
+
+[[features]]
+id = "optional-draw-accept-and-decline"
+summary = "Verify acceptance moves the exact library top card to hand and declining leaves the library and hand unchanged."
+trace_required = true
+
+[[features]]
+id = "opponent-scope-and-terminal-replay"
+summary = "Verify an opponent creature cast does not trigger the Sage, both choice branches reach a normal seat-zero win, replay is deterministic, and semantic mutations are detected."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["601 Casting spells", "603.2 Trigger events", "603.3 Triggered abilities on the stack", "603.5 Optional triggered abilities", "608.2 Resolving spells and abilities", "120 Drawing cards"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[[source_references]]
+source = "Ravnica: City of Guilds printing record"
+card = "Primordial Sage"
+collector_number = 177
+url = "https://mtg.wtf/card/gallery/rav/177"
+retained_data = "Card identity, cost, color, creature subtype, body, and triggered-ability characteristics"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Apply the effective rules release stated in the shared RAV source contract."

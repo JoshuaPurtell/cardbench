@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-golgari-rot-farm"
+definition_id = "RAV-GOLGARI-ROT-FARM"
+expansion = "RAV"
+variant = "single-card"
+bundle = "golgari_rot_farm_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_rot_farm.rs"
+authority_bin = "rav-golgari-rot-farm-pvp"
+materializer = "varieties/magic/scripts/materialize_golgari_rot_farm_task.py"
+scorer = "varieties/magic/scripts/score_golgari_rot_farm_pvp.py"
+review_scope = "RAV Golgari Rot Farm identity and candidate-owned definition, tapped land entry, controlled-land ETB trigger and target, exact free black-green bundle; shuffled 60-card PvP; full trigger/move/mana event order; Golgari Guildmage cast and terminal combat win; deterministic replay; tapped, target, trigger, and bundle mutations; compile-valid stub rejection; generic Harbor reference qualification"
+review_files = [
+  "adapters/harbor/bundles/golgari_rot_farm_card/README.md",
+  "adapters/harbor/bundles/golgari_rot_farm_card/instruction.md",
+  "adapters/harbor/bundles/golgari_rot_farm_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_golgari_rot_farm_task.py",
+  "varieties/magic/scripts/score_golgari_rot_farm_pvp.py",
+  "varieties/magic/session/src/bin/rav_golgari_rot_farm_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/golgari_rot_farm.rs",
+  "varieties/magic/tasks/rav-golgari-rot-farm-pvp/README.md",
+  "varieties/magic/tasks/rav-golgari-rot-farm-pvp/features.toml",
+  "varieties/magic/tasks/rav-golgari-rot-farm-pvp/harbor.toml"
+]
+stub_expected_diagnostic = "Golgari Rot Farm candidate or registry differs from RAV #278 contract"
+
+[mutation]
+find = "TargetRequirement::ControlledLand"
+replace = "TargetRequirement::Creature"
+expected_diagnostic = "Golgari Rot Farm candidate or registry differs from RAV #278 contract"

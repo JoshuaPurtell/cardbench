@@ -1,0 +1,34 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-hunted-lammasu"
+definition_id = "RAV-HUNTED-LAMMASU"
+expansion = "RAV"
+variant = "single-card"
+bundle = "hunted_lammasu_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_lammasu.rs"
+authority_bin = "rav-hunted-lammasu-pvp"
+materializer = "varieties/magic/scripts/materialize_hunted_lammasu_task.py"
+scorer = "varieties/magic/scripts/score_hunted_lammasu_pvp.py"
+review_scope = "Hunted Lammasu full-game diagnostic, 291-name/306-printing denominator, white 2WW 5/5 Flying body, opponent-targeted Horror token trigger, deterministic replay, semantic mutations, direct candidate source contract, and task bundle"
+review_files = [
+  "adapters/harbor/bundles/hunted_lammasu_card/README.md",
+  "adapters/harbor/bundles/hunted_lammasu_card/instruction.md",
+  "adapters/harbor/bundles/hunted_lammasu_card/tests/test.sh",
+  "varieties/magic/scripts/materialize_hunted_lammasu_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_hunted_lammasu_pvp.py",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_hunted_lammasu_pvp.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/hunted_lammasu.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/tasks/rav-hunted-lammasu-pvp/README.md",
+  "varieties/magic/tasks/rav-hunted-lammasu-pvp/features.toml",
+  "varieties/magic/tasks/rav-hunted-lammasu-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Hunted Lammasu trigger binding is outside the task source contract"
+
+[mutation]
+find = "targets: vec![TargetRequirement::Opponent]"
+replace = "targets: vec![TargetRequirement::Player]"
+expected_diagnostic = "Hunted Lammasu trigger binding is outside the task source contract"

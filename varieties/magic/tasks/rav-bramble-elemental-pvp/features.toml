@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.card_features.v1"
+task_id = "cardbench/magic/card"
+set_code = "RAV"
+collector_number = 154
+definition_id = "RAV-BRAMBLE-ELEMENTAL"
+card_name = "Bramble Elemental"
+printed_mana_cost = "{3}{G}{G}"
+colors = ["green"]
+card_types = ["creature"]
+keywords = []
+abilities = ["4/4 creature", "optional creation of two green 1/1 Saprolings when an Aura becomes attached to this permanent"]
+source_authority = "RAV printing identity and candidate-owned characteristic/trigger bindings; CardBench-authored semantic summary"
+comprehensive_rules_effective = "2026-08-07"
+authority_cutoff = "2026-09-24"
+provenance_policy = "CardBench-authored semantic summary and rule references; no full rules-text corpus"
+
+[[features]]
+id = "bramble-creature-identity"
+summary = "Cast the green {3}{G}{G} 4/4 creature in a shuffled full 60-card duel and verify its exact payment and battlefield identity."
+trace_required = true
+
+[[features]]
+id = "aura-attaches-to-exact-source"
+summary = "Record one Aura attaching to Bramble Elemental and another attaching to a different creature; only the exact Bramble attachment triggers its ability."
+trace_required = true
+
+[[features]]
+id = "optional-two-saprolings"
+summary = "Accept the source-controlled optional trigger and verify exactly two distinct green 1/1 Saproling creatures enter under that controller's control."
+trace_required = true
+
+[[features]]
+id = "terminal-pvp-and-mutations"
+summary = "Continue both Saprolings through combat to a terminal result, replay deterministically, and detect removed-trigger, controller-wide-entry, wrong-count, and Bramble-ETB mutations."
+trace_required = true
+
+[[rules_references]]
+document = "Magic: The Gathering Comprehensive Rules"
+effective = "2026-08-07"
+sections = ["117 Timing and priority", "303.4 Auras", "302.1 and 601.2 Creatures and casting spells", "603.2 and 603.3 Triggered abilities", "608.2 Resolving spells and abilities", "110 and 111 Tokens", "510.1-510.2 Combat damage"]
+url = "https://media.wizards.com/2026/downloads/MagicCompRules%2020260807.pdf"
+
+[rules_cutoff]
+as_of = "2026-09-24"
+effective_release = "2026-08-07"
+note = "Use the source identity and effective rules release declared in this task package."

@@ -1,0 +1,52 @@
+schema_version = "cardbench.magic.card-task.v1"
+task_id = "cardbench/magic/card"
+instance = "rav-votary-of-the-conclave"
+definition_id = "RAV-VOTARY-OF-THE-CONCLAVE"
+expansion = "RAV"
+variant = "single-card"
+bundle = "votary_of_the_conclave_card"
+target_file = "varieties/magic/sets/ravnica_city_of_guilds/src/cards/votary_of_the_conclave.rs"
+authority_bin = "rav-votary-of-the-conclave-pvp"
+materializer = "varieties/magic/scripts/materialize_votary_of_the_conclave_task.py"
+scorer = "varieties/magic/scripts/score_votary_of_the_conclave_pvp.py"
+review_scope = "Votary of the Conclave single-card full-game regeneration task; 291-name/306-printing catalog denominator; RAV source contract; engine typed event projection and mana-payment, targeting, spell-resolution, and regeneration replacement trust paths; candidate module, authority, scorer, materializer, task manifest, and Harbor bundle"
+review_files = [
+  "adapters/harbor/bundles/votary_of_the_conclave_card/README.md",
+  "adapters/harbor/bundles/votary_of_the_conclave_card/instruction.md",
+  "adapters/harbor/bundles/votary_of_the_conclave_card/tests/test.sh",
+  "adapters/harbor/scripts/run_harbor.py",
+  "varieties/magic/Cargo.lock",
+  "varieties/magic/Cargo.toml",
+  "varieties/magic/DATA_PROVENANCE.md",
+  "varieties/magic/engine/Cargo.toml",
+  "varieties/magic/engine/src/game.rs",
+  "varieties/magic/engine/src/lib.rs",
+  "varieties/magic/engine/src/model.rs",
+  "varieties/magic/policies/Cargo.toml",
+  "varieties/magic/policies/src/catalog_gauntlet.rs",
+  "varieties/magic/protocol/Cargo.toml",
+  "varieties/magic/session/Cargo.toml",
+  "varieties/magic/session/src/bin/rav_votary_of_the_conclave_pvp.rs",
+  "varieties/magic/session/src/project.rs",
+  "varieties/magic/scripts/materialize_votary_of_the_conclave_task.py",
+  "varieties/magic/scripts/rav_card_task_workspace.py",
+  "varieties/magic/scripts/score_votary_of_the_conclave_pvp.py",
+  "varieties/magic/sets/ravnica_city_of_guilds/Cargo.toml",
+  "varieties/magic/sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/mod.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/cards/votary_of_the_conclave.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/src/lib.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/votary_regeneration_coverage_red.rs",
+  "varieties/magic/sets/ravnica_city_of_guilds/tests/votary_regeneration_full_fidelity.rs",
+  "varieties/magic/tasks/rav-set-pvp/RAV_PVP_SOURCE_CONTRACT.md",
+  "varieties/magic/tasks/rav-set-pvp/rav-set-pvp-coverage.csv",
+  "varieties/magic/tasks/rav-votary-of-the-conclave-pvp/README.md",
+  "varieties/magic/tasks/rav-votary-of-the-conclave-pvp/features.toml",
+  "varieties/magic/tasks/rav-votary-of-the-conclave-pvp/harbor.toml",
+]
+stub_expected_diagnostic = "Votary identity, cost, or printed characteristics differ"
+
+[mutation]
+find = "mana_cost: ManaCost::with_colors(0, [Color::White])"
+replace = "mana_cost: ManaCost::new(1)"
+expected_diagnostic = "Votary identity, cost, or printed characteristics differ"
